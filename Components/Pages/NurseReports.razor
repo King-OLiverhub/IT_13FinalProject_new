@@ -1,0 +1,239 @@
+﻿@page "/nurse-reports"
+@layout DashboardLayout
+@using IT_13FinalProject.Services
+
+<PageTitle>Reports</PageTitle>
+
+<div class="dashboard-page nurse-reports-page">
+    <header class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title">Reports</h1>
+            <p class="dashboard-subtitle">Welcome back Nurses!</p>
+        </div>
+
+        <div class="dashboard-user-info">
+            <span class="dashboard-user-email">nurse@gmail.com</span>
+            <div class="dashboard-user-avatar">N</div>
+            <span class="dashboard-user-name">Nurses</span>
+        </div>
+    </header>
+
+    <div class="reports-content">
+        <!-- Report Configuration Card -->
+        <div class="config-card">
+            <div class="config-header">
+                <i class="fas fa-clipboard-list"></i>
+                <h2>Report Configuration</h2>
+            </div>
+            <p class="config-subtitle">Select date range and report type to generate reports</p>
+
+            <div class="config-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <div class="date-input-wrapper">
+                            <input type="date" class="date-input" @bind="startDate" />
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <div class="date-input-wrapper">
+                            <input type="date" class="date-input" @bind="endDate" />
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Report type</label>
+                        <select class="report-select" @bind="selectedReportType">
+                            <option value="">Select report type</option>
+                            <option value="vitals">Vital Signs Report</option>
+                            <option value="patient">Patient Care Summary</option>
+                            <option value="medication">Medication Administration</option>
+                            <option value="shift">Shift Handover Report</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn-action generate" @onclick="GenerateReport">
+                        <i class="fas fa-file-alt"></i>
+                        Generate Report
+                    </button>
+                    <button class="btn-action preview" @onclick="ShowPreview">
+                        <i class="fas fa-eye"></i>
+                        Preview
+                    </button>
+                    <button class="btn-action export">
+                        <i class="fas fa-file-pdf"></i>
+                        Export PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Patient Care Reports Card -->
+        <div class="report-category-card">
+            <div class="category-header">
+                <i class="fas fa-heartbeat"></i>
+                <h3>Patient Care Reports</h3>
+            </div>
+            <ul class="report-list">
+                <li class="report-item">
+                    <input type="checkbox" checked>
+                    <span>Daily Patient Summary</span>
+                </li>
+                <li class="report-item">
+                    <input type="checkbox" checked>
+                    <span>Vital Signs Monitoring</span>
+                </li>
+                <li class="report-item">
+                    <input type="checkbox" checked>
+                    <span>Medication Administration Record</span>
+                </li>
+                <li class="report-item">
+                    <input type="checkbox">
+                    <span>Patient Care Assessment</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Shift Reports Card -->
+        <div class="report-category-card">
+            <div class="category-header">
+                <i class="fas fa-clock"></i>
+                <h3>Shift Reports</h3>
+            </div>
+            <ul class="report-list">
+                <li class="report-item">
+                    <input type="checkbox" checked>
+                    <span>Shift Handover Report</span>
+                </li>
+                <li class="report-item">
+                    <input type="checkbox" checked>
+                    <span>Duty Roster Summary</span>
+                </li>
+                <li class="report-item">
+                    <input type="checkbox">
+                    <span>Nursing Workload Analysis</span>
+                </li>
+                <li class="report-item">
+                    <input type="checkbox">
+                    <span>Staff Attendance Report</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Clinical Reports Card -->
+        <div class="report-category-card">
+            <div class="category-header">
+                <i class="fas fa-stethoscope"></i>
+                <h3>Clinical Reports</h3>
+            </div>
+            <ul class="report-list">
+                <li class="report-item">
+                    <input type="checkbox" checked>
+                    <span>Wound Care Documentation</span>
+                </li>
+                <li class="report-item">
+                    <input type="checkbox" checked>
+                    <span>Patient Progress Notes</span>
+                </li>
+                <li class="report-item">
+                    <input type="checkbox">
+                    <span>Incident Reports</span>
+                </li>
+                <li class="report-item">
+                    <input type="checkbox">
+                    <span>Infection Control Report</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Quick Generate Card -->
+        <div class="quick-generate-card">
+            <div class="quick-header">
+                <i class="fas fa-bolt"></i>
+                <h3>Quick Generate</h3>
+            </div>
+            <div class="quick-tags">
+                <span class="quick-link" @onclick='() => QuickGenerate("vitals")'>[Vital Signs Report]</span>
+                <span class="quick-link" @onclick='() => QuickGenerate("patient")'>[Daily Patient Summary]</span>
+                <span class="quick-link" @onclick='() => QuickGenerate("shift")'>[Shift Handover Report]</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    @if (showPreviewModal)
+    {
+        <div class="modal-overlay" @onclick="HidePreview">
+            <div class="modal-panel" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <h2>NURSE VITAL SIGNS REPORT <span class="report-date">- Nov 15, 2024</span></h2>
+                    <button class="modal-close" @onclick="HidePreview">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="report-section">
+                        <h3>VITAL SIGNS SUMMARY:</h3>
+                        <div class="report-stats">
+                            <p>Total Patients Monitored: <strong>24 patients</strong></p>
+                            <p>Critical Vitals Alert: <strong>3 patients</strong></p>
+                            <p>Stable Patients: <strong>18 patients</strong></p>
+                            <p>Pending Assessments: <strong>3 patients</strong></p>
+                        </div>
+                    </div>
+
+                    <div class="report-section">
+                        <h3>PATIENT STATUS BREAKDOWN:</h3>
+                        <ul class="report-list-items">
+                            <li>Room 101 - John Doe - BP: 140/90, Temp: 37.2°C</li>
+                            <li>Room 102 - Jane Smith - BP: 120/80, Temp: 36.8°C</li>
+                            <li>Room 103 - Robert Johnson - BP: 160/100, Temp: 38.1°C</li>
+                            <li>Room 104 - Mary Williams - BP: 110/70, Temp: 36.5°C</li>
+                            <li>Room 105 - James Brown - BP: 130/85, Temp: 37.0°C</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn-modal-close" @onclick="HidePreview">Closed</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private DateTime startDate = DateTime.Today;
+    private DateTime endDate = DateTime.Today;
+    private string selectedReportType = "";
+    private bool showPreviewModal = false;
+
+    private void GenerateReport()
+    {
+        // Implement report generation logic
+        Console.WriteLine($"Generating report: {selectedReportType}");
+    }
+
+    private void ShowPreview()
+    {
+        showPreviewModal = true;
+    }
+
+    private void HidePreview()
+    {
+        showPreviewModal = false;
+    }
+
+    private void QuickGenerate(string reportType)
+    {
+        selectedReportType = reportType;
+        GenerateReport();
+    }
+}

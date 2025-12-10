@@ -1,0 +1,239 @@
+@page "/billing-edit/{BillId:int}"
+@layout Layout.DashboardLayout
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Services
+@inject IPatientBillService BillService
+@inject NavigationManager Navigation
+
+@if (bill == null)
+{
+    <div class="pm-page">
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="pm-error-message">
+                <p>@errorMessage</p>
+            </div>
+        }
+        else
+        {
+            <div class="pm-loading">
+                <p>Loading bill details...</p>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <EditForm Model="@bill" OnValidSubmit="@HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <div class="pm-page">
+            <header class="dashboard-header">
+                <div>
+                    <h1 class="dashboard-title">Edit Bill</h1>
+                    <p class="dashboard-subtitle">Update patient bill information</p>
+                </div>
+                <div class="pm-header-actions">
+                    <button class="pm-btn-secondary" type="button" @onclick="@(() => Navigation.NavigateTo("/billing-patient-overview"))">
+                        Cancel
+                    </button>
+                    <button class="pm-btn-primary" type="submit">
+                        Save Changes
+                    </button>
+                </div>
+            </header>
+
+            <section class="pm-form-section">
+                <div class="pm-form-grid">
+                    <!-- Patient Information -->
+                    <div class="pm-form-card">
+                        <h3 class="pm-card-title">Patient Information</h3>
+                        <div class="pm-form-row">
+                            <div class="pm-form-group">
+                                <label for="patientName">Patient Name *</label>
+                                <InputText id="patientName" class="pm-form-control" @bind-Value="bill.PatientName" />
+                                <ValidationMessage For="@(() => bill.PatientName)" />
+                            </div>
+                            <div class="pm-form-group">
+                                <label for="patientEmail">Email</label>
+                                <InputText id="patientEmail" class="pm-form-control" @bind-Value="bill.PatientEmail" />
+                                <ValidationMessage For="@(() => bill.PatientEmail)" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Visit Information -->
+                    <div class="pm-form-card">
+                        <h3 class="pm-card-title">Visit Information</h3>
+                        <div class="pm-form-row">
+                            <div class="pm-form-group">
+                                <label for="assessmentStatus">Assessment Status *</label>
+                                <InputSelect id="assessmentStatus" class="pm-form-control" @bind-Value="bill.AssessmentStatus">
+                                    <option value="Pending">Pending</option>
+                                    <option value="For Discharge">For Discharge</option>
+                                    <option value="Discharged">Discharged</option>
+                                    <option value="Under Observation">Under Observation</option>
+                                </InputSelect>
+                                <ValidationMessage For="@(() => bill.AssessmentStatus)" />
+                            </div>
+                            <div class="pm-form-group">
+                                <label for="dateOfVisit">Date of Visit *</label>
+                                <InputDate id="dateOfVisit" class="pm-form-control" @bind-Value="bill.DateOfVisit" />
+                                <ValidationMessage For="@(() => bill.DateOfVisit)" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Financial Information -->
+                    <div class="pm-form-card">
+                        <h3 class="pm-card-title">Financial Information</h3>
+                        <div class="pm-form-row">
+                            <div class="pm-form-group">
+                                <label for="totalAmount">Total Amount *</label>
+                                <InputNumber id="totalAmount" class="pm-form-control" @bind-Value="bill.TotalAmount" />
+                                <ValidationMessage For="@(() => bill.TotalAmount)" />
+                            </div>
+                            <div class="pm-form-group">
+                                <label for="insuranceCoverage">Insurance Coverage</label>
+                                <InputNumber id="insuranceCoverage" class="pm-form-control" @bind-Value="bill.InsuranceCoverage" />
+                                <ValidationMessage For="@(() => bill.InsuranceCoverage)" />
+                            </div>
+                            <div class="pm-form-group">
+                                <label for="patientResponsibility">Patient Responsibility</label>
+                                <InputNumber id="patientResponsibility" class="pm-form-control" @bind-Value="bill.PatientResponsibility" />
+                                <ValidationMessage For="@(() => bill.PatientResponsibility)" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Information -->
+                    <div class="pm-form-card">
+                        <h3 class="pm-card-title">Payment Information</h3>
+                        <div class="pm-form-row">
+                            <div class="pm-form-group">
+                                <label for="paymentStatus">Payment Status *</label>
+                                <InputSelect id="paymentStatus" class="pm-form-control" @bind-Value="bill.PaymentStatus">
+                                    <option value="Unpaid">Unpaid</option>
+                                    <option value="Pending">Pending</option>
+                                    <option value="Partial">Partial</option>
+                                    <option value="Paid">Paid</option>
+                                </InputSelect>
+                                <ValidationMessage For="@(() => bill.PaymentStatus)" />
+                            </div>
+                            <div class="pm-form-group">
+                                <label for="paymentMethod">Payment Method</label>
+                                <InputSelect id="paymentMethod" class="pm-form-control" @bind-Value="bill.PaymentMethod">
+                                    <option value="">Select Payment Method</option>
+                                    <option value="Cash">Cash</option>
+                                    <option value="Credit Card">Credit Card</option>
+                                    <option value="Debit Card">Debit Card</option>
+                                    <option value="Insurance">Insurance</option>
+                                    <option value="Bank Transfer">Bank Transfer</option>
+                                </InputSelect>
+                                <ValidationMessage For="@(() => bill.PaymentMethod)" />
+                            </div>
+                            <div class="pm-form-group">
+                                <label for="paymentDate">Payment Date</label>
+                                <InputDate id="paymentDate" class="pm-form-control" @bind-Value="bill.PaymentDate" />
+                                <ValidationMessage For="@(() => bill.PaymentDate)" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Insurance Information -->
+                    <div class="pm-form-card">
+                        <h3 class="pm-card-title">Insurance Information</h3>
+                        <div class="pm-form-row">
+                            <div class="pm-form-group full-width">
+                                <label for="insuranceProvider">Insurance Provider</label>
+                                <InputText id="insuranceProvider" class="pm-form-control" @bind-Value="bill.InsuranceProvider" />
+                                <ValidationMessage For="@(() => bill.InsuranceProvider)" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error Message -->
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="pm-error-message">
+                        <p>@errorMessage</p>
+                    </div>
+                }
+
+                <!-- Success Message -->
+                @if (!string.IsNullOrEmpty(successMessage))
+                {
+                    <div class="pm-success-message">
+                        <p>@successMessage</p>
+                    </div>
+                }
+            </section>
+        </div>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public int BillId { get; set; }
+
+    private PatientBill? bill;
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBill();
+    }
+
+    private async Task LoadBill()
+    {
+        try
+        {
+            bill = await BillService.GetByIdAsync(BillId);
+            if (bill == null)
+            {
+                errorMessage = "Bill not found";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading bill: {ex.Message}";
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            if (bill == null) return;
+
+            // Calculate patient responsibility if not set
+            if (bill.PatientResponsibility == 0 && bill.TotalAmount > 0)
+            {
+                bill.PatientResponsibility = bill.TotalAmount - bill.InsuranceCoverage;
+            }
+
+            // Set payment date if status is paid but no date is set
+            if (bill.PaymentStatus == "Paid" && !bill.PaymentDate.HasValue)
+            {
+                bill.PaymentDate = DateTime.Now;
+            }
+
+            // Update the bill
+            await BillService.UpdateAsync(bill);
+            
+            successMessage = "Bill updated successfully!";
+            
+            // Redirect to overview after 2 seconds
+            await Task.Delay(2000);
+            Navigation.NavigateTo("/billing-patient-overview");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error updating bill: {ex.Message}";
+        }
+    }
+}

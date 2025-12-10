@@ -1,0 +1,272 @@
+@page "/patient-information"
+@page "/patient-information/{PatientId:int}"
+@layout Layout.MainLayout
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Data
+@using Microsoft.EntityFrameworkCore
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Forms
+
+@inject ApplicationDbContext DbContext
+@inject NavigationManager Navigation
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8">
+            <h2>Patient Information</h2>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-secondary" @onclick="GoBack">
+                <i class="fas fa-arrow-left"></i> Back to Overview
+            </button>
+        </div>
+    </div>
+
+    <div class="card mt-3">
+        <div class="card-body">
+            <EditForm Model="patientForm" OnValidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="firstName" class="form-label">First Name *</label>
+                            <InputText id="firstName" class="form-control" @bind-Value="patientForm.FirstName" />
+                            <ValidationMessage For="@(() => patientForm.FirstName)" class="text-danger" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="lastName" class="form-label">Last Name *</label>
+                            <InputText id="lastName" class="form-control" @bind-Value="patientForm.LastName" />
+                            <ValidationMessage For="@(() => patientForm.LastName)" class="text-danger" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="middleName" class="form-label">Middle Name</label>
+                            <InputText id="middleName" class="form-control" @bind-Value="patientForm.MiddleName" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="gender" class="form-label">Gender</label>
+                            <InputSelect id="gender" class="form-select" @bind-Value="patientForm.Gender">
+                                <option value="">Select Gender</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="dateOfBirth" class="form-label">Date of Birth</label>
+                            <InputDate id="dateOfBirth" class="form-control" @bind-Value="patientForm.DateOfBirth" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="bloodType" class="form-label">Blood Type</label>
+                            <InputSelect id="bloodType" class="form-select" @bind-Value="patientForm.BloodType">
+                                <option value="">Select Blood Type</option>
+                                <option value="A+">A+</option>
+                                <option value="A-">A-</option>
+                                <option value="B+">B+</option>
+                                <option value="B-">B-</option>
+                                <option value="AB+">AB+</option>
+                                <option value="AB-">AB-</option>
+                                <option value="O+">O+</option>
+                                <option value="O-">O-</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="phone" class="form-label">Phone</label>
+                            <InputText id="phone" class="form-control" @bind-Value="patientForm.Phone" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <InputText id="email" class="form-control" @bind-Value="patientForm.Email" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="address" class="form-label">Address</label>
+                    <InputTextArea id="address" class="form-control" @bind-Value="patientForm.Address" rows="3" />
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="civilStatus" class="form-label">Civil Status</label>
+                            <InputSelect id="civilStatus" class="form-select" @bind-Value="patientForm.CivilStatus">
+                                <option value="">Select Status</option>
+                                <option value="Single">Single</option>
+                                <option value="Married">Married</option>
+                                <option value="Widowed">Widowed</option>
+                                <option value="Divorced">Divorced</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="occupation" class="form-label">Occupation</label>
+                            <InputText id="occupation" class="form-control" @bind-Value="patientForm.Occupation" />
+                        </div>
+                    </div>
+                </div>
+
+                <h5 class="mt-4 mb-3">Emergency Contact</h5>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label for="emergencyContactName" class="form-label">Contact Name</label>
+                            <InputText id="emergencyContactName" class="form-control" @bind-Value="patientForm.EmergencyContactName" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label for="emergencyContactRelationship" class="form-label">Relationship</label>
+                            <InputText id="emergencyContactRelationship" class="form-control" @bind-Value="patientForm.EmergencyContactRelationship" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            <label for="emergencyContactNumber" class="form-label">Contact Number</label>
+                            <InputText id="emergencyContactNumber" class="form-control" @bind-Value="patientForm.EmergencyContactNumber" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="nationality" class="form-label">Nationality</label>
+                            <InputText id="nationality" class="form-control" @bind-Value="patientForm.Nationality" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="religion" class="form-label">Religion</label>
+                            <InputText id="religion" class="form-control" @bind-Value="patientForm.Religion" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group mt-4">
+                    <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            <span>Saving...</span>
+                        }
+                        else
+                        {
+                            <span><i class="fas fa-save"></i> Save Patient</span>
+                        }
+                    </button>
+                    <button type="button" class="btn btn-secondary ms-2" @onclick="GoBack">Cancel</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? PatientId { get; set; }
+
+    private Patient patientForm = new();
+    private bool isSubmitting = false;
+    private bool isNewPatient = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (PatientId.HasValue)
+        {
+            isNewPatient = false;
+            await LoadPatient(PatientId.Value);
+        }
+        else
+        {
+            // Set default values for new patient
+            patientForm.CreatedAt = DateTime.UtcNow;
+            patientForm.UpdatedAt = DateTime.UtcNow;
+        }
+    }
+
+    private async Task LoadPatient(int patientId)
+    {
+        try
+        {
+            var patient = await DbContext.Patients.FindAsync(patientId);
+            if (patient != null)
+            {
+                patientForm = patient;
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Error loading patient: {ex.Message}");
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (isSubmitting) return;
+
+        isSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            if (isNewPatient)
+            {
+                patientForm.CreatedAt = DateTime.UtcNow;
+                patientForm.UpdatedAt = DateTime.UtcNow;
+                DbContext.Patients.Add(patientForm);
+            }
+            else
+            {
+                patientForm.UpdatedAt = DateTime.UtcNow;
+                DbContext.Patients.Update(patientForm);
+            }
+
+            await DbContext.SaveChangesAsync();
+
+            await JsRuntime.InvokeVoidAsync("alert", "Patient saved successfully!");
+            Navigation.NavigateTo("/patient-overview");
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Error saving patient: {ex.Message}");
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/patient-overview");
+    }
+
+    [Inject]
+    private IJSRuntime JsRuntime { get; set; } = default!;
+}

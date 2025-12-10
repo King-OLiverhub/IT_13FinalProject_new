@@ -1,0 +1,280 @@
+@page "/billing-insurance-request"
+@layout Layout.DashboardLayout
+@using Microsoft.AspNetCore.Components.Forms
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Services
+@inject IPatientBillService BillService
+@inject NavigationManager Navigation
+
+<div class="insreq-page">
+    <header class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title">Billing and Invoicing</h1>
+            <p class="dashboard-subtitle">Welcome back Billing Staff!</p>
+        </div>
+
+        <div class="dashboard-user-info">
+            <span class="dashboard-user-email">billing@gmail.com</span>
+            <div class="dashboard-user-avatar">👤</div>
+            <span class="dashboard-user-name">Billing staff</span>
+        </div>
+    </header>
+
+    <section class="insreq-tabs-card">
+        <div class="inv-tabs-row">
+            <div class="inv-tabs">
+                <button class="inv-tab" @onclick="GoToOverview">Overview</button>
+                <button class="inv-tab inv-tab-active">Request</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="insreq-body">
+        <div class="insreq-layout">
+            <div class="insreq-column">
+                <h2 class="insreq-form-title">Insurance Request Form</h2>
+                <div class="insreq-patient-info">
+                    <h3 class="insreq-patient-title">Patient Information</h3>
+                    <div class="insreq-patient-row">
+                        <label>Patient:</label>
+                        <select class="insreq-patient-select" @bind="SelectedBillId">
+                            <option value="">Select Patient</option>
+                            @foreach (var bill in AvailableBills)
+                            {
+                                <option value="@bill.BillId">@bill.PatientName - @bill.DateOfVisit.ToString("MM/dd/yy")</option>
+                            }
+                        </select>
+                    </div>
+                    @if (SelectedBill != null)
+                    {
+                        <div class="insreq-patient-row">
+                            <label>Name:</label>
+                            <span>@SelectedBill.PatientName</span>
+                        </div>
+                        <div class="insreq-patient-row">
+                            <label>Patient ID:</label>
+                            <span>@GetPatientId(SelectedBill.PatientId)</span>
+                        </div>
+                        <div class="insreq-patient-row">
+                            <label>Insurance:</label>
+                            <span>@SelectedBill.InsuranceProvider</span>
+                        </div>
+                        <div class="insreq-patient-row">
+                            <label>Date:</label>
+                            <span>@SelectedBill.DateOfVisit.ToString("MM/dd/yy")</span>
+                        </div>
+                    }
+                </div>
+
+                @if (SelectedBill != null)
+                {
+                    <div class="insreq-claim-details">
+                        <h3 class="insreq-claim-title">Claim Details</h3>
+                        <div class="insreq-claim-header">
+                            <span>SERVICE</span>
+                            <span>AMOUNT</span>
+                            <span>COVERABLE</span>
+                        </div>
+                        <div class="insreq-claim-row">
+                            <span>Total Bill Amount</span>
+                            <span>₱@SelectedBill.TotalAmount.ToString("F2")</span>
+                            <span>₱@SelectedBill.InsuranceCoverage.ToString("F2")</span>
+                        </div>
+                        <div class="insreq-claim-row">
+                            <span>Patient Responsibility</span>
+                            <span>₱@SelectedBill.PatientResponsibility.ToString("F2")</span>
+                            <span>-</span>
+                        </div>
+                        <div class="insreq-claim-row insreq-claim-total">
+                            <span>TOTAL COVERABLE:</span>
+                            <span></span>
+                            <span>₱@SelectedBill.InsuranceCoverage.ToString("F2")</span>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="insreq-claim-details">
+                        <h3 class="insreq-claim-title">Claim Details</h3>
+                        <div class="insreq-empty-claim">
+                            <p>Please select a patient to view claim details</p>
+                        </div>
+                    </div>
+                }
+
+                <h2 class="insreq-section-title">Documents</h2>
+
+                <div class="insreq-doc-list">
+                    @foreach (var doc in DocumentItems)
+                    {
+                        <div class="insreq-doc-item">
+                            <span class="insreq-doc-icon">📁</span>
+                            <InputFile OnChange="@(e => OnFileSelected(e, doc))" />
+                            <span class="insreq-doc-label">@GetDocumentPlaceholder(doc)</span>
+                        </div>
+                    }
+                </div>
+
+                <label class="insreq-complete-row">
+                    <input type="checkbox" @bind="AllDocumentsComplete" />
+                    <span>Complete all the document requirement to submit request</span>
+                </label>
+
+                <div class="insreq-actions-row">
+                    <button class="insreq-generate-button" @onclick="GenerateClaimForm" disabled="@(SelectedBill == null)">Generate Claim Form</button>
+                    <button class="insreq-submit-button" @onclick="SubmitToAdmin" disabled="@(SelectedBill == null)">Submit to Admin</button>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+@code {
+    private List<PatientBill> AvailableBills { get; set; } = new();
+    private int _selectedBillId;
+    private int SelectedBillId 
+    { 
+        get => _selectedBillId; 
+        set 
+        { 
+            _selectedBillId = value; 
+            OnPatientSelected(); 
+        } 
+    }
+    private PatientBill? SelectedBill { get; set; }
+    private bool isLoading { get; set; } = true;
+    private bool AllDocumentsComplete { get; set; } = true;
+
+    private readonly string[] DocumentItems = new[]
+    {
+        "Medical Certificate",
+        "Laboratory Results",
+        "Prescription Copies",
+        "Eligibility Verification",
+        "Claim Form",
+        "Official Receipt/Invoice",
+        "Patient Information Sheet",
+        "Valid ID Copies",
+    };
+
+    private readonly Dictionary<string, string> DocumentFileNames = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAvailableBills();
+        
+        foreach (var doc in DocumentItems)
+        {
+            if (!DocumentFileNames.ContainsKey(doc))
+            {
+                DocumentFileNames[doc] = string.Empty;
+            }
+        }
+    }
+
+    private async Task LoadAvailableBills()
+    {
+        try
+        {
+            isLoading = true;
+            var allBills = await BillService.GetActiveAsync();
+            AvailableBills = allBills.Where(b => !string.IsNullOrEmpty(b.InsuranceProvider)).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading bills: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OnPatientSelected()
+    {
+        SelectedBill = AvailableBills.FirstOrDefault(b => b.BillId == SelectedBillId);
+    }
+
+    private string GetPatientId(int? patientId)
+    {
+        return patientId.HasValue ? $"#{patientId.Value:D6}" : $"#{Math.Abs(DateTime.Now.GetHashCode()) % 1000000:D6}";
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e, string docKey)
+    {
+        var file = e.File;
+        if (file is not null)
+        {
+            DocumentFileNames[docKey] = file.Name;
+        }
+
+        await Task.CompletedTask;
+    }
+
+    private string GetDocumentPlaceholder(string doc)
+    {
+        if (DocumentFileNames.TryGetValue(doc, out var name) && !string.IsNullOrWhiteSpace(name))
+        {
+            // Once a file is selected, hide the placeholder text
+            return string.Empty;
+        }
+
+        // No file yet: show the document name as light placeholder text
+        return doc;
+    }
+
+    private void GenerateClaimForm()
+    {
+        if (SelectedBill == null) return;
+        
+        // Generate claim form logic (could open a new page, download PDF, etc.)
+        Console.WriteLine($"Generating claim form for {SelectedBill.PatientName}");
+        
+        // For now, navigate to a preview page or show a modal
+        // In a real implementation, this could generate a PDF
+        Navigation.NavigateTo($"/billing-claim-preview/{SelectedBill.BillId}");
+    }
+
+    private async Task SubmitToAdmin()
+    {
+        if (SelectedBill == null) return;
+        
+        try
+        {
+            // Update the bill status to "Pending" for admin review
+            SelectedBill.AssessmentStatus = "Pending";
+            
+            // Ensure InsuranceProvider is set so it appears in Insurance & Claims
+            if (string.IsNullOrEmpty(SelectedBill.InsuranceProvider))
+            {
+                SelectedBill.InsuranceProvider = "Private Insurance"; // Default value
+            }
+            
+            // Save the updated bill to database
+            await BillService.UpdateAsync(SelectedBill);
+            
+            Console.WriteLine($"Submitting claim for {SelectedBill.PatientName} to admin");
+            Console.WriteLine($"Insurance Provider: {SelectedBill.InsuranceProvider}");
+            Console.WriteLine($"Status: {SelectedBill.AssessmentStatus}");
+            
+            // Show success message and navigate back
+            Navigation.NavigateTo("/billing-insurance-claims");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error submitting claim: {ex.Message}");
+        }
+    }
+
+    private void GoToOverview() => Navigation.NavigateTo("/billing-insurance-claims");
+}
+
+
+
+
+
+
+
+
+
+

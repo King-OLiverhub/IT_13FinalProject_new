@@ -1,0 +1,540 @@
+@page "/doctor-appointments"
+@layout Layout.DashboardLayout
+
+<div class="nurse-notes-page">
+    <header class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title">Appointments</h1>
+            <p class="dashboard-subtitle">Doctor's daily schedule</p>
+        </div>
+
+        <div class="dashboard-user-info">
+            <span class="dashboard-user-email">doc@gmail.com</span>
+            <div class="dashboard-user-avatar">
+                <span class="icon-user"></span>
+            </div>
+            <span class="dashboard-user-name">Clinical</span>
+        </div>
+    </header>
+
+    <section class="pm-overview">
+        <div class="pm-overview-header">
+            <h2 class="pm-section-title"><span class="icon-calendar"></span></h2>
+            <div class="pm-show-entries">
+                <span>Show</span>
+                <select @bind="PageSize">
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                </select>
+                <span>entries</span>
+            </div>
+        </div>
+
+        <div class="pm-filters-row">
+            <div class="pm-search-row">
+                <div class="pm-search-box">
+                    <span class="pm-search-icon"></span>
+                    <input class="pm-search-input" placeholder="Search patient / reason" @bind="SearchTerm" />
+                </div>
+
+                <div class="pm-actions">
+                    <button class="activity-action-btn">Sort</button>
+                    <button class="activity-action-btn">Filters</button>
+                    <button class="activity-action-btn" @onclick="ShowNewAppointmentModal">+ New Appointment</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="nurse-content-scroll">
+            <h2 class="nurse-shift-title">TODAY'S SCHEDULE (@DateTime.Now.ToString("MMM dd, yyyy"))</h2>
+
+            <div class="nurse-notes-list">
+                @foreach (var appt in TodayAppointments)
+                {
+                    <div class="nurse-note-card">
+                        <div class="nurse-note-header">
+                            <span class="nurse-note-time"><span class="icon-clock"></span> @appt.Time | @appt.Status</span>
+                        </div>
+                        <div class="nurse-note-body">
+                            <div class="nurse-note-item">
+                                <span class="icon-user"></span>
+                                <span class="nurse-note-label">@appt.PatientName</span>
+                            </div>
+                            <div class="nurse-note-item">
+                                <span class="nurse-note-icon"><span class="icon-clipboard"></span></span>
+                                <span class="nurse-note-text">@appt.Reason</span>
+                            </div>
+                            <div class="nurse-note-item">
+                                <span class="nurse-note-icon"><span class="icon-timer"></span></span>
+                                <span class="nurse-note-text">Duration: @appt.Duration</span>
+                            </div>
+                            @if (!string.IsNullOrEmpty(appt.Tags))
+                            {
+                                <div class="nurse-note-item">
+                                    <span class="nurse-note-icon"><span class="icon-tag"></span></span>
+                                    <span class="nurse-note-text">Tags: @appt.Tags</span>
+                                </div>
+                            }
+                        </div>
+                        <div class="nurse-note-footer">
+                            <button class="appt-cancel-btn" @onclick="() => CancelAppointment(appt)">Cancel</button>
+                            <button class="appt-reschedule-btn" @onclick="() => ShowRescheduleModal(appt)">Reschedule</button>
+                            <button class="nurse-note-view-btn" @onclick="() => StartConsult(appt)">Start Consult</button>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <h2 class="nurse-shift-title">UPCOMING APPOINTMENTS:</h2>
+            <div class="nurse-notes-list">
+                @foreach (var appt in UpcomingAppointments)
+                {
+                    <div class="appt-upcoming-card">
+                        <span class="appt-upcoming-text">
+                            <span class="icon-calendar"></span> @appt.Date @appt.Time - @appt.PatientName (@appt.Reason)
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+</div>
+
+@* Add Appointment Modal *@
+@if (ShowNewAppointment)
+{
+    <div class="nurse-modal-overlay" @onclick="CloseNewAppointmentModal">
+        <div class="nurse-modal" @onclick:stopPropagation="true">
+            <h2 class="nurse-modal-title">Add Appointments</h2>
+
+            <div class="nurse-form-group">
+                <label class="nurse-form-label">Patient</label>
+                <div class="nurse-patient-select-wrapper">
+                    <input type="text"
+                           class="nurse-patient-input"
+                           placeholder="Select Patient"
+                           @bind="NewAppointmentPatientSearch"
+                           @oninput="OnNewAppointmentPatientSearchInput"
+                           @onfocus="() => ShowNewAppointmentPatientDropdown = true" />
+                    <span class="nurse-dropdown-icon">▼</span>
+
+                    @if (ShowNewAppointmentPatientDropdown && FilteredNewAppointmentPatients.Any())
+                    {
+                        <div class="nurse-patient-dropdown">
+                            @foreach (var patient in FilteredNewAppointmentPatients)
+                            {
+                                <div class="nurse-patient-option" @onclick="() => SelectNewAppointmentPatient(patient)">
+                                    @patient
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="nurse-form-section">
+                <h3 class="nurse-form-section-title">Appointments Details</h3>
+            </div>
+
+            <div class="nurse-form-row">
+                <div class="nurse-form-group-inline">
+                    <label class="nurse-form-label">Date:</label>
+                    <div class="appt-input-with-icon">
+                        <input type="text" class="nurse-form-input" placeholder="11/20/2024" @bind="NewAppointment.Date" />
+                        <span class="icon-calendar"></span>
+                    </div>
+                </div>
+
+                <div class="nurse-form-group-inline">
+                    <label class="nurse-form-label">Time:</label>
+                    <div class="appt-input-with-icon">
+                        <input type="text" class="nurse-form-input" placeholder="02:30 PM" @bind="NewAppointment.Time" />
+                        <span class="icon-time"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="nurse-form-row">
+                <div class="nurse-form-group-inline">
+                    <label class="nurse-form-label">Duration:</label>
+                    <select class="nurse-form-select-small" @bind="NewAppointment.Duration">
+                        <option value="15 mins">15 minutes</option>
+                        <option value="30 mins">30 minutes</option>
+                        <option value="45 mins">45 minutes</option>
+                        <option value="60 mins">60 minutes</option>
+                    </select>
+                </div>
+
+                <div class="nurse-form-group-inline">
+                    <label class="nurse-form-label">Type:</label>
+                    <select class="nurse-form-select-small" @bind="NewAppointment.Type">
+                        <option value="Follow-up">Follow-up</option>
+                        <option value="Consultation">Consultation</option>
+                        <option value="Check-up">Check-up</option>
+                        <option value="Emergency">Emergency</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="nurse-form-group">
+                <label class="nurse-form-label">Reason:</label>
+                <input type="text" class="nurse-form-input" placeholder="e.g., Hypertension follow-up" @bind="NewAppointment.Reason" />
+            </div>
+
+            <div class="nurse-form-group">
+                <label class="nurse-form-label">Notes:</label>
+                <textarea class="nurse-form-textarea" rows="3" placeholder="e.g., Please bring current medications" @bind="NewAppointment.Notes"></textarea>
+            </div>
+
+            <div class="nurse-form-section">
+                <h3 class="nurse-form-section-title">Notification</h3>
+            </div>
+
+            <div class="appt-checkbox-group">
+                <label class="appt-checkbox-label">
+                    <input type="checkbox" @bind="NewAppointment.SendConfirmation" />
+                    <span class="appt-checkbox-text">Send confirmation to patient</span>
+                </label>
+                <label class="appt-checkbox-label">
+                    <input type="checkbox" @bind="NewAppointment.AddToCalendar" />
+                    <span class="appt-checkbox-text">Add to doctor's calendar</span>
+                </label>
+                <label class="appt-checkbox-label">
+                    <input type="checkbox" @bind="NewAppointment.SendReminder" />
+                    <span class="appt-checkbox-text">Send reminder 24 hours before</span>
+                </label>
+            </div>
+
+            <div class="nurse-modal-footer">
+                <button class="nurse-btn-cancel" @onclick="CloseNewAppointmentModal">Cancel</button>
+                <button class="nurse-btn-save" @onclick="SaveNewAppointment">Save</button>
+            </div>
+        </div>
+    </div>
+}
+
+@* Reschedule Appointment Modal *@
+@if (ShowReschedule)
+{
+    <div class="nurse-modal-overlay" @onclick="CloseRescheduleModal">
+        <div class="nurse-modal" @onclick:stopPropagation="true">
+            <h2 class="nurse-modal-title">Reschedule Appointments</h2>
+
+            <div class="nurse-form-group">
+                <label class="nurse-form-label">Patient</label>
+                <div class="nurse-patient-select-wrapper">
+                    <input type="text"
+                           class="nurse-patient-input"
+                           placeholder="Select Patient"
+                           @bind="ReschedulePatientSearch"
+                           @oninput="OnReschedulePatientSearchInput"
+                           @onfocus="() => ShowReschedulePatientDropdown = true" />
+                    <span class="nurse-dropdown-icon">▼</span>
+
+                    @if (ShowReschedulePatientDropdown && FilteredReschedulePatients.Any())
+                    {
+                        <div class="nurse-patient-dropdown">
+                            @foreach (var patient in FilteredReschedulePatients)
+                            {
+                                <div class="nurse-patient-option" @onclick="() => SelectReschedulePatient(patient)">
+                                    @patient
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="nurse-form-section">
+                <h3 class="nurse-form-section-title">Appointments Details</h3>
+            </div>
+
+            <div class="nurse-form-row">
+                <div class="nurse-form-group-inline">
+                    <label class="nurse-form-label">Date:</label>
+                    <div class="appt-input-with-icon">
+                        <input type="text" class="nurse-form-input" placeholder="11/20/2024" @bind="ReschedulingAppointment.Date" />
+                        <span class="icon-calendar"></span>
+                    </div>
+                </div>
+
+                <div class="nurse-form-group-inline">
+                    <label class="nurse-form-label">Time:</label>
+                    <div class="appt-input-with-icon">
+                        <input type="text" class="nurse-form-input" placeholder="02:30 PM" @bind="ReschedulingAppointment.Time" />
+                        <span class="icon-time"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="nurse-form-row">
+                <div class="nurse-form-group-inline">
+                    <label class="nurse-form-label">Duration:</label>
+                    <select class="nurse-form-select-small" @bind="ReschedulingAppointment.Duration">
+                        <option value="15 mins">15 minutes</option>
+                        <option value="30 mins">30 minutes</option>
+                        <option value="45 mins">45 minutes</option>
+                        <option value="60 mins">60 minutes</option>
+                    </select>
+                </div>
+
+                <div class="nurse-form-group-inline">
+                    <label class="nurse-form-label">Type:</label>
+                    <select class="nurse-form-select-small" @bind="ReschedulingAppointment.Type">
+                        <option value="Follow-up">Follow-up</option>
+                        <option value="Consultation">Consultation</option>
+                        <option value="Check-up">Check-up</option>
+                        <option value="Emergency">Emergency</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="nurse-form-group">
+                <label class="nurse-form-label">Reason:</label>
+                <input type="text" class="nurse-form-input" placeholder="e.g., Hypertension follow-up" @bind="ReschedulingAppointment.Reason" />
+            </div>
+
+            <div class="nurse-form-group">
+                <label class="nurse-form-label">Notes:</label>
+                <textarea class="nurse-form-textarea" rows="3" placeholder="e.g., Please bring current medications" @bind="ReschedulingAppointment.Notes"></textarea>
+            </div>
+
+            <div class="nurse-form-section">
+                <h3 class="nurse-form-section-title">Notification</h3>
+            </div>
+
+            <div class="appt-checkbox-group">
+                <label class="appt-checkbox-label">
+                    <input type="checkbox" @bind="ReschedulingAppointment.SendConfirmation" />
+                    <span class="appt-checkbox-text">Send confirmation to patient</span>
+                </label>
+                <label class="appt-checkbox-label">
+                    <input type="checkbox" @bind="ReschedulingAppointment.AddToCalendar" />
+                    <span class="appt-checkbox-text">Add to doctor's calendar</span>
+                </label>
+                <label class="appt-checkbox-label">
+                    <input type="checkbox" @bind="ReschedulingAppointment.SendReminder" />
+                    <span class="appt-checkbox-text">Send reminder 24 hours before</span>
+                </label>
+            </div>
+
+            <div class="nurse-modal-footer">
+                <button class="nurse-btn-cancel" @onclick="CloseRescheduleModal">Cancel</button>
+                <button class="nurse-btn-save" @onclick="SaveReschedule">Save</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private class Appointment
+    {
+        public string Id { get; set; } = "";
+        public string PatientName { get; set; } = "";
+        public string Date { get; set; } = "";
+        public string Time { get; set; } = "";
+        public string Duration { get; set; } = "30 mins";
+        public string Reason { get; set; } = "";
+        public string Status { get; set; } = "";
+        public string Type { get; set; } = "Follow-up";
+        public string Notes { get; set; } = "";
+        public string Tags { get; set; } = "";
+        public bool SendConfirmation { get; set; } = true;
+        public bool AddToCalendar { get; set; } = true;
+        public bool SendReminder { get; set; } = false;
+    }
+
+    private string SearchTerm { get; set; } = string.Empty;
+    private int PageSize { get; set; } = 10;
+
+    private bool ShowNewAppointment { get; set; } = false;
+    private bool ShowReschedule { get; set; } = false;
+
+    private Appointment NewAppointment = new();
+    private Appointment ReschedulingAppointment = new();
+
+    // Patient search dropdown states for Add Appointment
+    private string NewAppointmentPatientSearch { get; set; } = "";
+    private bool ShowNewAppointmentPatientDropdown { get; set; } = false;
+
+    // Patient search dropdown states for Reschedule
+    private string ReschedulePatientSearch { get; set; } = "";
+    private bool ShowReschedulePatientDropdown { get; set; } = false;
+
+    private readonly string[] AvailablePatients = new string[]
+    {
+        "Juan Dela Cruz - Room 201",
+        "Ana Santos - Room 205",
+        "Maria Santos - Room 105",
+        "Pedro Cruz - Room 301",
+        "Ana Lim - Room 210",
+        "Himeko Murata - Room 302",
+        "Yae Miko - Room 401"
+    };
+
+    private IEnumerable<string> FilteredNewAppointmentPatients =>
+        string.IsNullOrWhiteSpace(NewAppointmentPatientSearch)
+            ? AvailablePatients
+            : AvailablePatients.Where(p => p.Contains(NewAppointmentPatientSearch, StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<string> FilteredReschedulePatients =>
+        string.IsNullOrWhiteSpace(ReschedulePatientSearch)
+            ? AvailablePatients
+            : AvailablePatients.Where(p => p.Contains(ReschedulePatientSearch, StringComparison.OrdinalIgnoreCase));
+
+    private List<Appointment> AllAppointments = new()
+    {
+        new() {
+            Id = "01",
+            PatientName = "Juan Dela Cruz",
+            Date = DateTime.Today.ToShortDateString(),
+            Time = "09:00 AM",
+            Duration = "30 mins",
+            Reason = "Follow-up: Hypertension management",
+            Status = "CONFIRMED",
+            Tags = "#family #education #discharge"
+        },
+        new() {
+            Id = "02",
+            PatientName = "Maria Santos",
+            Date = DateTime.Today.ToShortDateString(),
+            Time = "10:30 AM",
+            Duration = "45 mins",
+            Reason = "New patient: Diabetes screening",
+            Status = "WAITING"
+        },
+        new() {
+            Id = "03",
+            PatientName = "Pedro Cruz",
+            Date = DateTime.Today.ToShortDateString(),
+            Time = "01:00 PM",
+            Duration = "20 mins",
+            Reason = "Routine check-up",
+            Status = "CONFIRMED",
+            Tags = "#family #education #discharge"
+        },
+        new() {
+            Id = "04",
+            PatientName = "Ana Lim",
+            Date = "Tomorrow 9:30 AM",
+            Time = "9:30 AM",
+            Duration = "30 mins",
+            Reason = "Lab results review",
+            Status = "SCHEDULED"
+        },
+        new() {
+            Id = "05",
+            PatientName = "James Reyes",
+            Date = "Nov 17, 2:00 PM",
+            Time = "2:00 PM",
+            Duration = "45 mins",
+            Reason = "Surgical follow-up",
+            Status = "SCHEDULED"
+        },
+        new() {
+            Id = "06",
+            PatientName = "Juan Dela Cruz",
+            Date = "Nov 18, 11:00 AM",
+            Time = "11:00 AM",
+            Duration = "30 mins",
+            Reason = "BP check",
+            Status = "SCHEDULED"
+        }
+    };
+
+    private IEnumerable<Appointment> TodayAppointments =>
+        AllAppointments.Where(a => a.Date == DateTime.Today.ToShortDateString());
+
+    private IEnumerable<Appointment> UpcomingAppointments =>
+        AllAppointments.Where(a => a.Date != DateTime.Today.ToShortDateString());
+
+    private void ShowNewAppointmentModal()
+    {
+        NewAppointment = new();
+        NewAppointmentPatientSearch = "";
+        ShowNewAppointmentPatientDropdown = false;
+        ShowNewAppointment = true;
+    }
+
+    private void CloseNewAppointmentModal()
+    {
+        ShowNewAppointment = false;
+        ShowNewAppointmentPatientDropdown = false;
+    }
+
+    private void SaveNewAppointment()
+    {
+        // Add save logic here
+        ShowNewAppointment = false;
+        ShowNewAppointmentPatientDropdown = false;
+    }
+
+    private void ShowRescheduleModal(Appointment appt)
+    {
+        ReschedulingAppointment = new()
+        {
+            Id = appt.Id,
+            PatientName = appt.PatientName,
+            Date = appt.Date,
+            Time = appt.Time,
+            Duration = appt.Duration,
+            Reason = appt.Reason,
+            Status = appt.Status,
+            Type = appt.Type,
+            Notes = appt.Notes
+        };
+        ReschedulePatientSearch = appt.PatientName;
+        ShowReschedulePatientDropdown = false;
+        ShowReschedule = true;
+    }
+
+    private void CloseRescheduleModal()
+    {
+        ShowReschedule = false;
+        ShowReschedulePatientDropdown = false;
+    }
+
+    private void SaveReschedule()
+    {
+        // Add save logic here
+        ShowReschedule = false;
+        ShowReschedulePatientDropdown = false;
+    }
+
+    private void OnNewAppointmentPatientSearchInput(ChangeEventArgs e)
+    {
+        NewAppointmentPatientSearch = e.Value?.ToString() ?? "";
+        ShowNewAppointmentPatientDropdown = true;
+    }
+
+    private void OnReschedulePatientSearchInput(ChangeEventArgs e)
+    {
+        ReschedulePatientSearch = e.Value?.ToString() ?? "";
+        ShowReschedulePatientDropdown = true;
+    }
+
+    private void SelectNewAppointmentPatient(string patient)
+    {
+        NewAppointmentPatientSearch = patient;
+        NewAppointment.PatientName = patient;
+        ShowNewAppointmentPatientDropdown = false;
+    }
+
+    private void SelectReschedulePatient(string patient)
+    {
+        ReschedulePatientSearch = patient;
+        ReschedulingAppointment.PatientName = patient;
+        ShowReschedulePatientDropdown = false;
+    }
+
+    private void CancelAppointment(Appointment appt)
+    {
+        // Add cancel logic here
+    }
+
+    private void StartConsult(Appointment appt)
+    {
+        // Add start consult logic here
+    }
+}

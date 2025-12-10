@@ -1,0 +1,356 @@
+@page "/vital-sign-records"
+@layout Layout.DashboardLayout
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Data
+@using Microsoft.EntityFrameworkCore
+
+@inject ApplicationDbContext DbContext
+@inject NavigationManager Navigation
+@inject IJSRuntime JsRuntime
+
+<div class="pm-page">
+    <header class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title">Vital Sign Records</h1>
+            <p class="dashboard-subtitle">Patient Vital Signs Monitoring</p>
+        </div>
+        <div class="dashboard-user-info">
+            <span class="dashboard-user-email">nurse@gmail.com</span>
+            <div class="dashboard-user-avatar">👤</div>
+            <span class="dashboard-user-name">Nurse</span>
+        </div>
+    </header>
+
+    <div class="pm-overview">
+        <div class="pm-overview-header">
+            <h2 class="pm-section-title">Vital Sign Records</h2>
+            <div class="pm-show-entries">
+                <span>Show</span>
+                <select>
+                    <option>5</option>
+                    <option>10</option>
+                    <option>25</option>
+                </select>
+                <span>entries</span>
+            </div>
+        </div>
+
+        <div class="pm-table-outer">
+            <div class="pm-table-wrapper">
+                @if (IsLoading)
+                {
+                    <div class="loading-container">
+                        <div class="loading-spinner"></div>
+                        <p>Loading vital sign records...</p>
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(ErrorMessage))
+                {
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Error:</strong> @ErrorMessage
+                        <br><br>
+                        <button class="pm-back-btn" @onclick="LoadVitalSigns">Retry</button>
+                    </div>
+                }
+                else
+                {
+                    <table class="pm-table">
+                        <thead>
+                            <tr>
+                                <th>Patient Name</th>
+                                <th>Date of Visit</th>
+                                <th>Chief Complaint</th>
+                                <th>Vital Signs</th>
+                                <th class="pm-col-action">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var vs in VitalSigns)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="pm-patient-name">
+                                            @(vs.Patient?.FirstName + " " + vs.Patient?.LastName ?? "Unknown")
+                                        </div>
+                                    </td>
+                                    <td>@vs.RecordedDate.ToString("MM/dd/yyyy")</td>
+                                    <td>@vs.ChiefComplaint</td>
+                                    <td>
+                                        <div class="vital-signs-summary">
+                                            @if (!string.IsNullOrEmpty(vs.BloodPressure))
+                                            {
+                                                <div>BP: @vs.BloodPressure</div>
+                                            }
+                                            @if (vs.HeartRate.HasValue)
+                                            {
+                                                <div>HR: @vs.HeartRate bpm</div>
+                                            }
+                                            @if (vs.Temperature.HasValue)
+                                            {
+                                                <div>Temp: @vs.Temperature°F</div>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td class="pm-col-action">
+                                        <button class="pm-view-btn" @onclick="() => ViewVitalSign(vs.VitalSignId)">
+                                            <span class="pm-view-icon"></span>
+                                        </button>
+                                        <button class="pm-edit-btn" @onclick="() => EditVitalSign(vs.VitalSignId)">
+                                            <span class="pm-edit-icon"></span>
+                                        </button>
+                                        <button class="pm-archive-btn" @onclick="() => ArchiveVitalSign(vs.VitalSignId)">
+                                            <span class="pm-archive-icon"></span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+
+        @if (VitalSigns.Count == 0)
+        {
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> No vital sign records found.
+            </div>
+        }
+
+        @if (ShowPagination)
+        {
+            <div class="pm-pagination">
+                <button class="pm-page-btn">Previous</button>
+                <button class="pm-page-number active">1</button>
+                <button class="pm-page-number">2</button>
+                <button class="pm-page-number">3</button>
+                <span class="pm-page-dots">...</span>
+                <button class="pm-page-number">8</button>
+                <button class="pm-page-btn">Next</button>
+            </div>
+        }
+    </div>
+
+    <!-- View/Edit Modal -->
+    @if (ShowModal)
+    {
+        <div class="modal-backdrop">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>@ModalTitle</h3>
+                    <button class="modal-close" @onclick="CloseModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    @if (SelectedVitalSign != null)
+                    {
+                        <div class="vital-sign-details">
+                            <div class="detail-row">
+                                <strong>Patient:</strong> @(SelectedVitalSign.Patient?.FirstName + " " + SelectedVitalSign.Patient?.LastName)
+                            </div>
+                            <div class="detail-row">
+                                <strong>Date of Visit:</strong> @SelectedVitalSign.RecordedDate.ToString("MM/dd/yyyy")
+                            </div>
+                            <div class="detail-row">
+                                <strong>Chief Complaint:</strong> @SelectedVitalSign.ChiefComplaint
+                            </div>
+                            <hr>
+                            <h4>Vital Signs</h4>
+                            <div class="vitals-grid">
+                                @if (!string.IsNullOrEmpty(SelectedVitalSign.BloodPressure))
+                                {
+                                    <div class="vital-item">
+                                        <strong>Blood Pressure:</strong> @SelectedVitalSign.BloodPressure mmHg
+                                    </div>
+                                }
+                                @if (SelectedVitalSign.HeartRate.HasValue)
+                                {
+                                    <div class="vital-item">
+                                        <strong>Heart Rate:</strong> @SelectedVitalSign.HeartRate bpm
+                                    </div>
+                                }
+                                @if (SelectedVitalSign.RespiratoryRate.HasValue)
+                                {
+                                    <div class="vital-item">
+                                        <strong>Respiratory Rate:</strong> @SelectedVitalSign.RespiratoryRate breaths/min
+                                    </div>
+                                }
+                                @if (SelectedVitalSign.Temperature.HasValue)
+                                {
+                                    <div class="vital-item">
+                                        <strong>Temperature:</strong> @SelectedVitalSign.Temperature°F
+                                    </div>
+                                }
+                                @if (SelectedVitalSign.OxygenSaturation.HasValue)
+                                {
+                                    <div class="vital-item">
+                                        <strong>Oxygen Saturation:</strong> @SelectedVitalSign.OxygenSaturation%
+                                    </div>
+                                }
+                                @if (SelectedVitalSign.Weight.HasValue)
+                                {
+                                    <div class="vital-item">
+                                        <strong>Weight:</strong> @SelectedVitalSign.Weight kg
+                                    </div>
+                                }
+                                @if (SelectedVitalSign.Height.HasValue)
+                                {
+                                    <div class="vital-item">
+                                        <strong>Height:</strong> @SelectedVitalSign.Height cm
+                                    </div>
+                                }
+                                @if (SelectedVitalSign.BodyMassIndex.HasValue)
+                                {
+                                    <div class="vital-item">
+                                        <strong>BMI:</strong> @(SelectedVitalSign.BodyMassIndex?.ToString("F1") ?? "N/A")
+                                    </div>
+                                }
+                            </div>
+                            @if (!string.IsNullOrEmpty(SelectedVitalSign.Notes))
+                            {
+                                <hr>
+                                <h4>Notes</h4>
+                                <p>@SelectedVitalSign.Notes</p>
+                            }
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    @if (IsEditMode)
+                    {
+                        <button class="pm-save-btn" @onclick="UpdateVitalSign">Update</button>
+                    }
+                    <button class="pm-back-btn" @onclick="CloseModal">Close</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<VitalSign> VitalSigns = new();
+    private bool ShowPagination = true;
+    private bool ShowModal = false;
+    private bool IsEditMode = false;
+    private bool IsLoading = true;
+    private string ErrorMessage = "";
+    private string ModalTitle = "";
+    private VitalSign? SelectedVitalSign;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadVitalSigns();
+    }
+
+    private async Task LoadVitalSigns()
+    {
+        try
+        {
+            IsLoading = true;
+            ErrorMessage = "";
+            StateHasChanged();
+            
+            Console.WriteLine("Loading vital signs...");
+            VitalSigns = await DbContext.VitalSigns
+                .Include(vs => vs.Patient)
+                .Where(vs => !vs.IsArchived)
+                .OrderByDescending(vs => vs.RecordedDate)
+                .ToListAsync();
+            
+            Console.WriteLine($"Successfully loaded {VitalSigns.Count} vital sign records");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading vital signs: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            ErrorMessage = $"Error loading vital signs: {ex.Message}";
+            await JsRuntime.InvokeVoidAsync("alert", $"Error loading vital signs: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ViewVitalSign(int vitalSignId)
+    {
+        SelectedVitalSign = VitalSigns.FirstOrDefault(vs => vs.VitalSignId == vitalSignId);
+        if (SelectedVitalSign != null)
+        {
+            ModalTitle = "View Vital Sign Record";
+            IsEditMode = false;
+            ShowModal = true;
+        }
+    }
+
+    private void EditVitalSign(int vitalSignId)
+    {
+        SelectedVitalSign = VitalSigns.FirstOrDefault(vs => vs.VitalSignId == vitalSignId);
+        if (SelectedVitalSign != null)
+        {
+            ModalTitle = "Edit Vital Sign Record";
+            IsEditMode = true;
+            ShowModal = true;
+        }
+    }
+
+    private async Task UpdateVitalSign()
+    {
+        if (SelectedVitalSign == null) return;
+
+        try
+        {
+            SelectedVitalSign.UpdatedAt = DateTime.UtcNow;
+            DbContext.VitalSigns.Update(SelectedVitalSign);
+            await DbContext.SaveChangesAsync();
+
+            await JsRuntime.InvokeVoidAsync("alert", "Vital sign record updated successfully!");
+            await LoadVitalSigns();
+            CloseModal();
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Error updating vital sign: {ex.Message}");
+        }
+    }
+
+    private async Task ArchiveVitalSign(int vitalSignId)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to archive this vital sign record?"))
+        {
+            try
+            {
+                var vitalSign = await DbContext.VitalSigns.FindAsync(vitalSignId);
+                if (vitalSign != null)
+                {
+                    vitalSign.IsArchived = true;
+                    vitalSign.ArchivedAt = DateTime.UtcNow;
+                    vitalSign.UpdatedAt = DateTime.UtcNow;
+
+                    DbContext.VitalSigns.Update(vitalSign);
+                    await DbContext.SaveChangesAsync();
+
+                    await JsRuntime.InvokeVoidAsync("alert", "Vital sign record archived successfully!");
+                    await LoadVitalSigns();
+                }
+            }
+            catch (Exception ex)
+            {
+                await JsRuntime.InvokeVoidAsync("alert", $"Error archiving vital sign: {ex.Message}");
+            }
+        }
+    }
+
+    private void CloseModal()
+    {
+        ShowModal = false;
+        SelectedVitalSign = null;
+        IsEditMode = false;
+    }
+
+    private void TogglePagination()
+    {
+        ShowPagination = !ShowPagination;
+    }
+}

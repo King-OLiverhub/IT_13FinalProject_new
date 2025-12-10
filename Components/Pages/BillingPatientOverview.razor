@@ -1,0 +1,294 @@
+@page "/billing-patient-overview"
+@layout Layout.DashboardLayout
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Services
+@inject IPatientBillService BillService
+@inject NavigationManager Navigation
+@inject IJSRuntime JsRuntime
+
+<div class="pm-page">
+    <header class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title">Billing and Invoicing</h1>
+            <p class="dashboard-subtitle">Welcome back Billing Staff!</p>
+        </div>
+
+        <div class="dashboard-user-info">
+            <span class="dashboard-user-email">billing@gmail.com</span>
+            <div class="dashboard-user-avatar">U</div>
+            <span class="dashboard-user-name">Billing staff</span>
+        </div>
+    </header>
+
+    <section class="pm-overview">
+        <div class="pm-overview-header">
+            <h2 class="pm-section-title">Patient Bill Overview</h2>
+            <div class="pm-show-entries">
+                <span>Show</span>
+                <select>
+                    <option>5</option>
+                    <option>10</option>
+                    <option>25</option>
+                </select>
+                <span>entries</span>
+            </div>
+        </div>
+
+        <div class="pm-filters-row">
+            <div class="pm-search-row">
+                <div class="pm-search-box">
+                    <span class="pm-search-icon"></span>
+                    <input class="pm-search-input" placeholder="Search Patient" @bind="SearchTerm" @oninput="SearchBills" />
+                </div>
+
+                <div class="pm-actions">
+                    <button class="activity-action-btn" @onclick="OpenAddBillPanel">+ New Bill</button>
+                    <button class="activity-action-btn" @onclick="LoadBills">Refresh</button>
+                    <button class="activity-action-btn">Sort</button>
+                    <button class="activity-action-btn">Filters</button>
+                    <button class="activity-action-btn" @onclick="() => SetArchiveView(!ShowArchived)">
+                        @(ShowArchived ? "Show Active" : "Show Archived")
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="pm-table-outer">
+            @if (isLoading)
+            {
+                <div class="pm-loading">
+                    <div class="pm-spinner"></div>
+                    <p>Loading bills...</p>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="pm-error">
+                    <p>@errorMessage</p>
+                    <button class="pm-retry-btn" @onclick="LoadBills">Retry</button>
+                </div>
+            }
+            else if (!FilteredBills.Any())
+            {
+                <div class="pm-empty">
+                    <p>No bills found.</p>
+                </div>
+            }
+            else
+            {
+                <div class="pm-table-wrapper">
+                    <table class="pm-table">
+                    <thead>
+                        <tr>
+                            <th>Patient Name<br /><span class="pm-subcol">Email</span></th>
+                            <th class="pm-col-assessment">Assessment Status</th>
+                            <th class="pm-col-date">Date of Visit</th>
+                            <th class="pm-col-amount">Total Amount</th>
+                            <th class="pm-col-status">Payment Status</th>
+                            <th class="pm-col-action">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var bill in Bills)
+                        {
+                            var b = bill;
+                            <tr>
+                                <td>
+                                    <div class="pm-patient-name">@b.PatientName</div>
+                                    <div class="pm-patient-email">@b.PatientEmail</div>
+                                </td>
+                                <td class="pm-col-assessment pm-assessment-status">
+                                    @b.AssessmentStatus
+                                </td>
+                                <td class="pm-col-date">@b.DateOfVisit.ToString("MM/dd/yy")</td>
+                                <td class="pm-col-amount">₱@b.TotalAmount.ToString("F2")</td>
+                                <td class="pm-col-status">
+                                    <span class="pm-status-pill pm-status-@b.StatusKey">
+                                        @b.DisplayStatus
+                                    </span>
+                                </td>
+                                <td class="pm-col-action">
+                                    <div class="pm-actions-grid">
+                                        @if (ShowArchived)
+                                        {
+                                            <button class="pm-restore-btn" @onclick="() => RestoreBill(b.BillId)">Restore</button>
+                                            <button class="pm-delete-btn" @onclick="() => DeleteBill(b.BillId)">Delete</button>
+                                        }
+                                        else
+                                        {
+                                            <button class="pm-edit-btn" @onclick="() => EditBill(b)">Update</button>
+                                            <button class="pm-archive-btn" @onclick="() => ArchiveBill(b.BillId)">Archive</button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        </div>
+
+        <button type="button" class="pm-pagination-toggle" @onclick="TogglePagination" aria-label="Hide or show page buttons">
+            <span>@(ShowPagination ? "›" : "‹")</span>
+        </button>
+
+        @if (ShowPagination)
+        {
+            <div class="pm-pagination">
+                <button class="pm-page-btn">Previous</button>
+                <button class="pm-page-number active">1</button>
+                <button class="pm-page-number">2</button>
+                <button class="pm-page-number">3</button>
+                <span class="pm-page-dots">...</span>
+                <button class="pm-page-number">8</button>
+                <button class="pm-page-btn">Next</button>
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private List<PatientBill> Bills { get; set; } = new();
+    private List<PatientBill> FilteredBills { get; set; } = new();
+    private bool isLoading { get; set; } = true;
+    private string? errorMessage { get; set; }
+
+    private bool ShowPagination { get; set; } = true;
+    private bool ShowArchived { get; set; } = false;
+    private string SearchTerm { get; set; } = string.Empty;
+
+    
+
+    
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBills();
+    }
+
+    private async Task LoadBills()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+            
+            if (ShowArchived)
+            {
+                Bills = (await BillService.GetArchivedAsync()).ToList();
+            }
+            else
+            {
+                Bills = (await BillService.GetActiveAsync()).ToList();
+            }
+            
+            FilteredBills = Bills;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading bills: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private IEnumerable<PatientBill> GetOrderedRows()
+    {
+        return FilteredBills.OrderByDescending(b => b.CreatedAt);
+    }
+
+    private void TogglePagination()
+    {
+        ShowPagination = !ShowPagination;
+    }
+
+    private async Task SearchBills()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(SearchTerm))
+            {
+                FilteredBills = Bills;
+            }
+            else
+            {
+                var searchResults = await BillService.SearchAsync(SearchTerm);
+                FilteredBills = searchResults.Where(b => ShowArchived ? b.IsArchived : !b.IsArchived).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error searching bills: {ex.Message}";
+        }
+    }
+
+    private void OpenAddBillPanel()
+    {
+        Navigation.NavigateTo("/billing-create");
+    }
+
+    private void EditBill(PatientBill bill)
+    {
+        Navigation.NavigateTo($"/billing-edit/{bill.BillId}");
+    }
+
+    private async Task ArchiveBill(int billId)
+    {
+        try
+        {
+            await BillService.ArchiveAsync(billId);
+            await LoadBills();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error archiving bill: {ex.Message}";
+        }
+    }
+
+    private async Task RestoreBill(int billId)
+    {
+        try
+        {
+            await BillService.RestoreAsync(billId);
+            await LoadBills();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error restoring bill: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteBill(int billId)
+    {
+        try
+        {
+            await BillService.DeleteAsync(billId);
+            await LoadBills();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error deleting bill: {ex.Message}";
+        }
+    }
+
+    private async Task SetArchiveView(bool showArchived)
+    {
+        ShowArchived = showArchived;
+        await LoadBills();
+    }
+}
+
+
+
+
+
+
+
+
+
+

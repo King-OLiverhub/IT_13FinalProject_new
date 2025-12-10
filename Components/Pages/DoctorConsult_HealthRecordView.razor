@@ -1,0 +1,239 @@
+@page "/doctor-consultation-view/{consultationId:int}"
+@layout Layout.DashboardLayout
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Data
+@using Microsoft.EntityFrameworkCore
+
+@inject ApplicationDbContext DbContext
+@inject NavigationManager Navigation
+@inject IJSRuntime JsRuntime
+
+<div class="dc-page">
+    <header class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title">HealthRecord Details</h1>
+            <p class="dashboard-subtitle">View consultation information</p>
+        </div>
+
+        <div class="dashboard-user-info">
+            <span class="dashboard-user-email">doctor@gmail.com</span>
+            <div class="dashboard-user-avatar">👤</div>
+            <span class="dashboard-user-name">Clinical</span>
+        </div>
+    </header>
+
+    @if (IsLoading)
+    {
+        <div style="text-align: center; padding: 2rem;">
+            <div>Loading consultation details...</div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div style="text-align: center; padding: 2rem;">
+            <div style="color: red;">Error: @ErrorMessage</div>
+            <button class="pm-back-btn" @onclick="GoBack" style="margin-top: 1rem;">Back</button>
+        </div>
+    }
+    else if (HealthRecord != null)
+    {
+        <section class="dc-card">
+            <div class="dc-header-row">
+                <div class="dc-title-wrap">
+                    <span class="dc-title-icon">👤</span>
+                    <h2 class="dc-title">HealthRecord Details</h2>
+                </div>
+                <div class="dc-actions">
+                    <button class="dc-back-btn" @onclick="GoBack">Back</button>
+                    <button class="pm-edit-btn" @onclick="EditHealthRecord">
+                        <span class="pm-edit-icon"></span>
+                        <span class="pm-btn-text">Edit</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="dc-patient-info">
+                <h3>Patient Information</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <strong>Name:</strong> @(HealthRecord.Patient?.FirstName + " " + HealthRecord.Patient?.LastName ?? "Unknown")
+                    </div>
+                    <div class="info-item">
+                        <strong>Email:</strong> @(HealthRecord.Patient?.Email ?? "No email")
+                    </div>
+                    <div class="info-item">
+                        <strong>Date of Visit:</strong> @(HealthRecord.RecordDate?.ToString("MM/dd/yyyy") ?? "N/A")
+                    </div>
+                    <div class="info-item">
+                        <strong>Visit Status:</strong> @(HealthRecord.VisitStatus ?? "New")
+                    </div>
+                </div>
+            </div>
+
+            <div class="dc-grid">
+                <!-- Clinical Findings -->
+                <div class="dc-column">
+                    <h3 class="dc-section-title">Clinical Findings</h3>
+
+                    <div class="dc-field-view">
+                        <span class="dc-label">Subjective Findings</span>
+                        <div class="dc-value">@(HealthRecord.SubjectiveFindings ?? "Not specified")</div>
+                    </div>
+
+                    <div class="dc-field-view">
+                        <span class="dc-label">Objective Findings</span>
+                        <div class="dc-value">@(HealthRecord.ObjectiveFindings ?? "Not specified")</div>
+                    </div>
+
+                    <div class="dc-field-view">
+                        <span class="dc-label">Assessment / Diagnosis</span>
+                        <div class="dc-value">@(HealthRecord.AssessmentDiagnosis ?? "Not specified")</div>
+                    </div>
+
+                    <div class="dc-field-view">
+                        <span class="dc-label">ICD-10 Code</span>
+                        <div class="dc-value">@(HealthRecord.Icd10Code ?? "Not specified")</div>
+                    </div>
+
+                    <div class="dc-field-view">
+                        <span class="dc-label">Additional Tests Order</span>
+                        <div class="dc-value">@(HealthRecord.AdditionalTestsOrder ?? "Not specified")</div>
+                    </div>
+
+                    <div class="dc-field-view">
+                        <span class="dc-label">Doctor's Remarks (Notes)</span>
+                        <div class="dc-value">@(HealthRecord.DoctorRemarks ?? "Not specified")</div>
+                    </div>
+
+                    <div class="dc-field-view">
+                        <span class="dc-label">Nurse Remarks (Notes)</span>
+                        <div class="dc-value">@(HealthRecord.NurseRemarks ?? "Not specified")</div>
+                    </div>
+
+                    <div class="dc-field-view">
+                        <span class="dc-label">Recommendation (Notes)</span>
+                        <div class="dc-value">@(HealthRecord.Recommendations ?? "Not specified")</div>
+                    </div>
+                </div>
+
+                <!-- Treatment / Prescription -->
+                <div class="dc-column">
+                    <h3 class="dc-section-title">Treatment / Prescription</h3>
+
+                    <div class="dc-field-view">
+                        <span class="dc-label">Medicine Name</span>
+                        <div class="dc-value">@(HealthRecord.MedicineName ?? "Not specified")</div>
+                    </div>
+
+                    <div class="dc-field-view">
+                        <span class="dc-label">Dosage</span>
+                        <div class="dc-value">@(HealthRecord.Dosage ?? "Not specified")</div>
+                    </div>
+
+                    <div class="dc-field-view">
+                        <span class="dc-label">Frequency</span>
+                        <div class="dc-value">@(HealthRecord.Frequency ?? "Not specified")</div>
+                    </div>
+
+                    <div class="dc-field-view">
+                        <span class="dc-label">Duration</span>
+                        <div class="dc-value">@(HealthRecord.Duration ?? "Not specified")</div>
+                    </div>
+
+                    <div class="dc-field-view">
+                        <span class="dc-label">Notes / Special Instructions</span>
+                        <div class="dc-value">@(HealthRecord.SpecialInstructions ?? "Not specified")</div>
+                    </div>
+
+                    <h3 class="dc-section-title dc-section-title-spaced">Follow-up &amp; Outcome</h3>
+
+                    <div class="dc-field-view">
+                        <span class="dc-label">Follow-up Date</span>
+                        <div class="dc-value">@(HealthRecord.FollowUpDate?.ToString("MM/dd/yyyy") ?? "Not specified")</div>
+                    </div>
+
+                    <div class="dc-field-view">
+                        <span class="dc-label">Visit Status</span>
+                        <div class="dc-value">@(HealthRecord.VisitStatus ?? "Not specified")</div>
+                    </div>
+
+                    <h3 class="dc-section-title dc-section-title-spaced">Doctor Approval</h3>
+
+                    <div class="dc-field-view">
+                        <span class="dc-label">Electronic Signature / Name</span>
+                        <div class="dc-value">@(HealthRecord.DoctorSignature ?? "Not specified")</div>
+                    </div>
+
+                    <div class="dc-field-view">
+                        <span class="dc-label">Date Approved</span>
+                        <div class="dc-value">@(HealthRecord.ApprovalDate?.ToString("MM/dd/yyyy") ?? "Not specified")</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dc-notes-section">
+                <div class="dc-field-view">
+                    <span class="dc-label">Doctors Initial Remarks</span>
+                    <div class="dc-value">@(HealthRecord.DoctorInitialRemarks ?? "Not specified")</div>
+                </div>
+            </div>
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int consultationId { get; set; }
+    
+    private Models.HealthRecord HealthRecord { get; set; } = new Models.HealthRecord();
+    private bool IsLoading { get; set; } = true;
+    private string ErrorMessage { get; set; } = "";
+    
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadHealthRecord();
+    }
+    
+    private async Task LoadHealthRecord()
+    {
+        try
+        {
+            IsLoading = true;
+            ErrorMessage = "";
+            StateHasChanged();
+            
+            HealthRecord = await DbContext.HealthRecords
+                .Include(c => c.Patient)
+                .FirstOrDefaultAsync(c => c.RecordId == consultationId) ?? new Models.HealthRecord();
+                
+            if (HealthRecord == null)
+            {
+                ErrorMessage = "HealthRecord not found.";
+                await JsRuntime.InvokeVoidAsync("alert", ErrorMessage);
+                Navigation.NavigateTo("/doctor-health-records");
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error loading consultation: {ex.Message}";
+            await JsRuntime.InvokeVoidAsync("alert", ErrorMessage);
+            Navigation.NavigateTo("/doctor-health-records");
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+    
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/doctor-health-records");
+    }
+    
+    private void EditHealthRecord()
+    {
+        Navigation.NavigateTo($"/doctor-consultation-edit/{consultationId}");
+    }
+}

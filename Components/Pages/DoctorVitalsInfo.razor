@@ -1,0 +1,290 @@
+@page "/doctor-vitals-info"
+@page "/doctor-vitals-info/{patientId}"
+@layout Layout.DashboardLayout
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Data
+@using Microsoft.EntityFrameworkCore
+
+@inject ApplicationDbContext DbContext
+@inject NavigationManager Navigation
+@inject IJSRuntime JsRuntime
+
+<div class="nv-page">
+    <header class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title">Patient Management</h1>
+            <p class="dashboard-subtitle">Vital Sign Information</p>
+        </div>
+
+        <div class="dashboard-user-info">
+            <span class="dashboard-user-email">doctor@gmail.com</span>
+            <div class="dashboard-user-avatar">👤</div>
+            <span class="dashboard-user-name">Clinical</span>
+        </div>
+    </header>
+
+    <section class="nv-form-card">
+        @if (IsLoading)
+        {
+            <div style="text-align: center; padding: 2rem;">
+                <div>Loading vital signs...</div>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <div style="text-align: center; padding: 2rem;">
+                <div style="color: red;">Error: @ErrorMessage</div>
+                <button class="nv-back-btn" @onclick="LoadVitalSigns" style="margin-top: 1rem;">Retry</button>
+            </div>
+        }
+        else if (vitalSign == null)
+        {
+            <div style="text-align: center; padding: 2rem;">
+                <div>No vital signs record found for this patient.</div>
+                <p style="margin-top: 1rem; color: #666;">
+                    Please ask the nurse to create vital signs for this patient first.
+                </p>
+            </div>
+        }
+        else
+        {
+        <div class="nv-form-header-row">
+            <div class="nv-form-title-wrap">
+                <span class="nv-form-icon">👤</span>
+                <h2 class="nv-form-title">Vital Sign Information</h2>
+            </div>
+        </div>
+
+        <div class="nv-form-grid">
+            <div class="nv-form-column">
+                <h3 class="nv-column-title">Medical History</h3>
+
+                <label class="nv-field">
+                    <span class="nv-label">Allergies</span>
+                    <input class="nv-input" readonly value="@vitalSign?.Allergies" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Past Illnesses</span>
+                    <input class="nv-input" readonly value="@vitalSign?.PastIllnesses" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Past Surgeries</span>
+                    <input class="nv-input" readonly value="@vitalSign?.PastSurgeries" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Current Medications</span>
+                    <input class="nv-input" readonly value="@vitalSign?.CurrentMedications" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Family History of Illnesses</span>
+                    <input class="nv-input" readonly value="@vitalSign?.FamilyHistory" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Immunization History (optional)</span>
+                    <input class="nv-input" readonly value="@vitalSign?.ImmunizationHistory" />
+                </label>
+            </div>
+
+            <div class="nv-form-column">
+                <h3 class="nv-column-title">Vital Signs</h3>
+
+                <label class="nv-field">
+                    <span class="nv-label">Blood Pressure</span>
+                    <input class="nv-input" readonly value="@vitalSign?.BloodPressure" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Heart Rate / Pulse Rate</span>
+                    <input class="nv-input" readonly value="@vitalSign?.HeartRate" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Respiratory Rate</span>
+                    <input class="nv-input" readonly value="@vitalSign?.RespiratoryRate" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Temperature</span>
+                    <input class="nv-input" readonly value="@vitalSign?.Temperature" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Oxygen Saturation (SpO₂)</span>
+                    <input class="nv-input" readonly value="@vitalSign?.OxygenSaturation" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Weight</span>
+                    <input class="nv-input" readonly value="@vitalSign?.Weight" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Height</span>
+                    <input class="nv-input" readonly value="@vitalSign?.Height" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Body Mass Index</span>
+                    <input class="nv-input" readonly value="@vitalSign?.BodyMassIndex" />
+                </label>
+            </div>
+
+            <div class="nv-form-column">
+                <h3 class="nv-column-title">Current Visit Details</h3>
+
+                <label class="nv-field">
+                    <span class="nv-label">Doctor's Name Assisted</span>
+                    <input class="nv-input" readonly value="@vitalSign?.DoctorAssisted" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Nurse Name</span>
+                    <input class="nv-input" readonly value="@vitalSign?.NurseName" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Date of Visit / Consultation</span>
+                    <input class="nv-input" readonly value="@(vitalSign?.RecordedDate.ToString("MM/dd/yyyy"))" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Time In/out</span>
+                    <input class="nv-input" readonly value="@vitalSign?.TimeInOut" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Department / Clinic Assigned</span>
+                    <input class="nv-input" readonly value="@vitalSign?.Department" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Type of Visit (New / Follow-up)</span>
+                    <input class="nv-input" readonly value="@vitalSign?.TypeOfVisit" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Chief Complaint</span>
+                    <input class="nv-input" readonly value="@vitalSign?.ChiefComplaint" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Duration of Symptoms</span>
+                    <input class="nv-input" readonly value="@vitalSign?.DurationSymptoms" />
+                </label>
+            </div>
+        </div>
+
+        <div class="nv-notes-section">
+            <label class="nv-field">
+                <span class="nv-label">Nurse Initial Remarks / Notes</span>
+                <textarea class="nv-textarea" readonly>@vitalSign?.Remarks</textarea>
+            </label>
+        </div>
+
+        <div class="nv-actions nv-actions--single">
+            <button class="nv-back-btn" @onclick="GoBack">Back</button>
+        </div>
+        }
+    </section>
+</div>
+
+@code {
+    [Parameter]
+    public string? PatientId { get; set; }
+
+    private VitalSign? vitalSign;
+    private bool IsLoading = true;
+    private string ErrorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadVitalSigns();
+    }
+
+    private async Task LoadVitalSigns()
+    {
+        try
+        {
+            IsLoading = true;
+            ErrorMessage = "";
+            StateHasChanged();
+
+            // Get patient ID from parameter or query string
+            int patientId = 0;
+            if (!string.IsNullOrEmpty(PatientId))
+            {
+                patientId = int.Parse(PatientId);
+                Console.WriteLine($"Patient ID from parameter: {patientId}");
+            }
+            else
+            {
+                // Try to get from query string
+                var uri = new Uri(Navigation.Uri);
+                var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+                var patientIdParam = query["patientId"];
+                if (!string.IsNullOrEmpty(patientIdParam))
+                {
+                    patientId = int.Parse(patientIdParam);
+                    Console.WriteLine($"Patient ID from query string: {patientId}");
+                }
+            }
+
+            Console.WriteLine($"Final Patient ID: {patientId}");
+            Console.WriteLine($"Navigation URI: {Navigation.Uri}");
+
+            if (patientId > 0)
+            {
+                // Get the most recent vital signs record for this patient
+                vitalSign = await DbContext.VitalSigns
+                    .Include(vs => vs.Patient)
+                    .Where(vs => vs.PatientId == patientId && !vs.IsArchived)
+                    .OrderByDescending(vs => vs.RecordedDate)
+                    .FirstOrDefaultAsync();
+
+                Console.WriteLine($"VitalSign found: {vitalSign != null}");
+                if (vitalSign != null)
+                {
+                    Console.WriteLine($"VitalSign ID: {vitalSign.VitalSignId}");
+                    Console.WriteLine($"Blood Pressure: {vitalSign.BloodPressure}");
+                    Console.WriteLine($"Patient Name: {vitalSign.Patient?.FirstName} {vitalSign.Patient?.LastName}");
+                }
+            }
+            else
+            {
+                ErrorMessage = "No patient ID provided";
+                Console.WriteLine("No patient ID provided");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading vital signs: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            ErrorMessage = $"Error loading vital signs: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/doctor-patient-list");
+    }
+}
+
+
+
+
+
+
+
+
+
+

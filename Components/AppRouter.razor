@@ -1,0 +1,468 @@
+@using IT_13FinalProject.Components.Pages
+@using IT_13FinalProject.Components.Layout
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Routing
+@inject NavigationManager Navigation
+
+@code {
+    private string _currentPath = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        _currentPath = GetCurrentPath();
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        _currentPath = GetCurrentPath();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private string GetCurrentPath()
+    {
+        var relative = Navigation.ToBaseRelativePath(Navigation.Uri);
+
+        // Strip query string and fragment so routes with parameters (e.g. "billing-dashboard?view=overview")
+        // still match the base path ("billing-dashboard") in the routing table below.
+        var pathOnly = relative.Split('?', '#')[0];
+
+        return pathOnly.Trim('/').ToLowerInvariant();
+    }
+}
+
+@* Simple router: decide which page component to render based on the current path.
+   Layouts (DashboardLayout, etc.) are still controlled by each page via @layout,
+   so we do NOT wrap them here. *@
+
+@{
+    var path = _currentPath;
+}
+
+@if (string.IsNullOrEmpty(path) || path == "" || path == "login")
+{
+    <Login />
+}
+else if (path == "admin-dashboard")
+{
+    <DashboardLayout>
+        <AdminDashboard />
+    </DashboardLayout>
+}
+else if (path == "nurse-dashboard")
+{
+    <DashboardLayout>
+        <NurseDashboard />
+    </DashboardLayout>
+}
+else if (path == "doctor-dashboard")
+{
+    <DashboardLayout>
+        <DoctorDashboard />
+    </DashboardLayout>
+}
+else if (path == "billing-dashboard")
+{
+    <DashboardLayout>
+        <BillingDashboard />
+    </DashboardLayout>
+}
+else if (path == "billing-patient-overview")
+{
+    <DashboardLayout>
+        <BillingPatientOverview />
+    </DashboardLayout>
+}
+else if (path == "billing-create")
+{
+    <DashboardLayout>
+        <BillingCreate />
+    </DashboardLayout>
+}
+else if (path.StartsWith("billing-view/"))
+{
+    <DashboardLayout>
+        <BillingView />
+    </DashboardLayout>
+}
+else if (path.StartsWith("billing-edit/"))
+{
+    <DashboardLayout>
+        <BillingEdit />
+    </DashboardLayout>
+}
+else if (path == "billing-computation")
+{
+    <DashboardLayout>
+        <BillingComputation />
+    </DashboardLayout>
+}
+else if (path == "billing-insurance-claims")
+{
+    <DashboardLayout>
+        <BillingInsuranceClaims />
+    </DashboardLayout>
+}
+else if (path == "billing-reports")
+{
+    <DashboardLayout>
+        <BillingReports />
+    </DashboardLayout>
+}
+else if (path == "billing-insurance-request")
+{
+    <DashboardLayout>
+        <BillingInsuranceRequest />
+    </DashboardLayout>
+}
+else if (path == "admin-insurance-claims")
+{
+    <DashboardLayout>
+        <AdminInsuranceClaims />
+    </DashboardLayout>
+}
+else if (path == "billing-cashiering")
+{
+    <DashboardLayout>
+        <BillingCashiering />
+    </DashboardLayout>
+}
+else if (path == "billing-reports")
+{
+    <DashboardLayout>
+        <BillingReports />
+    </DashboardLayout>
+}
+else if (path == "inventory-dashboard")
+{
+    <DashboardLayout>
+        <InventoryDashboard />
+    </DashboardLayout>
+}
+else if (path == "inventory-prescriptions")
+{
+    <DashboardLayout>
+        <InventoryPrescriptions />
+    </DashboardLayout>
+}
+else if (path == "inventory-reports")
+{
+    <DashboardLayout>
+        <InventoryReports />
+    </DashboardLayout>
+}
+else if (path == "pharmacy-inventory")
+{
+    <DashboardLayout>
+        <PharmacyInventory />
+    </DashboardLayout>
+}
+else if (path == "inventory-reports")
+{
+    <DashboardLayout>
+        <InventoryReports />
+    </DashboardLayout>
+}
+else if (path == "admin-pharmacy-inventory")
+{
+    <DashboardLayout>
+        <AdminPharmacyInventory />
+    </DashboardLayout>
+}
+else if (path == "admin-reports-analytics")
+{
+    <DashboardLayout>
+        <AdminReportsAnalytics />
+    </DashboardLayout>
+}
+else if (path == "admin-patient-management")
+{
+    <DashboardLayout>
+        <AdminPatientManagement />
+    </DashboardLayout>
+}
+else if (path == "doctor-patient-list")
+{
+    <DashboardLayout>
+        <DoctorPatientList />
+    </DashboardLayout>
+}
+else if (path == "admin-health-records")
+{
+    <DashboardLayout>
+        <AdminHealthRecords />
+    </DashboardLayout>
+}
+else if (path == "admin-invoicing-overview")
+{
+    <DashboardLayout>
+        <AdminInvoicingOverview />
+    </DashboardLayout>
+}
+else if (path == "admin-receipts-overview")
+{
+    <DashboardLayout>
+        <AdminReceiptsOverview />
+    </DashboardLayout>
+}
+else if (path == "admin-invoice-pdf")
+{
+    <DashboardLayout>
+        <AdminInvoicePdf />
+    </DashboardLayout>
+}
+else if (path == "admin-receipt-pdf")
+{
+    <DashboardLayout>
+        <AdminReceiptPdf />
+    </DashboardLayout>
+}
+else if (path == "receipt-pdf")
+{
+    <DashboardLayout>
+        <ReceiptPdf />
+    </DashboardLayout>
+}
+else if (path == "nurse-patient-list")
+{
+    <DashboardLayout>
+        <NursePatientList />
+    </DashboardLayout>
+}
+else if (path == "nurse-vitals-list")
+{
+    <DashboardLayout>
+        <NurseVitalsList />
+    </DashboardLayout>
+}
+else if (path == "vital-sign-records")
+{
+    <DashboardLayout>
+        <VitalSignRecords />
+    </DashboardLayout>
+}
+else if (path == "nurse-vitals")
+{
+    <DashboardLayout>
+        <NurseVitalsForm />
+    </DashboardLayout>
+}
+else if (path.StartsWith("nurse-vitals-view/"))
+{
+    var id = path.Substring("nurse-vitals-view/".Length);
+    <DashboardLayout>
+        <NurseVitalsView VitalSignId="@id" />
+    </DashboardLayout>
+}
+else if (path.StartsWith("nurse-vitals-edit/"))
+{
+    var id = path.Substring("nurse-vitals-edit/".Length);
+    <DashboardLayout>
+        <NurseVitalsEdit VitalSignId="@id" />
+    </DashboardLayout>
+}
+else if (path == "nurse-vitals-edit")
+{
+    <DashboardLayout>
+        <NurseVitalsEdit />
+    </DashboardLayout>
+}
+else if (path == "nurse-reports")
+{
+    <DashboardLayout>
+        <NurseReports />
+    </DashboardLayout>
+}
+else if (path == "nurse-notes")
+{
+    <DashboardLayout>
+        <NurseNotes />
+    </DashboardLayout>
+}
+else if (path == "patient-profile")
+{
+    <DashboardLayout>
+        <PatientProfile />
+    </DashboardLayout>
+}
+else if (path == "doctor-patient-profile")
+{
+    <DashboardLayout>
+        <PatientProfile />
+    </DashboardLayout>
+}
+else if (path == "doctor-vitals-info")
+{
+    <DashboardLayout>
+        <DoctorVitalsInfo />
+    </DashboardLayout>
+}
+else if (path.StartsWith("doctor-vitals-info/"))
+{
+    var patientId = path.Substring("doctor-vitals-info/".Length);
+    <DashboardLayout>
+        <DoctorVitalsInfo PatientId="@patientId" />
+    </DashboardLayout>
+}
+else if (path == "doctor-consultation")
+{
+    <DashboardLayout>
+        <DoctorConsultForm_PatientList />
+    </DashboardLayout>
+}
+else if (path == "doctor-consultation-edit")
+{
+    <DashboardLayout>
+        <DoctorConsultEdit />
+    </DashboardLayout>
+}
+else if (path.StartsWith("doctor-consultation-view/"))
+{
+    var idString = path.Substring("doctor-consultation-view/".Length);
+    if (int.TryParse(idString, out int id))
+    {
+        <DashboardLayout>
+            <DoctorConsult_HealthRecordView ConsultationId="@id" />
+        </DashboardLayout>
+    }
+    else
+    {
+        <Login />
+    }
+}
+else if (path == "doctor-health-records")
+{
+    <DashboardLayout>
+        <DoctorHealthRecordList />
+    </DashboardLayout>
+}
+else if (path == "doctor-prescriptions")
+{
+    <DashboardLayout>
+        <DoctorPrescriptions />
+    </DashboardLayout>
+}
+else if (path == "doctor-appointments")
+{
+    <DashboardLayout>
+        <DoctorAppointments />
+    </DashboardLayout>
+}
+else if (path == "doctor-lab-results")
+{
+    <DashboardLayout>
+        <DoctorLabResults />
+    </DashboardLayout>
+}
+else if (path == "doctor-reports")
+{
+    <DashboardLayout>
+        <DoctorReports />
+    </DashboardLayout>
+}
+else if (path.StartsWith("admin-patient-records/"))
+{
+    var id = path.Substring("admin-patient-records/".Length);
+    <DashboardLayout>
+        <AdminPatientRecords Id="@id" />
+    </DashboardLayout>
+}
+else if (path == "admin-patient-records")
+{
+    <DashboardLayout>
+        <AdminPatientRecords Id="" />
+    </DashboardLayout>
+}
+else if (path == "admin-patient-ehr-print")
+{
+    <DashboardLayout>
+        <AdminPatient_HRPrint />
+    </DashboardLayout>
+}
+// Handle user profile routes with role parameter
+else if (path.StartsWith("user-profile/role/"))
+{
+    var role = path.Substring("user-profile/role/".Length);
+    if (!string.IsNullOrEmpty(role))
+    {
+        // Format the role name correctly
+        string roleName = char.ToUpper(role[0]) + role.Substring(1).ToLower();
+        string baseRoute = $"/{role.ToLower()}-dashboard";
+        
+        <DashboardLayout BaseRoute="@baseRoute">
+            <UserProfile Role="@roleName" />
+        </DashboardLayout>
+    }
+    else
+    {
+        <Login />
+    }
+}
+// Handle all user profile routes with role prefixes
+else if (path == "user-profile" || 
+         path == "doctor-user-profile" || 
+         path == "nurse-user-profile" || 
+         path == "billing-user-profile" || 
+         path == "inventory-user-profile" ||
+         path.StartsWith("user-profile/role/"))
+{
+    // Extract the role name and determine the correct layout
+    string roleName;
+    string baseRoute = "/";
+    
+    if (path == "user-profile")
+    {
+        roleName = "Admin";
+        baseRoute = "/";
+    }
+    else if (path.StartsWith("user-profile/role/"))
+    {
+        // Extract role from /user-profile/role/{role}
+        var roleFromPath = path.Substring("user-profile/role/".Length);
+        roleName = char.ToUpper(roleFromPath[0]) + roleFromPath.Substring(1).ToLower();
+        baseRoute = $"/{roleFromPath.ToLower()}-dashboard";
+    }
+    else
+    {
+        // Get the role from the path and format it correctly
+        var rolePart = path.Split('-')[0];
+        roleName = char.ToUpper(rolePart[0]) + rolePart.Substring(1).ToLower();
+        // Set base route to the role's dashboard
+        baseRoute = $"/{rolePart.ToLower()}-dashboard";
+    }
+    
+    // Create a new instance of DashboardLayout with the correct BaseRoute
+    <DashboardLayout BaseRoute="@baseRoute">
+        <UserProfile Role="@roleName" />
+    </DashboardLayout>
+}
+else if (path == "roles-permissions")
+{
+    <DashboardLayout>
+        <RolePermission />
+    </DashboardLayout>
+}
+else if (path == "admin-audit-logs")
+{
+    <DashboardLayout>
+        <AdminAuditLogs />
+    </DashboardLayout>
+}
+else if (path == "syncmanagement")
+{
+    <DashboardLayout>
+        <SyncManagement />
+    </DashboardLayout>
+}
+else if (path == "forgot-password")
+{
+    <ForgotPassword />
+}
+else if (path == "create-account")
+{
+    <CreateAccount />
+}
+else
+{
+    <Login />
+}

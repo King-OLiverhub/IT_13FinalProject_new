@@ -1,0 +1,864 @@
+@page "/pharmacy-inventory"
+@layout Layout.DashboardLayout
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Data
+@using Microsoft.EntityFrameworkCore
+
+@inject ApplicationDbContext DbContext
+@inject LocalDbContext LocalDbContext
+@inject SyncService SyncService
+@inject NavigationManager Navigation
+@inject IJSRuntime JsRuntime
+
+<div class="dashboard-page">
+    <header class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title">Pharmacy Inventory</h1>
+            <p class="dashboard-subtitle">Welcome back Pharmacist Staff!</p>
+        </div>
+
+        <div class="dashboard-user-info">
+            <span class="dashboard-user-email">inventory@gmail.com</span>
+            <div class="dashboard-user-avatar">👤</div>
+            <span class="dashboard-user-name">Pharmacist</span>
+        </div>
+    </header>
+
+    <section class="pi-overview">
+        <div class="pi-overview-header">
+            <h2 class="pi-section-title">Stocks Overview</h2>
+            <div class="pi-show-entries">
+                <span>Show</span>
+                <select>
+                    <option>5</option>
+                    <option>10</option>
+                    <option>25</option>
+                </select>
+                <span>entries</span>
+            </div>
+        </div>
+
+        <div class="pi-filters-row">
+            <div class="pi-alpha-filter">
+                <button class="pi-filter-pill @(ShowArchived ? "" : "active")" @onclick="() => SetArchiveView(false)">Active Records</button>
+                <button class="pi-filter-pill @(ShowArchived ? "active" : "")" @onclick="() => SetArchiveView(true)">Archived Records</button>
+
+                @if (ShowLetters)
+                {
+                    @foreach (var letter in Alphabet)
+                    {
+                        <button class="pi-filter-pill @("")"
+                                >@letter</button>
+                    }
+                }
+            </div>
+
+            <div class="pi-search-row">
+                <div class="pi-search-box">
+                    <span class="pi-search-icon"></span>
+                    <input class="pi-search-input" placeholder="Search Medicine" />
+                </div>
+
+                <div class="pi-actions">
+                    <button class="pi-action-btn">Sort</button>
+                    <button class="pi-action-btn">Filters</button>
+                    <button class="pi-stock-btn" @onclick="OpenAddItemPanel">+ Stocks</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="pi-table-outer">
+            <div class="pi-table-wrapper">
+                <table class="pi-table">
+                    <thead>
+                        <tr>
+                            <th class="pi-col-name">Item Name</th>
+                            <th class="pi-col-category">Category</th>
+                            <th class="pi-col-stock">Stock</th>
+                            <th class="pi-col-price">Price</th>
+                            <th class="pi-col-exp">Expiration Date</th>
+                            <th class="pi-col-status">Status</th>
+                            <th class="pi-col-actions pi-actions-header">@(ShowArchived ? "Archive Actions" : "Actions")</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (IsLoading)
+                        {
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 2rem;">
+                                    <div>Loading inventory...</div>
+                                </td>
+                            </tr>
+                        }
+                        else if (!string.IsNullOrEmpty(ErrorMessage))
+                        {
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 2rem;">
+                                    <div style="color: red;">Error: @ErrorMessage</div>
+                                    <button class="pi-add-cancel" @onclick="LoadInventory" style="margin-top: 1rem;">Retry</button>
+                                </td>
+                            </tr>
+                        }
+                        else if (InventoryItems.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 2rem;">
+                                    <div>No inventory items found.</div>
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var item in InventoryItems)
+                            {
+                                <tr>
+                                    <td class="pi-col-name">@item.ItemName</td>
+                                    <td class="pi-col-category">@item.Category</td>
+                                    <td class="pi-col-stock">@item.StockQuantity</td>
+                                    <td class="pi-col-price">₱@item.UnitPrice.ToString("F2")</td>
+                                    <td class="pi-col-exp">@(item.ExpiryDate?.ToString("MM/dd/yy") ?? "N/A")</td>
+                                    <td class="pi-col-status">
+                                        <span class="pi-status-pill pi-status-@item.StatusKey">
+                                            <span class="pi-status-dot"></span>
+                                            <span>@item.Status</span>
+                                        </span>
+                                    </td>
+                                    <td class="pi-actions-cell">
+                                        <div class="pi-actions-grid">
+                                            @if (ShowArchived)
+                                            {
+                                                <button type="button" class="pi-restore-btn" aria-label="Restore item" @onclick="() => RestoreItem(item.InventoryId)">
+                                                    <span class="pi-restore-icon">↩️</span>
+                                                </button>
+                                                <button type="button" class="pi-delete-btn" aria-label="Delete item permanently" @onclick="() => DeleteItem(item.InventoryId)">
+                                                    <span class="pi-delete-icon">🗑️</span>
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button type="button" class="pi-edit-btn" aria-label="Edit stock" @onclick="() => OpenEditItemPanel(item)">
+                                                    <span class="pi-edit-icon">✏️</span>
+                                                </button>
+                                                <button type="button" class="pi-inout-btn" aria-label="Stock in" @onclick="() => OpenStockInPanel(item)">
+                                                    <span class="pi-in-icon">+</span>
+                                                </button>
+                                                <button type="button" class="pi-inout-btn" aria-label="Stock out" @onclick="() => OpenStockOutPanel(item)">
+                                                    <span class="pi-out-icon">-</span>
+                                                </button>
+                                                <button type="button" class="pi-archive-btn" aria-label="Archive item" @onclick="() => ArchiveItem(item.InventoryId)">
+                                                    <span class="pi-archive-icon">📁</span>
+                                                </button>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <button type="button" class="pi-pagination-toggle" @onclick="TogglePagination" aria-label="Hide or show page buttons">
+            <span>@(ShowPagination ? "›" : "‹")</span>
+        </button>
+
+        @if (ShowPagination)
+        {
+            <div class="pi-pagination">
+                <button class="pi-page-btn">Previous</button>
+                <button class="pi-page-number active">1</button>
+                <button class="pi-page-number">2</button>
+                <button class="pi-page-number">3</button>
+                <span class="pi-page-dots">...</span>
+                <button class="pi-page-number">8</button>
+                <button class="pi-page-btn">Next</button>
+            </div>
+        }
+    </section>
+
+    @if (ShowAddItemPanel)
+    {
+        <div class="pi-add-overlay">
+            <div class="pi-add-panel">
+                <h2 class="pi-add-title">Add inventory Item</h2>
+
+                <div class="pi-add-section">
+                    <h3 class="pi-add-section-title">Basic Information</h3>
+                    <div class="pi-add-grid">
+                        <div class="pi-add-field">
+                            <label>Item Name:</label>
+                            <input @bind="NewItem.ItemName" />
+                        </div>
+                        <div class="pi-add-field">
+                            <label>Generic Name:</label>
+                            <input @bind="NewItem.GenericName" />
+                        </div>
+                        <div class="pi-add-field">
+                            <label>Brand Name:</label>
+                            <input @bind="NewItem.BrandName" />
+                        </div>
+                        <div class="pi-add-field">
+                            <label>Category:</label>
+                            <select @bind="NewItem.Category">
+                                <option value="">-- Select category --</option>
+                                <option>Medication</option>
+                                <option>Vaccines</option>
+                                <option>IV Fluids</option>
+                                <option>Injectables</option>
+                                <option>Topicals / Ointments</option>
+                                <option>Supplements / Vitamins</option>
+                                <option>Medical Supplies</option>
+                                <option>Laboratory Reagents</option>
+                                <option>Other</option>
+                            </select>
+                        </div>
+                        <div class="pi-add-field pi-add-field-full">
+                            <label>Description:</label>
+                            <input @bind="NewItem.Description" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pi-add-section">
+                    <h3 class="pi-add-section-title">Inventory Details</h3>
+                    <div class="pi-add-grid">
+                        <div class="pi-add-field">
+                            <label>Stock Quantity:</label>
+                            <input @bind="NewItem.StockQuantity" type="number" />
+                        </div>
+                        <div class="pi-add-field">
+                            <label>Reorder Level:</label>
+                            <input @bind="NewItem.ReorderLevel" type="number" />
+                        </div>
+                        <div class="pi-add-field">
+                            <label>Unit:</label>
+                            <select @bind="NewItem.Unit">
+                                <option value="">-- Select unit --</option>
+                                <option>Tablet(s)</option>
+                                <option>Capsule(s)</option>
+                                <option>Vial(s)</option>
+                                <option>Ampoule(s)</option>
+                                <option>Bottle(s)</option>
+                                <option>mL</option>
+                                <option>L</option>
+                                <option>Tube(s)</option>
+                                <option>Pack(s)</option>
+                                <option>Box(es)</option>
+                            </select>
+                        </div>
+                        <div class="pi-add-field">
+                            <label>Unit Price:</label>
+                            <div class="pi-add-price">
+                                <span>₱</span>
+                                <input @bind="NewItem.UnitPrice" type="number" step="0.01" />
+                            </div>
+                        </div>
+                        <div class="pi-add-field">
+                            <label>Expiry Date:</label>
+                            <input type="date" @bind="NewItem.ExpiryDate" />
+                        </div>
+                        <div class="pi-add-field">
+                            <label>Batch Number:</label>
+                            <input @bind="NewItem.BatchNumber" />
+                        </div>
+                        <div class="pi-add-field pi-add-field-full">
+                            <label>Supplier:</label>
+                            <input @bind="NewItem.Supplier" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pi-add-section">
+                    <h3 class="pi-add-section-title">Inventory Details</h3>
+                    <div class="pi-add-grid">
+                        <div class="pi-add-field pi-add-field-full">
+                            <label>Storage Requirements:</label>
+                            <select @bind="NewItem.StorageRequirements">
+                                <option>Room temperature</option>
+                                <option>Refrigerated (2°C – 8°C)</option>
+                                <option>Frozen (&lt; -15°C)</option>
+                                <option>Protect from light</option>
+                                <option>Keep in original container</option>
+                            </select>
+                        </div>
+                        <div class="pi-add-field pi-add-field-full">
+                            <label>Prescription Required:</label>
+                            <div class="pi-add-radio-row">
+                                <label><input type="radio" name="rxRequired" @bind="NewItem.PrescriptionRequired" /> Yes</label>
+                                <label><input type="radio" name="rxRequired" @bind="NewItem.PrescriptionRequired" /> No</label>
+                            </div>
+                        </div>
+                        <div class="pi-add-field pi-add-field-full">
+                            <label>Barcode:</label>
+                            <input @bind="NewItem.Barcode" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pi-add-actions">
+                    <button type="button" class="pi-add-cancel" @onclick="CloseAddItemPanel">Cancel</button>
+                    <button type="button" class="pi-add-save" @onclick="AddItem">Save</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (ShowEditItemPanel)
+    {
+        <div class="pi-add-overlay">
+            <div class="pi-edit-panel">
+                <h2 class="pi-edit-title">Edit Item</h2>
+
+                <div class="pi-edit-section">
+                    <h3 class="pi-edit-section-title">Basic Information</h3>
+                    <div class="pi-edit-grid">
+                        <div class="pi-edit-field">
+                            <label>Item Name:</label>
+                            <input @bind="EditingItem.ItemName" />
+                        </div>
+                        <div class="pi-edit-field">
+                            <label>Category:</label>
+                            <select @bind="EditingItem.Category">
+                                <option value="">-- Select category --</option>
+                                <option>Medication</option>
+                                <option>Vaccines</option>
+                                <option>IV Fluids</option>
+                                <option>Injectables</option>
+                                <option>Topicals / Ointments</option>
+                                <option>Supplements / Vitamins</option>
+                                <option>Medical Supplies</option>
+                                <option>Laboratory Reagents</option>
+                                <option>Other</option>
+                            </select>
+                        </div>
+                        <div class="pi-edit-field">
+                            <label>Unit Price:</label>
+                            <div class="pi-add-price">
+                                <span>₱</span>
+                                <input @bind="EditingItem.UnitPrice" type="number" step="0.01" />
+                            </div>
+                        </div>
+                        <div class="pi-edit-field">
+                            <label>Expiry Date:</label>
+                            <input type="date" @bind="EditingItem.ExpiryDate" />
+                        </div>
+                        <div class="pi-edit-field">
+                            <label>Supplier:</label>
+                            <input @bind="EditingItem.Supplier" />
+                        </div>
+                        <div class="pi-edit-field">
+                            <label>Unit:</label>
+                            <select @bind="EditingItem.Unit">
+                                <option value="">-- Select unit --</option>
+                                <option>Tablet(s)</option>
+                                <option>Capsule(s)</option>
+                                <option>Vial(s)</option>
+                                <option>Ampoule(s)</option>
+                                <option>Bottle(s)</option>
+                                <option>mL</option>
+                                <option>L</option>
+                                <option>Tube(s)</option>
+                                <option>Pack(s)</option>
+                                <option>Box(es)</option>
+                            </select>
+                        </div>
+                        <div class="pi-edit-field pi-edit-field-full">
+                            <label>Description:</label>
+                            <input @bind="EditingItem.Description" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pi-edit-section">
+                    <h3 class="pi-edit-section-title">Inventory Details</h3>
+                    <div class="pi-edit-grid">
+                        <div class="pi-edit-field">
+                            <label>Stock Quantity:</label>
+                            <input @bind="EditingItem.StockQuantity" type="number" />
+                        </div>
+                        <div class="pi-edit-field">
+                            <label>Reorder Level:</label>
+                            <input @bind="EditingItem.ReorderLevel" type="number" />
+                        </div>
+                        <div class="pi-edit-field">
+                            <label>Batch Number:</label>
+                            <input @bind="EditingItem.BatchNumber" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pi-edit-actions">
+                    <button type="button" class="pi-edit-cancel" @onclick="CloseEditItemPanel">Cancel</button>
+                    <button type="button" class="pi-edit-save" @onclick="UpdateItem">Save</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (ShowStockInPanel)
+    {
+        <div class="pi-add-overlay">
+            <div class="pi-stockin-panel">
+                <h2 class="pi-stockin-title">Stock In</h2>
+
+                <div class="pi-stockin-item-name">@SelectedStockName</div>
+
+                <div class="pi-stockin-grid">
+                    <div class="pi-stockin-field">
+                        <label>Current Stock:</label>
+                        <input value="@SelectedItem?.StockQuantity" readonly />
+                    </div>
+                    <div class="pi-stockin-field">
+                        <label>Add Quantity:</label>
+                        <input @bind="StockInQuantity" type="number" />
+                    </div>
+                    <div class="pi-stockin-field">
+                        <label>Batch Number:</label>
+                        <input @bind="SelectedItem.BatchNumber" />
+                    </div>
+                    <div class="pi-stockin-field">
+                        <label>Expiry Date:</label>
+                        <input type="date" @bind="SelectedItem.ExpiryDate" />
+                    </div>
+                    <div class="pi-stockin-field">
+                        <label>Supplier:</label>
+                        <input @bind="SelectedItem.Supplier" />
+                    </div>
+                </div>
+
+                <div class="pi-stockin-actions">
+                    <button type="button" class="pi-stockin-cancel" @onclick="CloseStockInPanel">Cancel</button>
+                    <button type="button" class="pi-stockin-add" @onclick="StockIn">Add</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (ShowStockOutPanel)
+    {
+        <div class="pi-add-overlay">
+            <div class="pi-stockout-panel">
+                <h2 class="pi-stockout-title">Stock Out</h2>
+
+                <div class="pi-stockout-item-name">@SelectedStockName</div>
+
+                <div class="pi-stockout-grid">
+                    <div class="pi-stockout-field">
+                        <label>Current Stock:</label>
+                        <input value="@SelectedItem?.StockQuantity" readonly />
+                    </div>
+                    <div class="pi-stockout-field">
+                        <label>Deduct Quantity:</label>
+                        <input @bind="StockOutQuantity" type="number" />
+                    </div>
+                    <div class="pi-stockout-field">
+                        <label>Reason:</label>
+                        <select @bind="StockOutReason">
+                            <option value="">-- Select reason --</option>
+                            <option value="Prescription">Prescription Dispensing</option>
+                            <option value="Expired">Expired Stock</option>
+                            <option value="Damaged">Damaged</option>
+                            <option value="Audit">Adjustment / Audit</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    @if (StockOutReason == "Prescription")
+                    {
+                        <div class="pi-stockout-field">
+                            <label>Prescription #:</label>
+                            <input placeholder="RX-2024-001" @bind="StockOutPrescriptionNo" />
+                        </div>
+                    }
+                    else if (StockOutReason == "Other")
+                    {
+                        <div class="pi-stockout-field">
+                            <label>Notes:</label>
+                            <input placeholder="Damaged during handling" @bind="StockOutNotes" />
+                        </div>
+                    }
+                </div>
+
+                <div class="pi-stockout-actions">
+                    <button type="button" class="pi-stockout-cancel" @onclick="CloseStockOutPanel">Cancel</button>
+                    <button type="button" class="pi-stockout-deduct" @onclick="StockOut">Deduct</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Models.PharmacyInventory> InventoryItems { get; set; } = new();
+    private bool IsLoading = true;
+    private string ErrorMessage = "";
+    private bool ShowPagination = true;
+    private bool ShowAddItemPanel { get; set; }
+    private bool ShowEditItemPanel { get; set; }
+    private bool ShowStockInPanel { get; set; }
+    private bool ShowStockOutPanel { get; set; }
+    private bool ShowLetters { get; set; } = false;
+    private bool ShowArchived { get; set; } = false;
+    private char? ActiveLetter { get; set; }
+    
+    private readonly char[] Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
+
+    private Models.PharmacyInventory NewItem { get; set; } = new Models.PharmacyInventory();
+    private Models.PharmacyInventory EditingItem { get; set; } = new Models.PharmacyInventory();
+    private Models.PharmacyInventory? SelectedItem { get; set; }
+    
+    private string? SelectedStockName { get; set; }
+    private string? StockOutReason { get; set; }
+    private string? StockOutPrescriptionNo { get; set; }
+    private string? StockOutNotes { get; set; }
+    private int StockInQuantity { get; set; }
+    private int StockOutQuantity { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadInventory();
+    }
+
+    private async Task LoadInventory()
+    {
+        try
+        {
+            IsLoading = true;
+            ErrorMessage = "";
+            StateHasChanged();
+
+            InventoryItems = await DbContext.PharmacyInventory
+                .Where(i => i.IsArchived == ShowArchived)
+                .OrderByDescending(i => i.CreatedAt)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error loading inventory: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SetArchiveView(bool showArchived)
+    {
+        ShowArchived = showArchived;
+        await LoadInventory();
+    }
+
+    private void TogglePagination()
+    {
+        ShowPagination = !ShowPagination;
+    }
+
+    private void OpenAddItemPanel()
+    {
+        NewItem = new Models.PharmacyInventory();
+        ShowAddItemPanel = true;
+    }
+
+    private void CloseAddItemPanel()
+    {
+        ShowAddItemPanel = false;
+        NewItem = new Models.PharmacyInventory();
+    }
+
+    private void OpenEditItemPanel(Models.PharmacyInventory item)
+    {
+        EditingItem = item;
+        ShowEditItemPanel = true;
+    }
+
+    private void CloseEditItemPanel()
+    {
+        ShowEditItemPanel = false;
+        EditingItem = new Models.PharmacyInventory();
+    }
+
+    private void OpenStockInPanel(Models.PharmacyInventory item)
+    {
+        SelectedItem = item;
+        SelectedStockName = item.ItemName;
+        StockInQuantity = 0;
+        ShowStockInPanel = true;
+    }
+
+    private void CloseStockInPanel()
+    {
+        ShowStockInPanel = false;
+        SelectedItem = null;
+        StockInQuantity = 0;
+    }
+
+    private void OpenStockOutPanel(Models.PharmacyInventory item)
+    {
+        SelectedItem = item;
+        SelectedStockName = item.ItemName;
+        StockOutQuantity = 0;
+        StockOutReason = null;
+        StockOutPrescriptionNo = null;
+        StockOutNotes = null;
+        ShowStockOutPanel = true;
+    }
+
+    private void CloseStockOutPanel()
+    {
+        ShowStockOutPanel = false;
+        SelectedItem = null;
+        StockOutQuantity = 0;
+        StockOutReason = null;
+        StockOutPrescriptionNo = null;
+        StockOutNotes = null;
+    }
+
+    private async Task AddItem()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(NewItem.ItemName))
+            {
+                await JsRuntime.InvokeVoidAsync("alert", "Item Name is required.");
+                return;
+            }
+
+            NewItem.CreatedAt = DateTime.Now;
+            DbContext.PharmacyInventory.Add(NewItem);
+            await DbContext.SaveChangesAsync();
+
+            // Also save to local database
+            try
+            {
+                var localItem = new Models.PharmacyInventory
+                {
+                    ItemName = NewItem.ItemName,
+                    GenericName = NewItem.GenericName,
+                    BrandName = NewItem.BrandName,
+                    ItemType = NewItem.ItemType,
+                    Category = NewItem.Category,
+                    Description = NewItem.Description,
+                    StockQuantity = NewItem.StockQuantity,
+                    ReorderLevel = NewItem.ReorderLevel,
+                    UnitPrice = NewItem.UnitPrice,
+                    Supplier = NewItem.Supplier,
+                    ExpiryDate = NewItem.ExpiryDate,
+                    Unit = NewItem.Unit,
+                    BatchNumber = NewItem.BatchNumber,
+                    StorageRequirements = NewItem.StorageRequirements,
+                    PrescriptionRequired = NewItem.PrescriptionRequired,
+                    Barcode = NewItem.Barcode,
+                    CreatedAt = DateTime.Now,
+                    IsArchived = false
+                };
+                
+                LocalDbContext.PharmacyInventory.Add(localItem);
+                await LocalDbContext.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to save inventory item to local: {ex.Message}");
+            }
+
+            await LoadInventory();
+            CloseAddItemPanel();
+            await JsRuntime.InvokeVoidAsync("alert", "Item added successfully!");
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Error adding item: {ex.Message}");
+        }
+    }
+
+    private async Task UpdateItem()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(EditingItem.ItemName))
+            {
+                await JsRuntime.InvokeVoidAsync("alert", "Item Name is required.");
+                return;
+            }
+
+            EditingItem.UpdatedAt = DateTime.Now;
+            DbContext.PharmacyInventory.Update(EditingItem);
+            await DbContext.SaveChangesAsync();
+
+            await LoadInventory();
+            CloseEditItemPanel();
+            await JsRuntime.InvokeVoidAsync("alert", "Item updated successfully!");
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Error updating item: {ex.Message}");
+        }
+    }
+
+    private async Task ArchiveItem(int itemId)
+    {
+        bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to archive this item?");
+        
+        if (!confirmed)
+        {
+            return;
+        }
+        
+        try
+        {
+            var item = await DbContext.PharmacyInventory.FindAsync(itemId);
+            if (item != null)
+            {
+                item.IsArchived = true;
+                item.ArchivedAt = DateTime.Now;
+                await DbContext.SaveChangesAsync();
+                
+                // Also archive in local database
+                try
+                {
+                    var localItem = await LocalDbContext.PharmacyInventory.FindAsync(itemId);
+                    if (localItem != null)
+                    {
+                        localItem.IsArchived = true;
+                        localItem.ArchivedAt = DateTime.Now;
+                        await LocalDbContext.SaveChangesAsync();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to archive item in local: {ex.Message}");
+                }
+                
+                await LoadInventory();
+                await JsRuntime.InvokeVoidAsync("alert", "Item archived successfully!");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Error archiving item: {ex.Message}");
+        }
+    }
+
+    private async Task RestoreItem(int itemId)
+    {
+        bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to restore this item?");
+        
+        if (!confirmed)
+        {
+            return;
+        }
+        
+        try
+        {
+            var item = await DbContext.PharmacyInventory.FindAsync(itemId);
+            if (item != null)
+            {
+                item.IsArchived = false;
+                item.ArchivedAt = null;
+                await DbContext.SaveChangesAsync();
+                
+                // Also restore in local database
+                try
+                {
+                    var localItem = await LocalDbContext.PharmacyInventory.FindAsync(itemId);
+                    if (localItem != null)
+                    {
+                        localItem.IsArchived = false;
+                        localItem.ArchivedAt = null;
+                        await LocalDbContext.SaveChangesAsync();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to restore item in local: {ex.Message}");
+                }
+                
+                await LoadInventory();
+                await JsRuntime.InvokeVoidAsync("alert", "Item restored successfully!");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Error restoring item: {ex.Message}");
+        }
+    }
+
+    private async Task StockIn()
+    {
+        try
+        {
+            if (SelectedItem != null && StockInQuantity > 0)
+            {
+                SelectedItem.StockQuantity += StockInQuantity;
+                SelectedItem.UpdatedAt = DateTime.Now;
+                await DbContext.SaveChangesAsync();
+
+                await LoadInventory();
+                CloseStockInPanel();
+                await JsRuntime.InvokeVoidAsync("alert", "Stock added successfully!");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Error adding stock: {ex.Message}");
+        }
+    }
+
+    private async Task StockOut()
+    {
+        try
+        {
+            if (SelectedItem != null && StockOutQuantity > 0)
+            {
+                if (SelectedItem.StockQuantity < StockOutQuantity)
+                {
+                    await JsRuntime.InvokeVoidAsync("alert", "Insufficient stock quantity.");
+                    return;
+                }
+
+                SelectedItem.StockQuantity -= StockOutQuantity;
+                SelectedItem.UpdatedAt = DateTime.Now;
+                await DbContext.SaveChangesAsync();
+
+                await LoadInventory();
+                CloseStockOutPanel();
+                await JsRuntime.InvokeVoidAsync("alert", "Stock deducted successfully!");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Error deducting stock: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteItem(int itemId)
+    {
+        try
+        {
+            var item = await DbContext.PharmacyInventory.FindAsync(itemId);
+            if (item != null)
+            {
+                DbContext.PharmacyInventory.Remove(item);
+                await DbContext.SaveChangesAsync();
+
+                await LoadInventory();
+                await JsRuntime.InvokeVoidAsync("alert", "Item deleted permanently!");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Error deleting item: {ex.Message}");
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+

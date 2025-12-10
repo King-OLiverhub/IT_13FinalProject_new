@@ -1,0 +1,56 @@
+@page "/nurse-notes"
+@layout Layout.DashboardLayout
+
+<div class="nn-page">
+        <div class="nn-header">
+            <h1 class="nn-title">Nursing Notes</h1>
+            <p class="nn-subtitle">Manage and view patient nursing notes and observations</p>
+        </div>
+
+        <div class="nn-content">
+            <div class="nn-section">
+                <div class="nn-section-header">
+                    <h2 class="nn-section-title">Recent Notes</h2>
+                    <button class="nn-btn nn-btn-primary">Add New Note</button>
+                </div>
+
+                <div class="nn-filters">
+                    <div class="nn-search-box">
+                        <input type="text" placeholder="Search notes..." class="nn-search-input" />
+                    </div>
+                    <select class="nn-filter-select">
+                        <option>All Patients</option>
+                        <option>My Patients</option>
+                        <option>Recent</option>
+                    </select>
+                </div>
+
+                <div class="nn-notes-list">
+                    @for (int i = 1; i <= 5; i++)
+                    {
+                        <div class="nn-note-card">
+                            <div class="nn-note-header">
+                                <div class="nn-patient-info">
+                                    <span class="nn-patient-name">Patient #@i</span>
+                                </div>
+                                <div class="nn-note-meta">
+                                    <span class="nn-note-date">@(DateTime.Now.AddDays(-i).ToString("MMM dd, yyyy"))</span>
+                                    <span class="nn-note-time">@(DateTime.Now.AddHours(-i*2).ToString("hh:mm tt"))</span>
+                                </div>
+                            </div>
+                            <div class="nn-note-content">
+                                <p class="nn-note-text">Patient observed to be stable. Vital signs within normal range. No complaints reported. Medication administered as prescribed. Will continue monitoring.</p>
+                                <div class="nn-note-footer">
+                                    <span class="nn-nurse-name">Nurse Johnson</span>
+                                    <div class="nn-note-actions">
+                                        <button class="nn-btn-small nn-btn-edit">Edit</button>
+                                        <button class="nn-btn-small nn-btn-view">View Details</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>

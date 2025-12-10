@@ -1,0 +1,216 @@
+@page "/user-profile"
+@page "/{role}user-profile"
+@layout Layout.DashboardLayout
+
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Forms
+@inject NavigationManager Navigation
+
+<div class="dashboard-page up-page">
+    <header class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title">User Profile</h1>
+            <p class="dashboard-subtitle">Welcome back @(string.IsNullOrEmpty(Role) ? "User" : Role)!</p>
+        </div>
+
+        <div class="dashboard-user-info">
+            <span class="dashboard-user-email">admin@gmail.com</span>
+            <div class="dashboard-user-avatar">U</div>
+            <span class="dashboard-user-name">Admin</span>
+        </div>
+    </header>
+
+    <section class="up-main">
+        <div class="up-topbar">
+            <div class="up-userchip">
+                <div class="up-userchip-avatar">JD</div>
+                <div class="up-userchip-text">
+                    <div class="up-userchip-name">Juan Dela Cruz</div>
+                    <div class="up-userchip-email">juan.delacruz@gmail.com</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="up-card">
+            <div class="up-card-inner">
+                <div class="up-left">
+                    <div class="up-photo-frame">
+                        <div class="up-photo-icon">＋</div>
+                    </div>
+                    <div class="up-upload-row">
+                        <InputFile OnChange="OnProfileImageSelected" />
+                    </div>
+                </div>
+
+                <div class="up-right">
+                    <h2 class="up-name">Juan Dela Cruz</h2>
+                    <div class="up-field-row"><span class="up-field-label">Email:</span> <a href="mailto:juan.delacruz@gmail.com" class="up-field-link">juan.delacruz@gmail.com</a></div>
+                    <div class="up-field-row"><span class="up-field-label">Username:</span> <span class="up-field-value">@(string.IsNullOrEmpty(Role) ? "User" : Role)1</span></div>
+                    <div class="up-field-row"><span class="up-field-label">Pass:</span> <span class="up-field-value">•••••</span></div>
+                    <div class="up-field-row"><span class="up-field-label">Role:</span> <span class="up-field-value">@(string.IsNullOrEmpty(Role) ? "User" : Role)</span></div>
+
+                    <div class="up-actions">
+                        <button type="button" class="up-action-link" @onclick="() => ShowMoreDetails = true">Add more details</button>
+                        <button type="button" class="up-action-link" @onclick="() => ShowEditDetails = true">Edit details</button>
+                        <button type="button" class="up-action-link" @onclick="() => ShowResetOptions = true">Reset Credentials</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- More Details Modal -->
+    @if (ShowMoreDetails)
+    {
+        <div class="up-more-overlay">
+            <div class="up-more-panel">
+                <h2 class="up-more-title">More Details</h2>
+                <div class="up-more-fields">
+                    <input class="up-more-input" placeholder="Address" />
+                    <input class="up-more-input" placeholder="Contact" />
+                    <input class="up-more-input" placeholder="Nationality" />
+                    <input class="up-more-input" placeholder="Profession" />
+                    <input class="up-more-input" placeholder="Socialization" />
+                    <input class="up-more-input" placeholder="License No." />
+                    <input class="up-more-input" placeholder="Date of Birth" />
+                    <select class="up-more-input">
+                        <option value="" disabled selected>Gender</option>
+                        <option>Male</option>
+                        <option>Female</option>
+                        <option>Other</option>
+                    </select>
+                </div>
+                <div class="up-more-actions">
+                    <button type="button" class="up-more-btn up-more-cancel" @onclick="() => ShowMoreDetails = false">Cancel</button>
+                    <button type="button" class="up-more-btn up-more-save" @onclick="SaveMoreDetails">Save</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Edit Details Modal -->
+    @if (ShowEditDetails)
+    {
+        <div class="up-more-overlay">
+            <div class="up-more-panel">
+                <h2 class="up-more-title">Edit Details</h2>
+                <div class="up-more-fields">
+                    <input class="up-more-input" placeholder="Name" value="Juan Dela Cruz" />
+                    <input class="up-more-input" placeholder="Email" value="juan.delacruz@gmail.com" />
+                    <input class="up-more-input" placeholder="Contact" />
+                </div>
+                <div class="up-more-actions">
+                    <button type="button" class="up-more-btn up-more-cancel" @onclick="() => ShowEditDetails = false">Cancel</button>
+                    <button type="button" class="up-more-btn up-more-save" @onclick="SaveEditDetails">Save</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Reset Options Modal -->
+    @if (ShowResetOptions)
+    {
+        <div class="up-more-overlay">
+            <div class="up-more-panel">
+                <h2 class="up-more-title">Reset Credentials</h2>
+                <div class="up-reset-options">
+                    <button type="button" class="up-reset-option-btn" @onclick="() => { ShowResetOptions = false; ShowChangeUsername = true; }">Change Username</button>
+                    <button type="button" class="up-reset-option-btn" @onclick="() => { ShowResetOptions = false; ShowChangePassword = true; }">Change Password</button>
+                </div>
+                <div class="up-more-actions">
+                    <button type="button" class="up-more-btn up-more-cancel" @onclick="() => ShowResetOptions = false">Cancel</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Change Username Modal -->
+    @if (ShowChangeUsername)
+    {
+        <div class="up-more-overlay">
+            <div class="up-more-panel">
+                <h2 class="up-more-title">Change Username</h2>
+                <div class="up-more-fields">
+                    <input class="up-more-input" placeholder="Current username" />
+                    <input class="up-more-input" placeholder="New username" />
+                    <input class="up-more-input" placeholder="Confirm new username" />
+                </div>
+                <div class="up-more-actions">
+                    <button type="button" class="up-more-btn up-more-cancel" @onclick="() => ShowChangeUsername = false">Cancel</button>
+                    <button type="button" class="up-more-btn up-more-save" @onclick="SaveChangeUsername">Save</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Change Password Modal -->
+    @if (ShowChangePassword)
+    {
+        <div class="up-more-overlay">
+            <div class="up-more-panel">
+                <h2 class="up-more-title">Change Password</h2>
+                <div class="up-more-fields">
+                    <input type="password" class="up-more-input" placeholder="Current password" />
+                    <input type="password" class="up-more-input" placeholder="New password" />
+                    <input type="password" class="up-more-input" placeholder="Confirm new password" />
+                </div>
+                <div class="up-more-actions">
+                    <button type="button" class="up-more-btn up-more-cancel" @onclick="() => ShowChangePassword = false">Cancel</button>
+                    <button type="button" class="up-more-btn up-more-save" @onclick="SaveChangePassword">Save</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string? Role { get; set; }
+
+    [Parameter]
+    public EventCallback<string> RoleChanged { get; set; }
+
+    // State variables
+    private bool ShowMoreDetails { get; set; }
+    private bool ShowEditDetails { get; set; }
+    private bool ShowResetOptions { get; set; }
+    private bool ShowChangePassword { get; set; }
+    private bool ShowChangeUsername { get; set; }
+    private string? _selectedFileName;
+
+    // Methods
+    private void OnProfileImageSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        _selectedFileName = file?.Name;
+        // Handle file upload here
+    }
+
+    private void SaveMoreDetails()
+    {
+        // Save more details logic
+        ShowMoreDetails = false;
+        // Show success message
+    }
+
+    private void SaveEditDetails()
+    {
+        // Save edit details logic
+        ShowEditDetails = false;
+        // Show success message
+    }
+
+    private void SaveChangeUsername()
+    {
+        // Save username logic
+        ShowChangeUsername = false;
+        // Show success message
+    }
+
+    private void SaveChangePassword()
+    {
+        // Save password logic
+        ShowChangePassword = false;
+        // Show success message
+    }
+}

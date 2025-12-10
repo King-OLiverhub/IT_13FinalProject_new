@@ -1,0 +1,455 @@
+/* ===================== UI CONSISTENCY RULES ===================== */
+/* This file ensures consistent design across all pages */
+
+/* ----- GLOBAL DESIGN SYSTEM ----- */
+
+/* Colors */
+:root {
+    --primary-teal: #0d9ca2;
+    --primary-teal-light: #7a9a98;
+    --primary-teal-dark: #0f4b4b;
+    --primary-teal-bg: #e4f9f8;
+    --primary-teal-input-bg: #f7ffff;
+    --primary-teal-helper: #4b6b69;
+    --primary-teal-subtitle: #5c7d7b;
+    --error-red: #7b0606;
+    --success-green: #0b5b49;
+    --border-light: #c9e3e1;
+    --shadow-dark: rgba(0, 0, 0, 0.35);
+    --shadow-teal: rgba(13, 156, 162, 0.15);
+}
+
+/* Typography Scale */
+.text-xs { font-size: 11px; }
+.text-sm { font-size: 12px; }
+.text-base { font-size: 13px; }
+.text-lg { font-size: 15px; }
+.text-xl { font-size: 20px; }
+.text-2xl { font-size: 24px; }
+
+/* Font Weights */
+.font-normal { font-weight: 400; }
+.font-medium { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
+
+/* ----- CONSISTENT COMPONENT STYLES ----- */
+
+/* Page Layout Standards */
+.page-container {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    padding: 16px;
+    box-sizing: border-box;
+}
+
+.page-background {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(135deg, rgba(15, 139, 141, 0.55), rgba(12, 113, 111, 0.55)),
+        url("/images/Background_login.png") center center no-repeat;
+    background-size: cover;
+    filter: blur(5px);
+    transform: scale(1.05);
+    z-index: -1;
+}
+
+/* Card Standards */
+.card {
+    background-color: var(--primary-teal-bg);
+    border-radius: 28px;
+    box-shadow: 0 18px 45px var(--shadow-dark);
+    position: relative;
+    z-index: 1;
+}
+
+.card-compact {
+    background-color: var(--primary-teal-bg);
+    border-radius: 12px;
+    box-shadow: 0 18px 45px var(--shadow-dark);
+    position: relative;
+    z-index: 1;
+}
+
+/* Input Field Standards (ALL PAGES MUST USE THIS) */
+.input-field,
+.form-input,
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+input[type="tel"],
+input[type="search"],
+input[type="url"],
+select,
+textarea {
+    width: 100%;
+    height: 32px !important;
+    padding: 6px 12px 6px 12px !important;
+    padding-right: 40px !important;
+    border-radius: 12px !important;
+    -webkit-border-radius: 12px !important;
+    -moz-border-radius: 12px !important;
+    border: 2px solid var(--primary-teal) !important;
+    font-size: 13px !important;
+    outline: none !important;
+    box-sizing: border-box !important;
+    background: var(--primary-teal-input-bg) !important;
+    transition: all 0.3s ease;
+    color: var(--primary-teal-dark) !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    position: relative;
+}
+
+.input-field:focus,
+.form-input:focus,
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+input[type="number"]:focus,
+input[type="tel"]:focus,
+input[type="search"]:focus,
+input[type="url"]:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--primary-teal) !important;
+    box-shadow: 0 0 0 3px var(--shadow-teal) !important;
+    outline: none !important;
+    border-radius: 12px !important;
+}
+
+/* Icon Standards for All Forms */
+.form-field::after,
+.input-group::after,
+.input-wrapper::after {
+    content: "";
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    pointer-events: none;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 18px 18px;
+    z-index: 10;
+}
+
+/* Button Standards */
+.btn,
+button {
+    min-width: 120px;
+    height: 32px !important;
+    padding: 6px 12px !important;
+    border-radius: 12px !important;
+    font-size: 13px !important;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-sizing: border-box !important;
+    outline: none !important;
+    border: none;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+}
+
+.btn-primary,
+button.primary {
+    background-color: var(--primary-teal);
+    color: #ffffff;
+}
+
+.btn-primary:hover,
+button.primary:hover {
+    background-color: #0b6f70;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(15, 139, 141, 0.3);
+}
+
+.btn-secondary,
+button.secondary {
+    border: 2px solid var(--primary-teal);
+    background-color: #ffffff;
+    color: var(--primary-teal);
+}
+
+.btn-secondary:hover,
+button.secondary:hover {
+    background-color: #e9f6f5;
+    transform: translateY(-1px);
+}
+
+/* Typography Standards */
+.page-title,
+h1, h2, h3 {
+    font-size: 20px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--primary-teal-dark);
+    margin: 4px 0 12px;
+}
+
+.page-subtitle,
+.subtitle {
+    text-align: center;
+    font-size: 13px;
+    color: var(--primary-teal-helper);
+    margin-top: -8px;
+}
+
+.form-label,
+label {
+    font-size: 13px;
+    color: var(--primary-teal-dark);
+    font-weight: 500;
+    text-align: left;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.form-helper,
+.helper-text {
+    font-size: 12px;
+    color: var(--primary-teal-subtitle);
+    line-height: 1.4;
+    margin-top: 2px;
+}
+
+/* Status Message Standards */
+.status-message,
+.alert,
+.notification {
+    padding: 12px 16px;
+    border-radius: 18px;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.status-message.info,
+.alert.info,
+.notification.info {
+    background-color: rgba(15, 139, 141, 0.15);
+    color: var(--primary-teal-dark);
+}
+
+.status-message.success,
+.alert.success,
+.notification.success {
+    background-color: rgba(19, 173, 142, 0.18);
+    color: var(--success-green);
+}
+
+.status-message.error,
+.alert.error,
+.notification.error {
+    background-color: rgba(255, 107, 107, 0.18);
+    color: var(--error-red);
+}
+
+.validation-summary,
+.validation-errors {
+    padding: 12px 16px;
+    background-color: rgba(255, 107, 107, 0.12);
+    border: 1px solid rgba(255, 107, 107, 0.4);
+    border-radius: 16px;
+    color: var(--error-red);
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+
+/* Form Layout Standards */
+.form-grid,
+.form-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 300px;
+    margin: 0 auto;
+}
+
+.form-grid-wide,
+.form-container-wide {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 420px;
+    margin: 0 auto;
+}
+
+.form-field,
+.form-group,
+.input-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: relative;
+}
+
+.form-actions,
+.button-group {
+    display: flex;
+    justify-content: space-between;
+    max-width: 300px;
+    margin: 24px auto 0;
+    gap: 16px;
+}
+
+.form-actions-wide,
+.button-group-wide {
+    display: flex;
+    justify-content: space-between;
+    max-width: 420px;
+    margin: 24px auto 0;
+    gap: 16px;
+}
+
+/* Table Standards */
+.table-container {
+    background: #ffffff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th {
+    background-color: var(--primary-teal-bg);
+    color: var(--primary-teal-dark);
+    font-weight: 600;
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 13px;
+    border-bottom: 2px solid var(--primary-teal);
+}
+
+td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-light);
+    font-size: 13px;
+    color: var(--primary-teal-dark);
+}
+
+tr:hover {
+    background-color: #f8fcfc;
+}
+
+/* Modal Standards */
+.modal,
+.dialog {
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    padding: 24px;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.modal-header,
+.dialog-header {
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: 16px;
+    margin-bottom: 20px;
+}
+
+.modal-title,
+.dialog-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--primary-teal-dark);
+    margin: 0;
+}
+
+/* Responsive Standards */
+@media (max-width: 600px) {
+    .form-grid,
+    .form-grid-wide,
+    .form-container,
+    .form-container-wide {
+        padding: 0 16px;
+        max-width: 100%;
+    }
+    
+    .form-actions,
+    .form-actions-wide,
+    .button-group,
+    .button-group-wide {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+        max-width: 100%;
+    }
+    
+    .btn,
+    button {
+        width: 100%;
+    }
+    
+    .modal,
+    .dialog {
+        margin: 16px;
+        max-width: calc(100% - 32px);
+    }
+    
+    table {
+        font-size: 12px;
+    }
+    
+    th, td {
+        padding: 8px 12px;
+    }
+}
+
+/* ----- ENFORCEMENT RULES ----- */
+/* These rules override any conflicting styles */
+
+/* Force consistent input styling */
+* input[type="text"],
+* input[type="password"],
+* input[type="email"],
+* select,
+* textarea {
+    border-radius: 12px !important;
+    border: 2px solid var(--primary-teal) !important;
+    background: var(--primary-teal-input-bg) !important;
+    height: 32px !important;
+    font-size: 13px !important;
+}
+
+/* Force consistent button styling */
+.btn,
+button {
+    border-radius: 12px !important;
+    height: 32px !important;
+    font-size: 13px !important;
+}
+
+/* Force consistent colors */
+.page-title,
+h1, h2, h3 {
+    color: var(--primary-teal-dark) !important;
+}
+
+.form-label,
+label {
+    color: var(--primary-teal-dark) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+}

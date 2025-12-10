@@ -1,0 +1,130 @@
+@page "/patient-overview"
+@layout Layout.MainLayout
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Data
+@using Microsoft.EntityFrameworkCore
+
+@inject ApplicationDbContext DbContext
+@inject NavigationManager Navigation
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2>Patients Overview</h2>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-primary" @onclick="GoToCreatePatient">
+                <i class="fas fa-plus"></i> + Patient
+            </button>
+        </div>
+    </div>
+
+    @if (patients == null || patients.Count == 0)
+    {
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> No patients found. Click "+ Patient" to add a new patient.
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Name</th>
+                                <th>Gender</th>
+                                <th>Date of Birth</th>
+                                <th>Phone</th>
+                                <th>Email</th>
+                                <th>Blood Type</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var patient in patients)
+                            {
+                                <tr>
+                                    <td>@patient.FirstName @patient.LastName</td>
+                                    <td>@patient.Gender</td>
+                                    <td>@patient.DateOfBirth?.ToString("MM/dd/yyyy")</td>
+                                    <td>@patient.Phone</td>
+                                    <td>@patient.Email</td>
+                                    <td>@patient.BloodType</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-info me-2" @onclick="() => EditPatient(patient.PatientId)">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" @onclick="() => DeletePatient(patient.PatientId)">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Patient> patients = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPatients();
+    }
+
+    private async Task LoadPatients()
+    {
+        try
+        {
+            patients = await DbContext.Patients
+                .OrderBy(p => p.LastName)
+                .ThenBy(p => p.FirstName)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            // Handle database errors
+            Console.WriteLine($"Error loading patients: {ex.Message}");
+        }
+    }
+
+    private void GoToCreatePatient()
+    {
+        Navigation.NavigateTo("/patient-information");
+    }
+
+    private void EditPatient(int patientId)
+    {
+        Navigation.NavigateTo($"/patient-information/{patientId}");
+    }
+
+    private async Task DeletePatient(int patientId)
+    {
+        if (await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this patient?"))
+        {
+            try
+            {
+                var patient = await DbContext.Patients.FindAsync(patientId);
+                if (patient != null)
+                {
+                    DbContext.Patients.Remove(patient);
+                    await DbContext.SaveChangesAsync();
+                    await LoadPatients(); // Refresh the list
+                }
+            }
+            catch (Exception ex)
+            {
+                await JsRuntime.InvokeVoidAsync("alert", $"Error deleting patient: {ex.Message}");
+            }
+        }
+    }
+
+    [Inject]
+    private IJSRuntime JsRuntime { get; set; } = default!;
+}

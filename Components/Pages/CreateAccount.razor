@@ -1,0 +1,248 @@
+﻿@page "/create-account"
+@layout Layout.EmptyLayout
+@using IT_13FinalProject.Services
+@using IT_13FinalProject.Models
+@using System.ComponentModel.DataAnnotations
+
+<div class="create-account-page">
+    <div class="create-account-card">
+        <div class="create-account-inner">
+            <h2 class="create-account-title">Create User Account</h2>
+            <p class="create-account-subtitle">Fill in the details below to add a new MedFlow user.</p>
+
+            <EditForm Model="this" OnValidSubmit="HandleSubmit" OnInvalidSubmit="HandleInvalidSubmit">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="validation-summary" />
+
+                @if (!string.IsNullOrWhiteSpace(FormAlert))
+                {
+                    <div class="status-message @AlertType">@FormAlert</div>
+                }
+
+                <div class="form-grid">
+                    <div class="form-field">
+                        <label for="nameInput">Full name</label>
+                        <InputText id="nameInput" class="input-field" @bind-Value="Name" />
+                        <ValidationMessage For="@(() => Name)" />
+                    </div>
+
+                    <div class="form-field">
+                        <label for="emailInput">Work email</label>
+                        <InputText id="emailInput" class="input-field" @bind-Value="Email" type="email" />
+                        <div class="form-helper">We'll use this for important account notices.</div>
+                        <ValidationMessage For="@(() => Email)" />
+                    </div>
+
+                    <div class="form-field">
+                        <label for="usernameInput">Username</label>
+                        <InputText id="usernameInput" class="input-field" @bind-Value="UserName" />
+                        <ValidationMessage For="@(() => UserName)" />
+                    </div>
+
+                    <div class="form-field">
+                        <label for="passwordInput">Password</label>
+                        <InputText id="passwordInput" class="input-field" @bind-Value="Password" type="password" />
+                        <div class="form-helper">Use 8+ characters with a mix of letters and numbers.</div>
+                        <ValidationMessage For="@(() => Password)" />
+                    </div>
+
+                    <div class="form-field">
+                        <label for="roleSelect">Role</label>
+                        <InputSelect id="roleSelect" class="input-field" @bind-Value="Role">
+                            <option value="">Select role</option>
+                            <option value="Admin">Admin</option>
+                            <option value="Doctor">Doctor</option>
+                            <option value="Nurse">Nurse</option>
+                            <option value="Billing Staff">Billing Staff</option>
+                            <option value="Inventory Staff">Inventory Staff</option>
+                        </InputSelect>
+                        <ValidationMessage For="@(() => Role)" />
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" @onclick="GoBack" disabled="@IsSubmitting">Back</button>
+                    <button type="submit" class="btn-primary" disabled="@IsSubmitting">
+                        @if (IsSubmitting)
+                        {
+                            <span>Creating Account...</span>
+                        }
+                        else
+                        {
+                            <span>Create Account</span>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Required(ErrorMessage = "Full name is required.")]
+    [StringLength(100, ErrorMessage = "Name must be less than 100 characters.")]
+    public string? Name { get; set; }
+
+    [Required(ErrorMessage = "Email is required.")]
+    [EmailAddress(ErrorMessage = "Please enter a valid email address.")]
+    public string? Email { get; set; }
+
+    [Required(ErrorMessage = "Username is required.")]
+    [MinLength(4, ErrorMessage = "Username must be at least 4 characters.")]
+    [MaxLength(50, ErrorMessage = "Username must be less than 50 characters.")]
+    [RegularExpression(@"^[a-zA-Z0-9_]+$", ErrorMessage = "Username can only contain letters, numbers, and underscores.")]
+    public string UserName { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Password is required.")]
+    [StringLength(32, MinimumLength = 8, ErrorMessage = "Password must be between 8 and 32 characters.")]
+    [RegularExpression(@"^(?=.*[a-zA-Z])(?=.*\d).+$", ErrorMessage = "Password must contain both letters and numbers.")]
+    public string Password { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Role is required.")]
+    public string? Role { get; set; }
+
+    private string? FormAlert { get; set; }
+    private string AlertType { get; set; } = "info";
+    private bool IsSubmitting { get; set; } = false;
+
+    [Inject]
+    private IUserAccountService UserAccountService { get; set; } = default!;
+
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/login");
+    }
+
+    private void HandleInvalidSubmit(EditContext _)
+    {
+        SetAlert("Please fix the highlighted fields before continuing.", "error");
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (IsSubmitting) return; // Prevent multiple submissions
+        
+        IsSubmitting = true;
+        StateHasChanged();
+        
+        try
+        {
+            if (string.IsNullOrWhiteSpace(Role))
+            {
+                SetAlert("Role is required.", "error");
+                IsSubmitting = false;
+                StateHasChanged();
+                return;
+            }
+
+            // Check if database service is available
+            if (UserAccountService is DatabaseUserAccountService dbService)
+            {
+                try
+                {
+                    // Use async methods to prevent UI blocking
+                    var userExists = await UserAccountService.UserExistsAsync(UserName);
+                    if (userExists)
+                    {
+                        SetAlert("That username already exists. Please choose another one.", "error");
+                        IsSubmitting = false;
+                        StateHasChanged();
+                        return;
+                    }
+
+                    var newUser = new UserAccount
+                    {
+                        UserName = UserName.Trim(),
+                        Password = Password,
+                        Role = Role!,
+                        Email = Email?.Trim() ?? string.Empty,
+                        Name = Name?.Trim() ?? string.Empty
+                    };
+
+                    // Convert to User model for database storage
+                    var user = new User
+                    {
+                        Username = newUser.UserName,
+                        Email = newUser.Email,
+                        Password = newUser.Password,
+                        Role = newUser.Role,
+                        FullName = newUser.Name,
+                        CreatedAt = DateTime.UtcNow,
+                        IsActive = true
+                    };
+                    
+                    await dbService.CreateUserAsync(user);
+                }
+                catch (Exception dbEx)
+                {
+                    // Check if database is not ready
+                    if (dbEx.Message.Contains("database") || dbEx.Message.Contains("connection") || 
+                        dbEx.Message.Contains("timeout") || dbEx.InnerException?.Message.Contains("database") == true)
+                    {
+                        SetAlert("Database is still initializing. Please wait a moment and try again.", "warning");
+                        IsSubmitting = false;
+                        StateHasChanged();
+                        return;
+                    }
+                    throw; // Re-throw other database errors
+                }
+            }
+            else
+            {
+                // Fallback to in-memory service
+                var userExists = await UserAccountService.UserExistsAsync(UserName);
+                if (userExists)
+                {
+                    SetAlert("That username already exists. Please choose another one.", "error");
+                    IsSubmitting = false;
+                    StateHasChanged();
+                    return;
+                }
+
+                var newUser = new UserAccount
+                {
+                    UserName = UserName.Trim(),
+                    Password = Password,
+                    Role = Role!,
+                    Email = Email?.Trim() ?? string.Empty,
+                    Name = Name?.Trim() ?? string.Empty
+                };
+
+                UserAccountService.AddUser(newUser);
+            }
+
+            SetAlert("Account created successfully! The user can now sign in.", "success");
+
+            await Task.Delay(2000);
+            Navigation.NavigateTo("/login");
+        }
+        catch (Exception ex)
+        {
+            IsSubmitting = false;
+            StateHasChanged();
+            
+            // Provide more specific error messages
+            string errorMessage = ex.Message;
+            if (ex.InnerException != null)
+            {
+                errorMessage += $" Inner exception: {ex.InnerException.Message}";
+            }
+            
+            SetAlert($"Unable to create account: {errorMessage}", "error");
+        }
+        finally
+        {
+            IsSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SetAlert(string? message, string type = "info")
+    {
+        FormAlert = message;
+        AlertType = type;
+    }
+}

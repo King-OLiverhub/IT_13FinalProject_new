@@ -1,0 +1,251 @@
+@page "/nurse-patient-list"
+@layout Layout.DashboardLayout
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Data
+@using Microsoft.EntityFrameworkCore
+
+@inject ApplicationDbContext DbContext
+@inject LocalDbContext LocalDbContext
+@inject NavigationManager Navigation
+
+<div class="pm-page">
+    <header class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title">Patient Management</h1>
+            <p class="dashboard-subtitle">Welcome back Clinical Staff!</p>
+        </div>
+
+        <div class="dashboard-user-info">
+            <span class="dashboard-user-email">nurse@gmail.com</span>
+            <div class="dashboard-user-avatar">👤</div>
+            <span class="dashboard-user-name">Clinical</span>
+        </div>
+    </header>
+
+    <section class="pm-overview">
+        <div class="pm-overview-header">
+            <h2 class="pm-section-title">Patient List</h2>
+            <div class="pm-show-entries">
+                <span>Show</span>
+                <select>
+                    <option>5</option>
+                    <option>10</option>
+                    <option>25</option>
+                </select>
+                <span>entries</span>
+            </div>
+        </div>
+
+        <div class="pm-filters-row">
+            <div class="pm-search-row">
+                <div class="pm-search-box">
+                    <span class="pm-search-icon"></span>
+                    <input class="pm-search-input" placeholder="Search Patient" />
+                </div>
+
+                <div class="pm-actions">
+                    <button class="activity-action-btn">Sort</button>
+                    <button class="activity-action-btn">Filters</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="pm-table-outer">
+            <div class="pm-table-wrapper">
+                <table class="pm-table">
+                    <thead>
+                        <tr>
+                            <th class="pm-col-name">Patient Name</th>
+                            <th class="pm-col-email">Email</th>
+                            <th>Assessment Status</th>
+                            <th class="pm-col-date">Date of Visit</th>
+                            <th class="pm-col-action">Patient Info</th>
+                            <th class="pm-col-vitals">Vital Sign Monitoring</th>
+                            <th class="pm-col-archive">Archive</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in ActiveLetter.HasValue ? GetOrderedPatients(ActiveLetter.Value) : Patients)
+                        {
+                            <tr>
+                                <td class="pm-col-name">
+                                    <div class="pm-patient-name">@p.FirstName @p.LastName</div>
+                                </td>
+                                <td class="pm-col-email">
+                                    <div class="pm-patient-email">@p.Email</div>
+                                </td>
+                                <td>New Patient</td>
+                                <td class="pm-col-date">@(p.CreatedAt?.ToString("MM/dd/yy") ?? "Unknown")</td>
+                                <td class="pm-col-action">
+                                    <button class="pm-view-btn" aria-label="View patient record" @onclick="() => GoToPatientProfile(p.PatientId.ToString())">
+                                        <span class="pm-view-icon"></span>
+                                    </button>
+                                </td>
+                                <td class="pm-col-vitals">
+                                    <button class="pm-add-btn" @onclick="() => GoToVitalsForm(p.PatientId.ToString())">+ Add</button>
+                                </td>
+                                <td class="pm-col-archive">
+                                    <button class="pm-archive-btn" @onclick="() => ArchivePatient(p.PatientId)">Archive</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+            <div class="pm-pagination">
+                <button class="pm-page-btn">Previous</button>
+                <button class="pm-page-number active">1</button>
+                <button class="pm-page-number">2</button>
+                <button class="pm-page-number">3</button>
+                <span class="pm-page-dots">...</span>
+                <button class="pm-page-number">8</button>
+                <button class="pm-page-btn">Next</button>
+            </div>
+    </section>
+</div>
+
+@code {
+    private bool ShowPagination { get; set; } = true;
+    private bool ShowLetters { get; set; } = false;
+    private char? ActiveLetter { get; set; }
+    
+    private readonly char[] Alphabet =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
+
+    private List<Patient> Patients = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPatients();
+    }
+
+    private async Task LoadPatients()
+    {
+        try
+        {
+            Patients = await DbContext.Patients
+                .Where(p => !p.IsArchived.HasValue || !p.IsArchived.Value) // Only load non-archived patients
+                .OrderBy(p => p.LastName)
+                .ThenBy(p => p.FirstName)
+                .ToListAsync();
+            
+            Console.WriteLine($"Loaded {Patients.Count} active patients");
+            foreach (var p in Patients.Take(3))
+            {
+                Console.WriteLine($"  - Patient {p.PatientId}: {p.FirstName} {p.LastName} (IsArchived: {p.IsArchived})");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading patients: {ex.Message}");
+        }
+    }
+
+    private IEnumerable<Patient> GetOrderedPatients(char letter)
+    {
+        if (string.IsNullOrEmpty(letter.ToString()))
+        {
+            return Patients;
+        }
+
+        var upper = letter.ToString().ToUpper();
+
+        var startsWithLetter = Patients
+            .Where(p => (p.FirstName + " " + p.LastName).StartsWith(upper, StringComparison.OrdinalIgnoreCase));
+
+        var others = Patients
+            .Where(p => !(p.FirstName + " " + p.LastName).StartsWith(upper, StringComparison.OrdinalIgnoreCase));
+
+        return startsWithLetter.Concat(others);
+    }
+
+    private void TogglePagination()
+    {
+        ShowPagination = !ShowPagination;
+    }
+
+    private void GoToPatientProfile(string patientId)
+    {
+        Navigation.NavigateTo("/patient-profile");
+    }
+
+    private void GoToVitalsForm(string? patientId = null)
+    {
+        if (!string.IsNullOrEmpty(patientId))
+        {
+            Navigation.NavigateTo($"/nurse-vitals?patientId={patientId}");
+        }
+        else
+        {
+            Navigation.NavigateTo("/nurse-vitals");
+        }
+    }
+
+    private async Task ArchivePatient(int patientId)
+    {
+        bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to archive this patient?");
+        
+        if (!confirmed)
+        {
+            return;
+        }
+        
+        try
+        {
+            var patient = await DbContext.Patients.FindAsync(patientId);
+            if (patient != null)
+            {
+                // Log before archiving
+                Console.WriteLine($"Before archiving - Patient {patientId}: IsArchived={patient.IsArchived}");
+                
+                patient.IsArchived = true;
+                patient.ArchivedAt = DateTime.UtcNow;
+                await DbContext.SaveChangesAsync();
+                
+                // Also archive in local database
+                try
+                {
+                    var localPatient = await LocalDbContext.Patients.FindAsync(patientId);
+                    if (localPatient != null)
+                    {
+                        localPatient.IsArchived = true;
+                        localPatient.ArchivedAt = DateTime.UtcNow;
+                        await LocalDbContext.SaveChangesAsync();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to archive patient in local: {ex.Message}");
+                }
+                
+                await LoadPatients();
+                await JsRuntime.InvokeVoidAsync("alert", "Patient archived successfully!");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Error archiving patient: {ex.Message}");
+        }
+    }
+
+    private void SelectLetter(char letter)
+    {
+        ShowLetters = true;
+        ActiveLetter = letter;
+    }
+
+    [Inject]
+    private IJSRuntime JsRuntime { get; set; } = default!;
+}
+
+
+
+
+
+
+
+
+
+

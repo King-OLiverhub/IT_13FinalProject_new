@@ -1,0 +1,234 @@
+﻿@page "/inventory-reports"
+@layout DashboardLayout
+@using IT_13FinalProject.Services
+
+<PageTitle>Reports</PageTitle>
+
+<div class="dashboard-page inventory-reports-page">
+    <header class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title">Reports</h1>
+            <p class="dashboard-subtitle">Welcome back Pharmacists!</p>
+        </div>
+
+        <div class="dashboard-user-info">
+            <span class="dashboard-user-email">pharmacist@gmail.com</span>
+            <div class="dashboard-user-avatar">P</div>
+            <span class="dashboard-user-name">Pharmacists</span>
+        </div>
+    </header>
+
+    <div class="reports-content">
+        <!-- Report Configuration Card -->
+        <div class="config-card">
+            <div class="config-header">
+                <i class="fas fa-clipboard-list"></i>
+                <h2>Report Configuration</h2>
+            </div>
+            <p class="config-subtitle">Select date range and report type to generate reports</p>
+
+            <div class="config-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <div class="date-input-wrapper">
+                            <input type="date" class="date-input" @bind="startDate" />
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <div class="date-input-wrapper">
+                            <input type="date" class="date-input" @bind="endDate" />
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Report type</label>
+                        <select class="report-select" @bind="selectedReportType">
+                            <option value="">Select report type</option>
+                            <option value="stock">Stock Level Report</option>
+                            <option value="expiry">Expiry Date Tracking Report</option>
+                            <option value="lowstock">Low Stock Alerts Summary</option>
+                            <option value="movement">Inventory Movement History</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn-action generate" @onclick="GenerateReport">
+                        <i class="fas fa-file-alt"></i>
+                        Generate Report
+                    </button>
+                    <button class="btn-action preview" @onclick="ShowPreview">
+                        <i class="fas fa-eye"></i>
+                        Preview
+                    </button>
+                    <button class="btn-action export">
+                        <i class="fas fa-file-pdf"></i>
+                        Export PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inventory Reports Card -->
+        <div class="report-category-card">
+            <div class="category-header">
+                <i class="fas fa-box"></i>
+                <h3>Inventory Reports</h3>
+            </div>
+            <ul class="report-list">
+                <li class="report-item">
+                    <input type="checkbox" checked>
+                    <span>Stock Level Report</span>
+                </li>
+                <li class="report-item">
+                    <input type="checkbox" checked>
+                    <span>Expiry Date Tracking Report</span>
+                </li>
+                <li class="report-item">
+                    <input type="checkbox" checked>
+                    <span>Low Stock Alerts Summary</span>
+                </li>
+                <li class="report-item">
+                    <input type="checkbox">
+                    <span>Inventory Movement History</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Dispensing Reports Card -->
+        <div class="report-category-card">
+            <div class="category-header">
+                <i class="fas fa-prescription-bottle-alt"></i>
+                <h3>Dispensing Reports</h3>
+            </div>
+            <ul class="report-list">
+                <li class="report-item">
+                    <input type="checkbox" checked>
+                    <span>Prescription Fulfillment Report</span>
+                </li>
+                <li class="report-item">
+                    <input type="checkbox" checked>
+                    <span>Daily Dispensing Summary</span>
+                </li>
+                <li class="report-item">
+                    <input type="checkbox">
+                    <span>Drug Utilization Review</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Operational Reports Card -->
+        <div class="report-category-card">
+            <div class="category-header">
+                <i class="fas fa-chart-line"></i>
+                <h3>Operational Reports</h3>
+            </div>
+            <ul class="report-list">
+                <li class="report-item">
+                    <input type="checkbox" checked>
+                    <span>Pharmacy Workload Analysis</span>
+                </li>
+                <li class="report-item">
+                    <input type="checkbox">
+                    <span>Supplier Performance Report</span>
+                </li>
+                <li class="report-item">
+                    <input type="checkbox">
+                    <span>Return & Exchange Reports</span>
+                </li>
+                <li class="report-item">
+                    <input type="checkbox">
+                    <span>Return & Exchange Reports</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Quick Generate Card -->
+        <div class="quick-generate-card">
+            <div class="quick-header">
+                <i class="fas fa-bolt"></i>
+                <h3>Quick Generate</h3>
+            </div>
+            <div class="quick-tags">
+                <span class="quick-link" @onclick='() => QuickGenerate("expiry")'>[Expiry Date Tracking Report]</span>
+                <span class="quick-link" @onclick='() => QuickGenerate("lowstock")'>[Low Stock Alert]</span>
+                <span class="quick-link" @onclick='() => QuickGenerate("dispensing")'>[Daily Dispensing]</span>
+
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    @if (showPreviewModal)
+    {
+        <div class="modal-overlay" @onclick="HidePreview">
+            <div class="modal-panel" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <h2>STOCK LEVEL REPORT <span class="report-date">- Nov 15, 2024</span></h2>
+                    <button class="modal-close" @onclick="HidePreview">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="report-section">
+                        <h3>CRITICAL ITEMS:</h3>
+                        <ul class="report-list-items">
+                            <li>Paracetamol 500mg - 15 units</li>
+                            <li>Amoxicillin 500mg - 25 units</li>
+                            <li>Bandages - 30 units</li>
+                        </ul>
+                    </div>
+
+                    <div class="report-section">
+                        <h3>CRITICAL ITEMS:</h3>
+                        <div class="report-stats">
+                            <p>Dispensed Today: <strong>45 prescriptions</strong></p>
+                            <p>Total value Dispensed: <strong>?3,200</strong></p>
+                            <p>Top Medication: <strong>Paracetamol (18 prescriptions)</strong></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn-modal-close" @onclick="HidePreview">Closed</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private DateTime startDate = DateTime.Today;
+    private DateTime endDate = DateTime.Today;
+    private string selectedReportType = "";
+    private bool showPreviewModal = false;
+
+    private void GenerateReport()
+    {
+        // Implement report generation logic
+        Console.WriteLine($"Generating report: {selectedReportType}");
+    }
+
+    private void ShowPreview()
+    {
+        showPreviewModal = true;
+    }
+
+    private void HidePreview()
+    {
+        showPreviewModal = false;
+    }
+
+    private void QuickGenerate(string reportType)
+    {
+        selectedReportType = reportType;
+        GenerateReport();
+    }
+}

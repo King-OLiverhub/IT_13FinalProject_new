@@ -1,0 +1,170 @@
+/* Billing Create Page Styles */
+.pm-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.pm-header-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.pm-btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.pm-btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.pm-btn-secondary {
+    background: #f8f9fa;
+    color: #6c757d;
+    border: 1px solid #dee2e6;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.pm-btn-secondary:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.pm-form-section {
+    margin-top: 30px;
+}
+
+.pm-form-grid {
+    display: grid;
+    gap: 24px;
+}
+
+.pm-form-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+}
+
+.pm-card-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: #374151;
+    border-bottom: 2px solid #f3f4f6;
+    padding-bottom: 10px;
+}
+
+.pm-form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+}
+
+.pm-form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.pm-form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.pm-form-group label {
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: #374151;
+    font-size: 14px;
+}
+
+.pm-form-control {
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.pm-form-control:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.pm-form-control:hover {
+    border-color: #9ca3af;
+}
+
+/* Validation Messages */
+.validation-message {
+    color: #ef4444;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+/* Error and Success Messages */
+.pm-error-message {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 20px;
+}
+
+.pm-error-message p {
+    color: #dc2626;
+    margin: 0;
+    font-size: 14px;
+}
+
+.pm-success-message {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 20px;
+}
+
+.pm-success-message p {
+    color: #16a34a;
+    margin: 0;
+    font-size: 14px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .pm-page {
+        padding: 16px;
+    }
+    
+    .pm-header-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .pm-form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .pm-form-grid {
+        gap: 16px;
+    }
+    
+    .pm-form-card {
+        padding: 16px;
+    }
+}

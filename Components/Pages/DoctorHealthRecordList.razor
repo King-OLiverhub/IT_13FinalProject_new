@@ -1,0 +1,491 @@
+@page "/doctor-health-records"
+@layout Layout.DashboardLayout
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Data
+@using Microsoft.EntityFrameworkCore
+
+@inject ApplicationDbContext DbContext
+@inject LocalDbContext LocalDbContext
+@inject NavigationManager Navigation
+@inject IJSRuntime JsRuntime
+
+<div class="pm-page">
+    <header class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title">Health Record List</h1>
+            <p class="dashboard-subtitle">Welcome back Clinical Staff!</p>
+        </div>
+
+        <div class="dashboard-user-info">
+            <span class="dashboard-user-email">doctor@gmail.com</span>
+            <div class="dashboard-user-avatar">👤</div>
+            <span class="dashboard-user-name">Clinical</span>
+        </div>
+    </header>
+
+    <section class="pm-overview">
+        <div class="pm-overview-header">
+            <h2 class="pm-section-title">Health Record List</h2>
+            <div class="pm-tab-container">
+                <button class="pm-tab-btn @(ShowArchived ? "" : "active")" @onclick="() => SetArchiveView(false)">
+                    Active Records
+                </button>
+                <button class="pm-tab-btn @(ShowArchived ? "active" : "")" @onclick="() => SetArchiveView(true)">
+                    Archived Records
+                </button>
+            </div>
+            <div class="pm-show-entries">
+                <span>Show</span>
+                <select>
+                    <option>5</option>
+                    <option>10</option>
+                    <option>25</option>
+                </select>
+                <span>entries</span>
+            </div>
+        </div>
+
+        <div class="pm-filters-row">
+            <div class="pm-search-row">
+                <div class="pm-search-box">
+                    <span class="pm-search-icon"></span>
+                    <input class="pm-search-input" placeholder="Search Patient" />
+                </div>
+
+                <div class="pm-actions">
+                    <button class="pm-add-btn" @onclick="GoToConsultationForm">
+                        <span class="pm-add-icon">+</span> Add Health Record
+                    </button>
+                    <button class="activity-action-btn">Sort</button>
+                    <button class="activity-action-btn">Filters</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="pm-table-outer">
+            <div class="pm-table-wrapper">
+                <table class="pm-table">
+                    <thead>
+                        <tr>
+                            <th class="pm-col-id">ID</th>
+                            <th>Patient Name<br /><span class="pm-subcol">Email</span></th>
+                            <th>Assessment Status</th>
+                            <th class="pm-col-date">Date of Visit</th>
+                            <th class="pm-col-status">Diagnosis</th>
+                            <th class="pm-col-action">Action</th>
+                            <th class="pm-col-actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (IsLoading)
+                        {
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 2rem;">
+                                    <div>Loading health records...</div>
+                                </td>
+                            </tr>
+                        }
+                        else if (!string.IsNullOrEmpty(ErrorMessage))
+                        {
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 2rem;">
+                                    <div style="color: red;">Error: @ErrorMessage</div>
+                                    <button class="pm-back-btn" @onclick="LoadHealthRecords" style="margin-top: 1rem;">Retry</button>
+                                </td>
+                            </tr>
+                        }
+                        else if (HealthRecords.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 2rem;">
+                                    <div>No health records found.</div>
+                                    <div style="margin-top: 1rem;">
+                                        <button class="pm-add-vitals-btn" @onclick="GoToConsultationForm">
+                                            <span>+ Add Consultation</span>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var healthRecord in HealthRecords)
+                            {
+                                try
+                                {
+                                    <tr>
+                                        <td class="pm-col-id">@healthRecord?.RecordId</td>
+                                        <td>
+                                            <div class="pm-patient-name">@(healthRecord?.Patient?.FirstName + " " + healthRecord?.Patient?.LastName ?? "Unknown")</div>
+                                            <div class="pm-patient-email">@(healthRecord?.Patient?.Email ?? "No email")</div>
+                                        </td>
+                                        <td>@(healthRecord?.VisitStatus ?? "New")</td>
+                                        <td class="pm-col-date">@(healthRecord?.RecordDate?.ToString("MM/dd/yyyy") ?? "N/A")</td>
+                                        <td class="pm-col-status">@(!string.IsNullOrEmpty(healthRecord?.AssessmentDiagnosis) && healthRecord.AssessmentDiagnosis.Length > 50 ? healthRecord.AssessmentDiagnosis.Substring(0, 50) + "..." : healthRecord?.AssessmentDiagnosis ?? "No diagnosis")</td>
+                                        <td class="pm-col-action">
+                                            <button class="pm-view-btn" @onclick="() => ViewHealthRecord(healthRecord?.RecordId ?? 0)" aria-label="View health record details">
+                                                <span class="pm-view-icon"></span>
+                                                <span class="pm-btn-text">View</span>
+                                            </button>
+                                        </td>
+                                        <td class="pm-col-actions">
+                                            <div class="pm-action-buttons">
+                                                @if (ShowArchived)
+                                                {
+                                                    <button class="pm-restore-btn" @onclick="() => RestoreHealthRecord(healthRecord?.RecordId ?? 0)" title="Restore Health Record">
+                                                        <span>↩️</span>
+                                                    </button>
+                                                    <button class="pm-delete-btn" @onclick="() => DeleteHealthRecord(healthRecord?.RecordId ?? 0)" title="Delete Permanently">
+                                                        <span>🗑️</span>
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <button class="pm-edit-btn" @onclick="() => ShowEditHealthRecordModal(healthRecord)" title="Edit Health Record">
+                                                        <span>✏️</span>
+                                                    </button>
+                                                    <button class="pm-archive-btn" @onclick="() => ArchiveHealthRecord(healthRecord?.RecordId ?? 0)" title="Archive Health Record">
+                                                        <span>📁</span>
+                                                    </button>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                                catch (Exception ex)
+                                {
+                                    <tr>
+                                        <td colspan="7" style="text-align: center; padding: 1rem;">
+                                            <div style="color: orange;">Error displaying consultation: @ex.Message</div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <button type="button" class="pm-pagination-toggle" @onclick="TogglePagination" aria-label="Hide or show page buttons">
+            <span>@(ShowPagination ? "›" : "‹")</span>
+        </button>
+
+        @if (ShowPagination)
+        {
+            <div class="pm-pagination">
+                <button class="pm-page-btn">Previous</button>
+                <button class="pm-page-number active">1</button>
+                <button class="pm-page-number">2</button>
+                <button class="pm-page-number">3</button>
+                <span class="pm-page-dots">...</span>
+                <button class="pm-page-number">8</button>
+                <button class="pm-page-btn">Next</button>
+            </div>
+        }
+    </section>
+</div>
+
+<!-- Edit Health Record Modal -->
+@if (ShowEditModal)
+{
+    <div class="pm-modal-overlay" @onclick="HideEditHealthRecordModal">
+        <div class="pm-modal" @onclick:stopPropagation>
+            <div class="pm-modal-header">
+                <h3>Edit Health Record</h3>
+                <button class="pm-modal-close" @onclick="HideEditHealthRecordModal">×</button>
+            </div>
+            <div class="pm-modal-body">
+                <div class="pm-form-grid">
+                    <div class="pm-form-group">
+                        <label>Patient</label>
+                        <input class="pm-form-input" value="@(EditingHealthRecord?.Patient?.FirstName + " " + EditingHealthRecord?.Patient?.LastName ?? "Unknown")" readonly />
+                    </div>
+                    <div class="pm-form-group">
+                        <label>Visit Status</label>
+                        <select class="pm-form-input" @bind="EditingHealthRecord.VisitStatus">
+                            <option value="New">New</option>
+                            <option value="Follow-up">Follow-up</option>
+                            <option value="Completed">Completed</option>
+                        </select>
+                    </div>
+                    <div class="pm-form-group pm-form-full">
+                        <label>Chief Complaint</label>
+                        <textarea class="pm-form-input" @bind="EditingHealthRecord.ChiefComplaint"></textarea>
+                    </div>
+                    <div class="pm-form-group pm-form-full">
+                        <label>Subjective Findings</label>
+                        <textarea class="pm-form-input" @bind="EditingHealthRecord.SubjectiveFindings"></textarea>
+                    </div>
+                    <div class="pm-form-group pm-form-full">
+                        <label>Objective Findings</label>
+                        <textarea class="pm-form-input" @bind="EditingHealthRecord.ObjectiveFindings"></textarea>
+                    </div>
+                    <div class="pm-form-group pm-form-full">
+                        <label>Assessment / Diagnosis</label>
+                        <textarea class="pm-form-input" @bind="EditingHealthRecord.AssessmentDiagnosis"></textarea>
+                    </div>
+                    <div class="pm-form-group pm-form-full">
+                        <label>Recommendations</label>
+                        <textarea class="pm-form-input" @bind="EditingHealthRecord.Recommendations"></textarea>
+                    </div>
+                    <div class="pm-form-group pm-form-full">
+                        <label>Doctor's Initial Remarks</label>
+                        <textarea class="pm-form-input" @bind="EditingHealthRecord.DoctorInitialRemarks"></textarea>
+                    </div>
+                    <div class="pm-form-group pm-form-full">
+                        <label>Special Instructions</label>
+                        <textarea class="pm-form-input" @bind="EditingHealthRecord.SpecialInstructions"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="pm-modal-footer">
+                <button class="pm-btn pm-btn-secondary" @onclick="HideEditHealthRecordModal">Cancel</button>
+                <button class="pm-btn pm-btn-primary" @onclick="UpdateHealthRecord">Update Health Record</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Models.HealthRecord> HealthRecords { get; set; } = new();
+    private bool IsLoading = true;
+    private string ErrorMessage = "";
+    private bool ShowPagination = true;
+        
+    // Modal properties
+    private bool ShowEditModal = false;
+    private Models.HealthRecord EditingHealthRecord = new Models.HealthRecord();
+    private bool ShowArchived = false;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadHealthRecords();
+    }
+    
+    private async Task LoadHealthRecords()
+    {
+        try
+        {
+            IsLoading = true;
+            ErrorMessage = "";
+            StateHasChanged();
+            
+            HealthRecords = await DbContext.HealthRecords
+                .Include(hr => hr.Patient)
+                .Where(hr => hr.IsArchived == ShowArchived)
+                .OrderByDescending(hr => hr.RecordDate)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading health records: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            ErrorMessage = $"Error loading health records: {ex.Message}";
+            
+            // Try to load health records without ordering to isolate the issue
+            try
+            {
+                HealthRecords = await DbContext.HealthRecords
+                    .Include(c => c.Patient)
+                    .ToListAsync();
+                Console.WriteLine($"Loaded {HealthRecords.Count} health records without ordering");
+            }
+            catch (Exception innerEx)
+            {
+                Console.WriteLine($"Error loading without ordering: {innerEx.Message}");
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+    
+    private void ViewHealthRecord(int recordId)
+    {
+        Navigation.NavigateTo($"/doctor-consultation-view/{recordId}");
+    }
+    
+    private void GoToConsultationForm()
+    {
+        Navigation.NavigateTo("/doctor-consultation");
+    }
+
+    private void TogglePagination()
+    {
+        ShowPagination = !ShowPagination;
+    }
+    
+    // Modal methods
+    private void ShowEditHealthRecordModal(Models.HealthRecord healthRecord)
+    {
+        // Load the health record with patient data
+        var recordWithPatient = DbContext.HealthRecords
+            .Include(hr => hr.Patient)
+            .FirstOrDefault(hr => hr.RecordId == healthRecord.RecordId);
+            
+        if (recordWithPatient != null)
+        {
+            EditingHealthRecord = recordWithPatient;
+            ShowEditModal = true;
+        }
+    }
+    
+    private void HideEditHealthRecordModal()
+    {
+        ShowEditModal = false;
+        EditingHealthRecord = new Models.HealthRecord();
+    }
+    
+    // CRUD operations
+    private async Task UpdateHealthRecord()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(EditingHealthRecord.AssessmentDiagnosis))
+            {
+                ErrorMessage = "Assessment/Diagnosis is required.";
+                await JsRuntime.InvokeVoidAsync("alert", ErrorMessage);
+                return;
+            }
+            
+            DbContext.HealthRecords.Update(EditingHealthRecord);
+            await DbContext.SaveChangesAsync();
+            
+            await LoadHealthRecords();
+            HideEditHealthRecordModal();
+            await JsRuntime.InvokeVoidAsync("alert", "Health record updated successfully!");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error updating health record: {ex.Message}";
+            await JsRuntime.InvokeVoidAsync("alert", ErrorMessage);
+        }
+    }
+    
+    private async Task ArchiveHealthRecord(int recordId)
+    {
+        bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to archive this health record?");
+        
+        if (!confirmed)
+        {
+            return;
+        }
+        
+        try
+        {
+            var healthRecord = await DbContext.HealthRecords.FindAsync(recordId);
+            if (healthRecord != null)
+            {
+                healthRecord.IsArchived = true;
+                healthRecord.ArchivedAt = DateTime.Now;
+                await DbContext.SaveChangesAsync();
+                
+                // Also archive in local database
+                try
+                {
+                    var localHealthRecord = await LocalDbContext.HealthRecords.FindAsync(recordId);
+                    if (localHealthRecord != null)
+                    {
+                        localHealthRecord.IsArchived = true;
+                        localHealthRecord.ArchivedAt = DateTime.Now;
+                        await LocalDbContext.SaveChangesAsync();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to archive health record in local: {ex.Message}");
+                }
+                
+                await LoadHealthRecords();
+                await JsRuntime.InvokeVoidAsync("alert", "Health record archived successfully!");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Error archiving health record: {ex.Message}");
+        }
+    }
+    
+    private async Task SetArchiveView(bool showArchived)
+    {
+        ShowArchived = showArchived;
+        await LoadHealthRecords();
+    }
+    
+    private async Task RestoreHealthRecord(int recordId)
+    {
+        bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to restore this health record?");
+        
+        if (!confirmed)
+        {
+            return;
+        }
+        
+        try
+        {
+            var healthRecord = await DbContext.HealthRecords.FindAsync(recordId);
+            if (healthRecord != null)
+            {
+                healthRecord.IsArchived = false;
+                healthRecord.ArchivedAt = null;
+                await DbContext.SaveChangesAsync();
+                
+                // Also restore in local database
+                try
+                {
+                    var localHealthRecord = await LocalDbContext.HealthRecords.FindAsync(recordId);
+                    if (localHealthRecord != null)
+                    {
+                        localHealthRecord.IsArchived = false;
+                        localHealthRecord.ArchivedAt = null;
+                        await LocalDbContext.SaveChangesAsync();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to restore health record in local: {ex.Message}");
+                }
+                
+                await LoadHealthRecords();
+                await JsRuntime.InvokeVoidAsync("alert", "Health record restored successfully!");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Error restoring health record: {ex.Message}");
+        }
+    }
+    
+    private async Task DeleteHealthRecord(int recordId)
+    {
+        try
+        {
+            var healthRecord = await DbContext.HealthRecords.FindAsync(recordId);
+            if (healthRecord != null)
+            {
+                DbContext.HealthRecords.Remove(healthRecord);
+                await DbContext.SaveChangesAsync();
+                
+                await LoadHealthRecords();
+                await JsRuntime.InvokeVoidAsync("alert", "Health record deleted permanently!");
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error deleting health record: {ex.Message}";
+            await JsRuntime.InvokeVoidAsync("alert", ErrorMessage);
+        }
+    }
+}
+
+
+
+
+
+
+
+
+

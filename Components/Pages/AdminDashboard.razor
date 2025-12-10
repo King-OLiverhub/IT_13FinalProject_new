@@ -1,0 +1,178 @@
+@page "/admin-dashboard"
+@layout Layout.DashboardLayout
+
+<div class="dashboard-page @(IsNotificationDismissed ? "dashboard-no-notification" : string.Empty)">
+    <header class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title">Dashboard</h1>
+            <p class="dashboard-subtitle">Welcome back Admin!</p>
+        </div>
+
+        <div class="dashboard-user-info">
+            <span class="dashboard-user-email">admin@gmail.com</span>
+            <div class="dashboard-user-avatar">U</div>
+            <span class="dashboard-user-name">Admin</span>
+        </div>
+    </header>
+
+    @if (IsNotificationDismissed)
+    {
+        <div class="dashboard-notification-toggle" @onclick="ShowNotificationBar">
+            <span class="notification-toggle-icon">?</span>
+        </div>
+    }
+
+    @if (!IsNotificationDismissed)
+    {
+        <section class="dashboard-notification">
+            <div class="notification-header-row">
+                <div class="notification-title">Lease Notification</div>
+                <div class="notification-controls">
+                    @if (IsNotificationCollapsed)
+                    {
+                        <span class="notification-control-icon" @onclick="ShowNotification">?</span>
+                    }
+                    else
+                    {
+                        <span class="notification-control-icon" @onclick="HideNotification">?</span>
+                    }
+                    <span class="notification-control-icon" @onclick="ExitNotification">?</span>
+                </div>
+            </div>
+
+            @if (!IsNotificationCollapsed)
+            {
+                <div class="notification-body">
+                    <div class="notification-icon">!</div>
+                    <div class="notification-text">
+                        <div>Low stock detected: Paracetamol 500mg &mdash; only 15 units left.</div>
+                        <button class="notification-button">Go to notification</button>
+                    </div>
+                </div>
+            }
+        </section>
+    }
+
+    <section class="dashboard-cards-row">
+        <div class="dashboard-card">
+            <h3>Monthly Revenue</h3>
+            <div class="card-placeholder">
+                <div class="card-kpi-value">$45,280</div>
+                <div class="card-kpi-change positive">+12%</div>
+                <div class="card-kpi-subtitle">Total paid receipts this month</div>
+                <div class="card-chart-placeholder">[Chart placeholder]</div>
+            </div>
+        </div>
+        <div class="dashboard-card">
+            <h3>Total Patients</h3>
+            <div class="card-placeholder">
+                <div class="card-kpi-value">1,247</div>
+                <div class="card-kpi-change neutral">0%</div>
+                <div class="card-kpi-subtitle">Active patients in MedFlow</div>
+                <div class="card-chart-placeholder">[Chart placeholder]</div>
+            </div>
+        </div>
+        <div class="dashboard-card">
+            <h3>Occupancy Rate</h3>
+            <div class="card-placeholder">
+                <div class="card-kpi-value">87%</div>
+                <div class="card-kpi-change negative">-8%</div>
+                <div class="card-kpi-subtitle">Bed occupancy vs available</div>
+                <div class="card-chart-placeholder">[Chart placeholder]</div>
+            </div>
+        </div>
+        <div class="dashboard-card">
+            <h3>Department Revenue</h3>
+            <div class="card-placeholder">
+                <div class="card-kpi-value">$128,450</div>
+                <div class="card-kpi-change positive">+5%</div>
+                <div class="card-kpi-subtitle">Top department: Outpatient</div>
+                <div class="card-chart-placeholder">[Chart placeholder]</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="dashboard-activity">
+        <div class="activity-header">
+            <h3>Recent Activity</h3>
+            <div class="activity-search-area">
+                <input class="activity-search" placeholder="Search activity..." />
+                <div class="activity-actions">
+                    <button class="activity-action-btn">Sort</button>
+                    <button class="activity-action-btn">Filters</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="activity-table-wrapper">
+            <table class="activity-table">
+                <thead>
+                    <tr>
+                        <th>Activity</th>
+                        <th>User</th>
+                        <th>Date &amp; Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Registered new patient: Juan Dela Cruz</td>
+                        <td>Receptionist</td>
+                        <td>10:24 AM</td>
+                    </tr>
+                    <tr>
+                        <td>Added Invoice #INV-10321 ($1,850)</td>
+                        <td>Billing Staff</td>
+                        <td>10:15 AM</td>
+                    </tr>
+                    <tr>
+                        <td>Updated Health Record: Ana Santos</td>
+                        <td>Dr. Reyes</td>
+                        <td>9:59 AM</td>
+                    </tr>
+                    <tr>
+                        <td>Dispensed Paracetamol 500mg (10 tabs)</td>
+                        <td>Pharmacist</td>
+                        <td>9:40 AM</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+@code {
+    private bool IsNotificationCollapsed { get; set; }
+    private bool IsNotificationDismissed { get; set; }
+
+    private void HideNotification()
+    {
+        IsNotificationCollapsed = true;
+    }
+
+    private void ShowNotification()
+    {
+        IsNotificationCollapsed = false;
+    }
+
+    private void ExitNotification()
+    {
+        IsNotificationDismissed = true;
+        IsNotificationCollapsed = false;
+    }
+
+    private void ShowNotificationBar()
+    {
+        IsNotificationDismissed = false;
+        IsNotificationCollapsed = false;
+    }
+}
+
+
+
+
+
+
+
+
+
+

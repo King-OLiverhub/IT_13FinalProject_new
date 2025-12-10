@@ -1,0 +1,190 @@
+@page "/doctor-lab-results"
+@layout Layout.DashboardLayout
+
+<div class="nurse-notes-page">
+    <header class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title">Laboratory Result</h1>
+            <p class="dashboard-subtitle">Doctor's pending & reviewed labs</p>
+        </div>
+
+        <div class="dashboard-user-info">
+            <span class="dashboard-user-email">doc@gmail.com</span>
+            <div class="dashboard-user-avatar">
+                👤
+            </div>
+            <span class="dashboard-user-name">Clinical</span>
+        </div>
+    </header>
+
+    <section class="pm-overview">
+        <div class="pm-overview-header">
+            <h2 class="pm-section-title">🧪 Laboratory Results</h2>
+            <div class="pm-show-entries">
+                <span>Show</span>
+                <select @bind="PageSize">
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                </select>
+                <span>entries</span>
+            </div>
+        </div>
+
+        <div class="pm-filters-row">
+            <div class="pm-search-row">
+                <div class="pm-search-box">
+                    <span class="pm-search-icon"></span>
+                    <input class="pm-search-input" placeholder="Search patient / test" @bind="SearchTerm" />
+                </div>
+
+                <div class="pm-actions">
+                    <button class="activity-action-btn">Sort</button>
+                    <button class="activity-action-btn">Filters</button>
+                    <button class="activity-action-btn lab-refresh-btn">Refresh</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="nurse-content-scroll">
+            <h2 class="nurse-shift-title">PENDING REVIEW (@PendingLabs.Count())</h2>
+
+            <div class="nurse-notes-list">
+                @foreach (var lab in PendingLabs)
+                {
+                    <div class="nurse-note-card">
+                        <div class="nurse-note-header">
+                            <span class="nurse-note-time">👤 @lab.PatientName | @lab.Date</span>
+                        </div>
+                        <div class="nurse-note-body">
+                            <div class="nurse-note-item">
+                                <span class="nurse-note-icon">📄</span>
+                                <span class="nurse-note-label">@lab.TestName</span>
+                            </div>
+                            <div class="nurse-note-item">
+                                <span class="nurse-note-icon">⚠️</span>
+                                <span class="nurse-note-text">Status: Results Ready | ⚠️ Abnormal values</span>
+                            </div>
+                            <div class="nurse-note-item">
+                                <span class="nurse-note-icon">📊</span>
+                                <span class="nurse-note-text">@lab.Summary</span>
+                            </div>
+                        </div>
+                        <div class="nurse-note-footer">
+                            <button class="appt-reschedule-btn" @onclick="() => Compare(lab)">Compare</button>
+                            <button class="appt-reschedule-btn" @onclick="() => AddToChart(lab)">Add to Chart</button>
+                            <button class="nurse-note-view-btn" @onclick="() => ViewReport(lab)">View Full Report</button>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <h2 class="nurse-shift-title">RECENTLY REVIEWED</h2>
+            <div class="nurse-notes-list">
+                @foreach (var lab in ReviewedLabs)
+                {
+                    <div class="nurse-note-card">
+                        <div class="nurse-note-header">
+                            <span class="nurse-note-time">👤 @lab.PatientName | @lab.Date</span>
+                        </div>
+                        <div class="nurse-note-body">
+                            <div class="nurse-note-item">
+                                <span class="nurse-note-icon">📄</span>
+                                <span class="nurse-note-label">@lab.TestName</span>
+                            </div>
+                            <div class="nurse-note-item">
+                                <span class="nurse-note-icon">✅</span>
+                                <span class="nurse-note-text">Status: Reviewed on @lab.ReviewDate</span>
+                            </div>
+                            <div class="nurse-note-item">
+                                <span class="nurse-note-icon">📊</span>
+                                <span class="nurse-note-text">@lab.Summary</span>
+                            </div>
+                            @if (!string.IsNullOrEmpty(lab.Comment))
+                            {
+                                <div class="nurse-note-item">
+                                    <span class="nurse-note-icon">📝</span>
+                                    <span class="nurse-note-text">Dr. Note: "@lab.Comment"</span>
+                                </div>
+                            }
+                        </div>
+                        <div class="nurse-note-footer">
+                            <button class="appt-reschedule-btn" @onclick="() => EditNote(lab)">Edit Note</button>
+                            <button class="nurse-note-view-btn" @onclick="() => ViewReport(lab)">View Report</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+</div>
+
+@code {
+    private class LabResult
+    {
+        public string Id { get; set; } = string.Empty;
+        public string PatientName { get; set; } = string.Empty;
+        public string Date { get; set; } = string.Empty;
+        public string TestName { get; set; } = string.Empty;
+        public string Summary { get; set; } = string.Empty;
+        public bool IsReviewed { get; set; }
+        public string ReviewDate { get; set; } = string.Empty;
+        public string Comment { get; set; } = string.Empty;
+    }
+
+    private string SearchTerm { get; set; } = string.Empty;
+    private int PageSize { get; set; } = 10;
+
+    private List<LabResult> AllLabs = new()
+    {
+        new() {
+            Id = "01",
+            PatientName = "Juan Dela Cruz",
+            Date = "Nov 14, 2024",
+            TestName = "Complete Blood Count (CBC)",
+            Summary = "WBC: 12.5 (High) | HGB: 13.2 (Normal)",
+            IsReviewed = false
+        },
+        new() {
+            Id = "02",
+            PatientName = "Maria Santos",
+            Date = "Nov 13, 2024",
+            TestName = "Lipid Profile",
+            Summary = "Cholesterol: 240 (High) | Triglycerides: 180",
+            IsReviewed = false
+        },
+        new() {
+            Id = "03",
+            PatientName = "Pedro Cruz",
+            Date = "Nov 12, 2024",
+            TestName = "Fasting Blood Sugar",
+            Summary = "Result: 110 mg/dL (Borderline)",
+            IsReviewed = true,
+            ReviewDate = "Nov 12",
+            Comment = "Monitor with diet control"
+        }
+    };
+
+    private IEnumerable<LabResult> PendingLabs => AllLabs.Where(l => !l.IsReviewed);
+    private IEnumerable<LabResult> ReviewedLabs => AllLabs.Where(l => l.IsReviewed);
+
+    private void Compare(LabResult lab)
+    {
+        // Compare with previous results
+    }
+
+    private void AddToChart(LabResult lab)
+    {
+        // Add to patient chart
+    }
+
+    private void ViewReport(LabResult lab)
+    {
+        // View full lab report
+    }
+
+    private void EditNote(LabResult lab)
+    {
+        // Edit doctor's note
+    }
+}

@@ -1,0 +1,530 @@
+@page "/doctor-patient-list"
+@layout Layout.DashboardLayout
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Data
+@using Microsoft.EntityFrameworkCore
+
+@inject ApplicationDbContext DbContext
+@inject LocalDbContext LocalDbContext
+@inject SyncService SyncService
+@inject NavigationManager Navigation
+@inject IJSRuntime JsRuntime
+
+<div class="pm-page">
+    <header class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title">Patient List</h1>
+            <p class="dashboard-subtitle">Welcome back Clinical Staff!</p>
+        </div>
+
+        <div class="dashboard-user-info">
+            <span class="dashboard-user-email">doctor@gmail.com</span>
+            <div class="dashboard-user-avatar">U</div>
+            <span class="dashboard-user-name">Clinical</span>
+        </div>
+    </header>
+
+    <section class="pm-overview">
+        <div class="pm-overview-header">
+            <h2 class="pm-section-title">Patient List</h2>
+            <div class="pm-show-entries">
+                <span>Show</span>
+                <select>
+                    <option>5</option>
+                    <option>10</option>
+                    <option>25</option>
+                </select>
+                <span>entries</span>
+            </div>
+        </div>
+
+        <div class="pm-filters-row">
+            <div class="pm-search-row">
+                <div class="pm-search-box">
+                    <span class="pm-search-icon"></span>
+                    <input class="pm-search-input" placeholder="Search Patient" />
+                </div>
+
+                <div class="pm-actions">
+                    <button class="pm-add-btn" @onclick="ShowAddPatientModal">
+                        <span class="pm-add-icon">+</span> Add Patient
+                    </button>
+                    <button class="activity-action-btn">Sort</button>
+                    <button class="activity-action-btn">Filters</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="pm-table-outer">
+            <div class="pm-table-wrapper">
+                <table class="pm-table">
+                    <thead>
+                        <tr>
+                            <th>Patient Name<br /><span class="pm-subcol">Email</span></th>
+                            <th>Nurse Assist<br /><span class="pm-subcol">Email</span></th>
+                            <th>Assessment Status</th>
+                            <th class="pm-col-date">Date of Visit</th>
+                            <th class="pm-col-action">Patient Info</th>
+                            <th class="pm-col-vitals">Vital Signs</th>
+                            <th class="pm-col-vitals">Health Records</th>
+                            <th class="pm-col-actions">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (IsLoading)
+                        {
+                            <tr>
+                                <td colspan="8" style="text-align: center; padding: 2rem;">
+                                    <div>Loading patients...</div>
+                                </td>
+                            </tr>
+                        }
+                        else if (!string.IsNullOrEmpty(ErrorMessage))
+                        {
+                            <tr>
+                                <td colspan="8" style="text-align: center; padding: 2rem;">
+                                    <div style="color: red;">Error: @ErrorMessage</div>
+                                    <button class="pm-back-btn" @onclick="LoadPatients" style="margin-top: 1rem;">Retry</button>
+                                </td>
+                            </tr>
+                        }
+                        else if (Patients.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="8" style="text-align: center; padding: 2rem;">
+                                    <div>No patients found.</div>
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var patient in Patients)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="pm-patient-name">@(patient.FirstName + " " + patient.LastName)</div>
+                                        <div class="pm-patient-email">@patient.Email</div>
+                                    </td>
+                                    <td>
+                                        <div class="pm-patient-name">@(patient.FirstName + " " + patient.LastName)</div>
+                                        <div class="pm-patient-email">@patient.Email</div>
+                                    </td>
+                                    <td>Awaiting Consultation</td>
+                                    <td class="pm-col-date">@(patient.CreatedAt?.ToString("MM/dd/yy") ?? "N/A")</td>
+                                    <td class="pm-col-action">
+                                        <button class="pm-view-btn" aria-label="View patient info" @onclick="() => GoToPatientProfile(patient.PatientId.ToString())">
+                                            <span class="pm-view-icon"></span>
+                                        </button>
+                                    </td>
+                                    <td class="pm-col-vitals">
+                                        <button class="pm-view-btn" aria-label="View vital signs" @onclick="() => ViewVitals(patient.PatientId.ToString())">
+                                            <span class="pm-view-icon"></span>
+                                        </button>
+                                    </td>
+                                    <td class="pm-col-vitals">
+                                        <button class="pm-add-btn" @onclick="() => GoToHealthRecords(patient.PatientId.ToString())">+ Add</button>
+                                    </td>
+                                    <td class="pm-col-actions">
+                                        <div class="pm-action-buttons">
+                                            <button class="pm-edit-btn" @onclick="() => ShowEditPatientModal(patient)" title="Edit Patient">
+                                                <span>✏️</span>
+                                            </button>
+                                            <button class="pm-archive-btn" @onclick="() => ArchivePatient(patient.PatientId)" title="Archive Patient">
+                                                <span>📁</span>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <button type="button" class="pm-pagination-toggle" @onclick="TogglePagination" aria-label="Hide or show page buttons">
+            <span>@(ShowPagination ? "›" : "‹")</span>
+        </button>
+
+        @if (ShowPagination)
+        {
+            <div class="pm-pagination">
+                <button class="pm-page-btn">Previous</button>
+                <button class="pm-page-number active">1</button>
+                <button class="pm-page-number">2</button>
+                <button class="pm-page-number">3</button>
+                <span class="pm-page-dots">...</span>
+                <button class="pm-page-number">8</button>
+                <button class="pm-page-btn">Next</button>
+            </div>
+        }
+    </section>
+</div>
+
+<!-- Add Patient Modal -->
+@if (ShowAddModal)
+{
+    <div class="pm-modal-overlay" @onclick="HideAddPatientModal">
+        <div class="pm-modal" @onclick:stopPropagation>
+            <div class="pm-modal-header">
+                <h3>Add New Patient</h3>
+                <button class="pm-modal-close" @onclick="HideAddPatientModal">×</button>
+            </div>
+            <div class="pm-modal-body">
+                <div class="pm-form-grid">
+                    <div class="pm-form-group">
+                        <label>First Name</label>
+                        <input class="pm-form-input" @bind="NewPatient.FirstName" />
+                    </div>
+                    <div class="pm-form-group">
+                        <label>Last Name</label>
+                        <input class="pm-form-input" @bind="NewPatient.LastName" />
+                    </div>
+                    <div class="pm-form-group">
+                        <label>Email</label>
+                        <input class="pm-form-input" @bind="NewPatient.Email" />
+                    </div>
+                    <div class="pm-form-group">
+                        <label>Phone</label>
+                        <input class="pm-form-input" @bind="NewPatient.Phone" />
+                    </div>
+                    <div class="pm-form-group">
+                        <label>Gender</label>
+                        <select class="pm-form-input" @bind="NewPatient.Gender">
+                            <option value="">Select Gender</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="pm-form-group">
+                        <label>Date of Birth</label>
+                        <input class="pm-form-input" type="date" @bind="NewPatient.DateOfBirth" />
+                    </div>
+                    <div class="pm-form-group pm-form-full">
+                        <label>Address</label>
+                        <textarea class="pm-form-input" @bind="NewPatient.Address"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="pm-modal-footer">
+                <button class="pm-btn pm-btn-secondary" @onclick="HideAddPatientModal">Cancel</button>
+                <button class="pm-btn pm-btn-primary" @onclick="AddPatient">Add Patient</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Edit Patient Modal -->
+@if (ShowEditModal)
+{
+    <div class="pm-modal-overlay" @onclick="HideEditPatientModal">
+        <div class="pm-modal" @onclick:stopPropagation>
+            <div class="pm-modal-header">
+                <h3>Edit Patient</h3>
+                <button class="pm-modal-close" @onclick="HideEditPatientModal">×</button>
+            </div>
+            <div class="pm-modal-body">
+                <div class="pm-form-grid">
+                    <div class="pm-form-group">
+                        <label>First Name</label>
+                        <input class="pm-form-input" @bind="EditingPatient.FirstName" />
+                    </div>
+                    <div class="pm-form-group">
+                        <label>Last Name</label>
+                        <input class="pm-form-input" @bind="EditingPatient.LastName" />
+                    </div>
+                    <div class="pm-form-group">
+                        <label>Email</label>
+                        <input class="pm-form-input" @bind="EditingPatient.Email" />
+                    </div>
+                    <div class="pm-form-group">
+                        <label>Phone</label>
+                        <input class="pm-form-input" @bind="EditingPatient.Phone" />
+                    </div>
+                    <div class="pm-form-group">
+                        <label>Gender</label>
+                        <select class="pm-form-input" @bind="EditingPatient.Gender">
+                            <option value="">Select Gender</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="pm-form-group">
+                        <label>Date of Birth</label>
+                        <input class="pm-form-input" type="date" @bind="EditingPatient.DateOfBirth" />
+                    </div>
+                    <div class="pm-form-group pm-form-full">
+                        <label>Address</label>
+                        <textarea class="pm-form-input" @bind="EditingPatient.Address"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="pm-modal-footer">
+                <button class="pm-btn pm-btn-secondary" @onclick="HideEditPatientModal">Cancel</button>
+                <button class="pm-btn pm-btn-primary" @onclick="UpdatePatient">Update Patient</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Patient> Patients = new();
+    private bool IsLoading = true;
+    private string ErrorMessage = "";
+    private bool ShowPagination = true;
+    
+    // Modal properties
+    private bool ShowAddModal = false;
+    private bool ShowEditModal = false;
+    private Patient NewPatient = new Patient();
+    private Patient EditingPatient = new Patient();
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPatients();
+    }
+    
+    private async Task LoadPatients()
+    {
+        try
+        {
+            IsLoading = true;
+            ErrorMessage = "";
+            StateHasChanged();
+            
+            Patients = await DbContext.Patients
+                .Where(p => p.IsArchived == false)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading patients: {ex.Message}");
+            ErrorMessage = $"Error loading patients: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GoToVitalsForm(string patientId)
+    {
+        Navigation.NavigateTo("/nurse-vitals");
+    }
+
+    private void GoToPatientProfile(string patientId)
+    {
+        Navigation.NavigateTo("/doctor-patient-profile");
+    }
+
+    private void ViewVitals(string patientId)
+    {
+        Navigation.NavigateTo($"/doctor-vitals-info/{patientId}");
+    }
+
+    private void GoToHealthRecords(string patientId)
+    {
+        Navigation.NavigateTo("/doctor-consultation");
+    }
+
+    private void TogglePagination()
+    {
+        ShowPagination = !ShowPagination;
+    }
+    
+    // Modal methods
+    private void ShowAddPatientModal()
+    {
+        NewPatient = new Patient { CreatedAt = DateTime.Now };
+        ShowAddModal = true;
+    }
+    
+    private void HideAddPatientModal()
+    {
+        ShowAddModal = false;
+        NewPatient = new Patient();
+    }
+    
+    private void ShowEditPatientModal(Patient patient)
+    {
+        EditingPatient = new Patient
+        {
+            PatientId = patient.PatientId,
+            FirstName = patient.FirstName,
+            LastName = patient.LastName,
+            Email = patient.Email,
+            Phone = patient.Phone,
+            Gender = patient.Gender,
+            DateOfBirth = patient.DateOfBirth,
+            Address = patient.Address,
+            BloodType = patient.BloodType,
+            EmergencyContact = patient.EmergencyContact,
+            EmergencyContactName = patient.EmergencyContactName,
+            EmergencyContactRelationship = patient.EmergencyContactRelationship,
+            EmergencyContactNumber = patient.EmergencyContactNumber,
+            MiddleName = patient.MiddleName,
+            CivilStatus = patient.CivilStatus,
+            Occupation = patient.Occupation,
+            Nationality = patient.Nationality,
+            Religion = patient.Religion,
+            UserId = patient.UserId,
+            IsArchived = patient.IsArchived,
+            ArchivedAt = patient.ArchivedAt
+        };
+        ShowEditModal = true;
+    }
+    
+    private void HideEditPatientModal()
+    {
+        ShowEditModal = false;
+        EditingPatient = new Patient();
+    }
+    
+    // CRUD operations
+    private async Task AddPatient()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(NewPatient.FirstName) || string.IsNullOrWhiteSpace(NewPatient.LastName))
+            {
+                ErrorMessage = "First Name and Last Name are required.";
+                await JsRuntime.InvokeVoidAsync("alert", ErrorMessage);
+                return;
+            }
+            
+            NewPatient.CreatedAt = DateTime.Now;
+            NewPatient.IsArchived = false;
+            
+            DbContext.Patients.Add(NewPatient);
+            await DbContext.SaveChangesAsync();
+            
+            // Also save to local database
+            try
+            {
+                var localPatient = new Patient
+                {
+                    FirstName = NewPatient.FirstName,
+                    LastName = NewPatient.LastName,
+                    MiddleName = NewPatient.MiddleName,
+                    Gender = NewPatient.Gender,
+                    DateOfBirth = NewPatient.DateOfBirth,
+                    Phone = NewPatient.Phone,
+                    Email = NewPatient.Email,
+                    Address = NewPatient.Address,
+                    BloodType = NewPatient.BloodType,
+                    EmergencyContact = NewPatient.EmergencyContact,
+                    CivilStatus = NewPatient.CivilStatus,
+                    Occupation = NewPatient.Occupation,
+                    Nationality = NewPatient.Nationality,
+                    Religion = NewPatient.Religion,
+                    EmergencyContactName = NewPatient.EmergencyContactName,
+                    EmergencyContactRelationship = NewPatient.EmergencyContactRelationship,
+                    EmergencyContactNumber = NewPatient.EmergencyContactNumber,
+                    CreatedAt = DateTime.Now,
+                    IsArchived = false
+                };
+                
+                LocalDbContext.Patients.Add(localPatient);
+                await LocalDbContext.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to save patient to local: {ex.Message}");
+            }
+            
+            await LoadPatients();
+            HideAddPatientModal();
+            await JsRuntime.InvokeVoidAsync("alert", "Patient added successfully!");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error adding patient: {ex.Message}";
+            await JsRuntime.InvokeVoidAsync("alert", ErrorMessage);
+        }
+    }
+    
+    private async Task UpdatePatient()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(EditingPatient.FirstName) || string.IsNullOrWhiteSpace(EditingPatient.LastName))
+            {
+                ErrorMessage = "First Name and Last Name are required.";
+                await JsRuntime.InvokeVoidAsync("alert", ErrorMessage);
+                return;
+            }
+            
+            EditingPatient.UpdatedAt = DateTime.Now;
+            
+            DbContext.Patients.Update(EditingPatient);
+            await DbContext.SaveChangesAsync();
+            
+            await LoadPatients();
+            HideEditPatientModal();
+            await JsRuntime.InvokeVoidAsync("alert", "Patient updated successfully!");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error updating patient: {ex.Message}";
+            await JsRuntime.InvokeVoidAsync("alert", ErrorMessage);
+        }
+    }
+    
+    private async Task ArchivePatient(int patientId)
+    {
+        bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to archive this patient?");
+        
+        if (!confirmed)
+        {
+            return;
+        }
+        
+        try
+        {
+            var patient = await DbContext.Patients.FindAsync(patientId);
+            if (patient != null)
+            {
+                patient.IsArchived = true;
+                patient.ArchivedAt = DateTime.Now;
+                await DbContext.SaveChangesAsync();
+                
+                // Also archive in local database
+                try
+                {
+                    var localPatient = await LocalDbContext.Patients.FindAsync(patientId);
+                    if (localPatient != null)
+                    {
+                        localPatient.IsArchived = true;
+                        localPatient.ArchivedAt = DateTime.Now;
+                        await LocalDbContext.SaveChangesAsync();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to archive patient in local: {ex.Message}");
+                }
+                
+                await LoadPatients();
+                await JsRuntime.InvokeVoidAsync("alert", "Patient archived successfully!");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Error archiving patient: {ex.Message}");
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,191 @@
+@page "/syncmanagement"
+@layout IT_13FinalProject.Components.Layout.DashboardLayout
+@using Microsoft.AspNetCore.Components.Web
+
+<PageTitle>Sync Management</PageTitle>
+
+<div class="dashboard-page sync-management-page">
+<header class="dashboard-header">
+<div>
+<h1 class="dashboard-title">Sync Management</h1>
+<p class="dashboard-subtitle">Welcome back Admin!</p>
+</div>
+
+<div class="dashboard-user-info">
+<span class="dashboard-user-email">admin@gmail.com</span>
+<div class="dashboard-user-avatar">A</div>
+<span class="dashboard-user-name">Admin</span>
+</div>
+</header>
+
+<div class="sync-content">
+<!-- Main Sync Section -->
+<div class="sync-main-section">
+<div class="section-header">
+<div class="section-title">
+<i class="fas fa-sync-alt"></i>
+<h2>Sync Management</h2>
+</div>
+<button class="sync-all-btn">Sync All</button>
+</div>
+
+<!-- Sync Status Card -->
+<div class="sync-status-card">
+<h3>Sync Status</h3>
+<div class="status-info">
+<div class="status-indicator offline"></div>
+<span class="status-text">OFFLINE - Local mode only</span>
+</div>
+<div class="sync-times">
+<p>Last full sync: Never</p>
+<p>Next scheduled sync: Disabled</p>
+</div>
+</div>
+
+<!-- Module Sync Status -->
+<div class="module-sync-section">
+<h3>Module Sync Status</h3>
+
+<div class="module-cards">
+<!-- Patient Records -->
+<div class="module-card synced">
+<div class="module-header">
+<div class="module-icon">
+<i class="fas fa-file-medical"></i>
+</div>
+<div class="module-info">
+<h4>Patient Records</h4>
+<p class="sync-time">Last sync: Never | 0 records</p>
+<button class="manual-sync-btn">[ Manual Sync]</button>
+</div>
+<div class="sync-status-badge synced">
+<i class="fas fa-check-circle"></i> Up to date
+</div>
+</div>
+<button class="view-details-btn">View Details</button>
+</div>
+
+<!-- Inventory Data -->
+<div class="module-card synced">
+<div class="module-header">
+<div class="module-icon">
+<i class="fas fa-box"></i>
+</div>
+<div class="module-info">
+<h4>Inventory Data</h4>
+<p class="sync-time">Last sync: Never | 0 items</p>
+<button class="manual-sync-btn">[ Manual Sync]</button>
+</div>
+<div class="sync-status-badge synced">
+<i class="fas fa-check-circle"></i> Up to date
+</div>
+</div>
+<button class="view-details-btn">View Details</button>
+</div>
+
+<!-- Billing Records -->
+<div class="module-card synced">
+<div class="module-header">
+<div class="module-icon">
+<i class="fas fa-file-invoice-dollar"></i>
+</div>
+<div class="module-info">
+<h4>Billing Records</h4>
+<p class="sync-time">Last sync: Never | 0 invoices</p>
+<button class="manual-sync-btn">[ Manual Sync]</button>
+</div>
+<div class="sync-status-badge synced">
+<i class="fas fa-check-circle"></i> Up to date
+</div>
+</div>
+<button class="view-details-btn">View Details</button>
+</div>
+
+<!-- Reports Data -->
+<div class="module-card synced">
+<div class="module-header">
+<div class="module-icon">
+<i class="fas fa-chart-bar"></i>
+</div>
+<div class="module-info">
+<h4>Reports Data</h4>
+<p class="sync-time">Last sync: Never | 0 reports</p>
+<button class="manual-sync-btn">[ Manual Sync]</button>
+</div>
+<div class="sync-status-badge synced">
+<i class="fas fa-check-circle"></i> Up to date
+</div>
+</div>
+<button class="view-details-btn">View Details</button>
+</div>
+</div>
+
+<!-- Sync Settings -->
+<div class="sync-settings-card">
+<div class="settings-header">
+<h3>Sync Settings</h3>
+<button class="save-changes-btn">Save Changes</button>
+</div>
+
+<div class="settings-options">
+<div class="setting-row">
+<span class="setting-label">Auto-sync:</span>
+<div class="radio-group">
+<label class="radio-option">
+<input type="radio" name="autoSync" value="6" checked="@(autoSyncInterval == 6)" @onchange='() => autoSyncInterval = 6'>
+<span>Every 6 hours</span>
+</label>
+<label class="radio-option">
+<input type="radio" name="autoSync" value="12" checked="@(autoSyncInterval == 12)" @onchange='() => autoSyncInterval = 12'>
+<span>Every 12 hours</span>
+</label>
+</div>
+</div>
+
+<div class="setting-row">
+<span class="setting-label">Sync on startup:</span>
+<label class="checkbox-option">
+<input type="checkbox" checked="@syncOnStartup" @onchange='e => syncOnStartup = (bool)e.Value'>
+<span>Enabled</span>
+</label>
+</div>
+
+<div class="setting-row">
+<span class="setting-label">Backup before sync:</span>
+<label class="checkbox-option">
+<input type="checkbox" checked="@backupBeforeSync" @onchange='e => backupBeforeSync = (bool)e.Value'>
+<span>Enabled</span>
+</label>
+</div>
+
+<div class="setting-row">
+<span class="setting-label">Notify on errors:</span>
+<label class="checkbox-option">
+<input type="checkbox" checked="@notifyOnErrors" @onchange='e => notifyOnErrors = (bool)e.Value'>
+<span>Enabled</span>
+</label>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+@code {
+    private int autoSyncInterval = 6;
+    private bool syncOnStartup = true;
+    private bool backupBeforeSync = true;
+    private bool notifyOnErrors = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Initialize component
+    }
+
+    private void SyncAll()
+    {
+        // Sync all modules
+        Console.WriteLine("Sync all modules");
+    }
+}

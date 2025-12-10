@@ -1,0 +1,184 @@
+@page "/billing-view/{BillId:int}"
+@layout Layout.DashboardLayout
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Services
+@inject IPatientBillService BillService
+@inject NavigationManager Navigation
+
+@if (bill == null)
+{
+    <div class="pm-page">
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="pm-error-message">
+                <p>@errorMessage</p>
+            </div>
+        }
+        else
+        {
+            <div class="pm-loading">
+                <p>Loading bill details...</p>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="pm-page">
+        <header class="dashboard-header">
+            <div>
+                <h1 class="dashboard-title">Bill Details</h1>
+                <p class="dashboard-subtitle">View patient bill information</p>
+            </div>
+            <div class="pm-header-actions">
+                <button class="pm-btn-secondary" @onclick="@(() => Navigation.NavigateTo("/billing-patient-overview"))">
+                    Back to Overview
+                </button>
+                <button class="pm-btn-primary" @onclick="@(() => Navigation.NavigateTo($"/billing-edit/{bill.BillId}"))">
+                    Edit Bill
+                </button>
+            </div>
+        </header>
+
+        <section class="pm-form-section">
+            <div class="pm-form-grid">
+                <!-- Patient Information -->
+                <div class="pm-form-card">
+                    <h3 class="pm-card-title">Patient Information</h3>
+                    <div class="pm-form-row">
+                        <div class="pm-form-group">
+                            <label>Patient Name</label>
+                            <div class="pm-form-control readonly">@bill.PatientName</div>
+                        </div>
+                        <div class="pm-form-group">
+                            <label>Email</label>
+                            <div class="pm-form-control readonly">@bill.PatientEmail ?? "Not provided"</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visit Information -->
+                <div class="pm-form-card">
+                    <h3 class="pm-card-title">Visit Information</h3>
+                    <div class="pm-form-row">
+                        <div class="pm-form-group">
+                            <label>Assessment Status</label>
+                            <div class="pm-form-control readonly">@bill.AssessmentStatus</div>
+                        </div>
+                        <div class="pm-form-group">
+                            <label>Date of Visit</label>
+                            <div class="pm-form-control readonly">@bill.DateOfVisit.ToString("MM/dd/yyyy")</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Financial Information -->
+                <div class="pm-form-card">
+                    <h3 class="pm-card-title">Financial Information</h3>
+                    <div class="pm-form-row">
+                        <div class="pm-form-group">
+                            <label>Total Amount</label>
+                            <div class="pm-form-control readonly">@bill.TotalAmount.ToString("C")</div>
+                        </div>
+                        <div class="pm-form-group">
+                            <label>Insurance Coverage</label>
+                            <div class="pm-form-control readonly">@bill.InsuranceCoverage.ToString("C")</div>
+                        </div>
+                        <div class="pm-form-group">
+                            <label>Patient Responsibility</label>
+                            <div class="pm-form-control readonly">@bill.PatientResponsibility.ToString("C")</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Information -->
+                <div class="pm-form-card">
+                    <h3 class="pm-card-title">Payment Information</h3>
+                    <div class="pm-form-row">
+                        <div class="pm-form-group">
+                            <label>Payment Status</label>
+                            <div class="pm-form-control readonly">@bill.PaymentStatus</div>
+                        </div>
+                        <div class="pm-form-group">
+                            <label>Payment Method</label>
+                            <div class="pm-form-control readonly">@bill.PaymentMethod ?? "Not specified"</div>
+                        </div>
+                        <div class="pm-form-group">
+                            <label>Payment Date</label>
+                            <div class="pm-form-control readonly">@(bill.PaymentDate?.ToString("MM/dd/yyyy") ?? "Not paid")</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Insurance Information -->
+                <div class="pm-form-card">
+                    <h3 class="pm-card-title">Insurance Information</h3>
+                    <div class="pm-form-row">
+                        <div class="pm-form-group full-width">
+                            <label>Insurance Provider</label>
+                            <div class="pm-form-control readonly">@bill.InsuranceProvider ?? "Not specified"</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bill Status -->
+                <div class="pm-form-card">
+                    <h3 class="pm-card-title">Bill Status</h3>
+                    <div class="pm-form-row">
+                        <div class="pm-form-group">
+                            <label>Status</label>
+                            <div class="pm-form-control readonly">@(bill.IsArchived ? "Archived" : "Active")</div>
+                        </div>
+                        <div class="pm-form-group">
+                            <label>Created Date</label>
+                            <div class="pm-form-control readonly">@bill.CreatedAt.ToString("MM/dd/yyyy HH:mm")</div>
+                        </div>
+                        @if (bill.ArchivedAt.HasValue)
+                        {
+                            <div class="pm-form-group">
+                                <label>Archived Date</label>
+                                <div class="pm-form-control readonly">@bill.ArchivedAt.Value.ToString("MM/dd/yyyy HH:mm")</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int BillId { get; set; }
+
+    private PatientBill? bill;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBill();
+    }
+
+    private async Task LoadBill()
+    {
+        try
+        {
+            Console.WriteLine($"Loading bill with ID: {BillId}");
+            bill = await BillService.GetByIdAsync(BillId);
+            if (bill == null)
+            {
+                errorMessage = $"Bill not found with ID: {BillId}";
+                Console.WriteLine($"Bill not found with ID: {BillId}");
+            }
+            else
+            {
+                Console.WriteLine($"Successfully loaded bill: {bill.PatientName}");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading bill: {ex.Message}";
+            Console.WriteLine($"Error loading bill: {ex.Message}");
+        }
+    }
+}

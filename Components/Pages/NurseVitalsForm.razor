@@ -1,0 +1,331 @@
+@page "/nurse-vitals"
+@page "/nurse-vitals/{patientId}"
+@layout Layout.DashboardLayout
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Data
+@using Microsoft.EntityFrameworkCore
+@using System.Web
+
+@inject ApplicationDbContext DbContext
+@inject LocalDbContext LocalDbContext
+@inject SyncService SyncService
+@inject NavigationManager Navigation
+@inject IJSRuntime JsRuntime
+
+<div class="nv-page">
+    <header class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title">Patient Management</h1>
+            <p class="dashboard-subtitle">Nurse Consultation &amp; Vital Signs Monitoring</p>
+        </div>
+
+        <div class="dashboard-user-info">
+            <span class="dashboard-user-email">nurse@gmail.com</span>
+            <div class="dashboard-user-avatar">👤</div>
+            <span class="dashboard-user-name">Clinical</span>
+        </div>
+    </header>
+
+    <section class="nv-form-card">
+        <div class="nv-form-header-row">
+            <div class="nv-form-title-wrap">
+                <span class="nv-form-icon">👤</span>
+                <h2 class="nv-form-title">Nurse Consultation Form</h2>
+            </div>
+            <h2 class="nv-form-title nv-form-title-center">Vital Signs Monitoring</h2>
+        </div>
+
+        <div class="nv-form-grid">
+            <div class="nv-form-column">
+                <h3 class="nv-column-title">Medical History</h3>
+
+                <label class="nv-field">
+                    <span class="nv-label">Allergies</span>
+                    <input class="nv-input" @bind="vitalSignForm.Allergies" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Past Illnesses</span>
+                    <input class="nv-input" @bind="vitalSignForm.PastIllnesses" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Past Surgeries</span>
+                    <input class="nv-input" @bind="vitalSignForm.PastSurgeries" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Current Medications</span>
+                    <input class="nv-input" @bind="vitalSignForm.CurrentMedications" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Family History of Illnesses</span>
+                    <input class="nv-input" @bind="vitalSignForm.FamilyHistory" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Immunization History (optional)</span>
+                    <input class="nv-input" @bind="vitalSignForm.ImmunizationHistory" />
+                </label>
+            </div>
+
+            <div class="nv-form-column">
+                <h3 class="nv-column-title">Vital Signs</h3>
+
+                <label class="nv-field">
+                    <span class="nv-label">Blood Pressure</span>
+                    <input class="nv-input" @bind="vitalSignForm.BloodPressure" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Heart Rate / Pulse Rate</span>
+                    <input class="nv-input" @bind="vitalSignForm.HeartRate" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Respiratory Rate</span>
+                    <input class="nv-input" @bind="vitalSignForm.RespiratoryRate" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Temperature</span>
+                    <input class="nv-input" @bind="vitalSignForm.Temperature" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Oxygen Saturation (SpO₂)</span>
+                    <input class="nv-input" @bind="vitalSignForm.OxygenSaturation" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Weight</span>
+                    <input class="nv-input" @bind="vitalSignForm.Weight" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Height</span>
+                    <input class="nv-input" @bind="vitalSignForm.Height" />
+                </label>
+            </div>
+
+            <div class="nv-form-column">
+                <h3 class="nv-column-title">Current Visit Details</h3>
+
+                <label class="nv-field">
+                    <span class="nv-label">Doctor's Name Assisted</span>
+                    <input class="nv-input" @bind="vitalSignForm.DoctorAssisted" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Nurse Name</span>
+                    <input class="nv-input" @bind="vitalSignForm.NurseName" />
+                </label>
+
+                <div class="nv-field nv-field-inline-icon">
+                    <span class="nv-label">Date of Visit / Consultation</span>
+                    <div class="nv-input-with-icon">
+                        <input class="nv-input" type="date" @bind="vitalSignForm.RecordedDate" />
+                        <span class="nv-input-icon">Date</span>
+                    </div>
+                </div>
+
+                <label class="nv-field">
+                    <span class="nv-label">Time In/out</span>
+                    <input class="nv-input" @bind="vitalSignForm.TimeInOut" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Department / Clinic Assigned</span>
+                    <input class="nv-input" @bind="vitalSignForm.Department" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Type of Visit (New / Follow-up)</span>
+                    <input class="nv-input" @bind="vitalSignForm.TypeOfVisit" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Chief Complaint</span>
+                    <input class="nv-input" @bind="vitalSignForm.ChiefComplaint" />
+                </label>
+
+                <label class="nv-field">
+                    <span class="nv-label">Duration of Symptoms</span>
+                    <input class="nv-input" @bind="vitalSignForm.DurationSymptoms" />
+                </label>
+            </div>
+        </div>
+
+        <div class="nv-notes-section">
+            <label class="nv-field">
+                <span class="nv-label">Nurse Initial Remarks / Notes</span>
+                <textarea class="nv-textarea" @bind="vitalSignForm.Remarks"></textarea>
+            </label>
+        </div>
+
+        <div class="nv-actions">
+            <button class="nv-back-btn" @onclick="GoBack">Back</button>
+            <button class="nv-save-btn" @onclick="SaveVitalSign" disabled="@isSubmitting">
+                @if (isSubmitting)
+                {
+                    <span>Saving...</span>
+                }
+                else
+                {
+                    <span>Save</span>
+                }
+            </button>
+        </div>
+    </section>
+</div>
+
+@code {
+    [Parameter]
+    public string? PatientId { get; set; }
+
+    private VitalSign vitalSignForm = new();
+    private bool isSubmitting = false;
+
+    protected override Task OnInitializedAsync()
+    {
+        // Set default values for all fields
+        vitalSignForm.RecordedDate = DateTime.Today;
+        vitalSignForm.CreatedAt = DateTime.UtcNow;
+        vitalSignForm.UpdatedAt = DateTime.UtcNow;
+        vitalSignForm.IsArchived = false;
+        
+        // Set patient ID from parameter or query string
+        if (!string.IsNullOrEmpty(PatientId))
+        {
+            vitalSignForm.PatientId = int.Parse(PatientId);
+        }
+        else
+        {
+            // Try to get from query string
+            var uri = new Uri(Navigation.Uri);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            var patientIdParam = query["patientId"];
+            if (!string.IsNullOrEmpty(patientIdParam))
+            {
+                vitalSignForm.PatientId = int.Parse(patientIdParam);
+            }
+        }
+        
+        // Set valid foreign key IDs from database
+        vitalSignForm.NurseId = null; // Can be null if no nurse record exists
+        vitalSignForm.DoctorId = 1; // Valid doctor_id from database (Jonel)
+        
+        return Task.CompletedTask;
+    }
+
+    private async Task SaveVitalSign()
+    {
+        if (isSubmitting) return;
+
+        isSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            vitalSignForm.UpdatedAt = DateTime.UtcNow;
+            
+            DbContext.VitalSigns.Add(vitalSignForm);
+            await DbContext.SaveChangesAsync();
+
+            // Also save to local database
+            try
+            {
+                var localVitalSign = new VitalSign
+                {
+                    PatientId = vitalSignForm.PatientId,
+                    NurseId = vitalSignForm.NurseId,
+                    Temperature = vitalSignForm.Temperature,
+                    HeartRate = vitalSignForm.HeartRate,
+                    BloodPressure = vitalSignForm.BloodPressure,
+                    RespiratoryRate = vitalSignForm.RespiratoryRate,
+                    OxygenSaturation = vitalSignForm.OxygenSaturation,
+                    Weight = vitalSignForm.Weight,
+                    Height = vitalSignForm.Height,
+                    BodyMassIndex = vitalSignForm.BodyMassIndex,
+                    Notes = vitalSignForm.Notes,
+                    RecordedDate = vitalSignForm.RecordedDate,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                
+                LocalDbContext.VitalSigns.Add(localVitalSign);
+                await LocalDbContext.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to save vital signs to local: {ex.Message}");
+            }
+
+            await JsRuntime.InvokeVoidAsync("alert", "Vital signs saved successfully!");
+            GoBack();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"=== ERROR SAVING VITAL SIGNS ===");
+            Console.WriteLine($"Main Error: {ex.Message}");
+            Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
+            Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+            
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"Inner Exception Type: {ex.InnerException.GetType().Name}");
+                Console.WriteLine($"Inner Exception Message: {ex.InnerException.Message}");
+                Console.WriteLine($"Inner Exception Stack Trace: {ex.InnerException.StackTrace}");
+                
+                // Check for database validation errors
+                if (ex.InnerException is Microsoft.EntityFrameworkCore.DbUpdateException dbEx)
+                {
+                    Console.WriteLine("=== DATABASE UPDATE ERRORS ===");
+                    Console.WriteLine($"Database Error: {dbEx.Message}");
+                    if (dbEx.InnerException != null)
+                    {
+                        Console.WriteLine($"Inner Database Error: {dbEx.InnerException.Message}");
+                    }
+                }
+            }
+            
+            // Log the vital sign data for debugging
+            Console.WriteLine($"=== VITAL SIGN DATA ===");
+            Console.WriteLine($"PatientId: {vitalSignForm.PatientId}");
+            Console.WriteLine($"RecordedDate: {vitalSignForm.RecordedDate}");
+            Console.WriteLine($"ChiefComplaint: {vitalSignForm.ChiefComplaint}");
+            Console.WriteLine($"BloodPressure: {vitalSignForm.BloodPressure}");
+            Console.WriteLine($"HeartRate: {vitalSignForm.HeartRate}");
+            Console.WriteLine($"Temperature: {vitalSignForm.Temperature}");
+            Console.WriteLine($"Weight: {vitalSignForm.Weight}");
+            Console.WriteLine($"Height: {vitalSignForm.Height}");
+            Console.WriteLine($"NurseId: {vitalSignForm.NurseId}");
+            Console.WriteLine($"NurseName: {vitalSignForm.NurseName}");
+            Console.WriteLine($"CreatedAt: {vitalSignForm.CreatedAt}");
+            Console.WriteLine($"UpdatedAt: {vitalSignForm.UpdatedAt}");
+            Console.WriteLine($"IsArchived: {vitalSignForm.IsArchived}");
+            
+            await JsRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+        finally
+        {
+            isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/nurse-vitals-list");
+    }
+}
+
+
+
+
+
+
+
+
+
+

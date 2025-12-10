@@ -1,0 +1,23 @@
+﻿# .NET Core
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.ncrunchsolution
+*.ncrunchproject
+*.vs/
+.vs/
+_ReSharper*/
+*.sln.ide
+*.sln.ide/
+*.sw?
+*~
+*.dbmdl
+*.jfm
+*.pfx
+*.publishsettings
+*.backup.*
+nupkg/
+*.nupkg

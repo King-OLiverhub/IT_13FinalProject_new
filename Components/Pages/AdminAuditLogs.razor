@@ -1,0 +1,302 @@
+@page "/admin-audit-logs"
+@layout IT_13FinalProject.Components.Layout.DashboardLayout
+
+<PageTitle>Audit Logs</PageTitle>
+
+<div class="dashboard-page audit-logs-page">
+    <header class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title">Audit Logs</h1>
+            <p class="dashboard-subtitle">Welcome back Admin!</p>
+        </div>
+
+        <div class="dashboard-user-info">
+            <span class="dashboard-user-email">admin@gmail.com</span>
+            <div class="dashboard-user-avatar">A</div>
+            <span class="dashboard-user-name">Admin</span>
+        </div>
+    </header>
+
+    <div class="audit-content">
+        <!-- Main Audit Logs Section -->
+        <div class="audit-logs-section">
+            <div class="section-header">
+                <div class="section-title">
+                    <i class="fas fa-clipboard-list"></i>
+                    <h2>Audit Logs</h2>
+                </div>
+                <span class="section-subtitle">Recent</span>
+            </div>
+
+            <div class="audit-controls">
+                <div class="search-container">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Search Logs" class="search-input" />
+                </div>
+                <div class="control-buttons">
+                    <button class="control-btn">
+                        <i class="fas fa-sort"></i> Sort
+                    </button>
+                    <button class="control-btn">
+                        <i class="fas fa-filter"></i> Filters
+                    </button>
+                    <button class="control-btn export-btn" @onclick="ShowExportModal">
+                        <i class="fas fa-file-export"></i> Export
+                    </button>
+                    <button class="control-btn refresh-btn">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+            </div>
+
+            <div class="log-entries">
+                <!-- Log Entry 1 -->
+                <div class="log-entry">
+                    <div class="log-time">
+                        <i class="far fa-clock"></i> 10:24 AM
+                    </div>
+                    <div class="log-divider">|</div>
+                    <div class="log-user">Receptionist</div>
+                    <div class="log-details">
+                        <div class="log-action">
+                            <i class="fas fa-check-circle success-icon"></i>
+                            Registered new patient: Juan Dela Cruz
+                        </div>
+                        <div class="log-meta">
+                            <span><i class="fas fa-map-marker-alt"></i> IP: 192.168.1.45</span>
+                            <span>| Device: Desktop</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Log Entry 2 -->
+                <div class="log-entry">
+                    <div class="log-time">
+                        <i class="far fa-clock"></i> 10:15 AM
+                    </div>
+                    <div class="log-divider">|</div>
+                    <div class="log-user">Billing Staff</div>
+                    <div class="log-details">
+                        <div class="log-action">
+                            <i class="fas fa-dollar-sign dollar-icon"></i>
+                            Added invoice #IRV-10321 (₱1,850)
+                        </div>
+                        <div class="log-meta">
+                            <span><i class="fas fa-map-marker-alt"></i> IP: 192.168.1.45</span>
+                            <span>| Device: Desktop</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Log Entry 3 -->
+                <div class="log-entry">
+                    <div class="log-time">
+                        <i class="far fa-clock"></i> 9:59 AM
+                    </div>
+                    <div class="log-divider">|</div>
+                    <div class="log-user">Dr. Reyes</div>
+                    <div class="log-details">
+                        <div class="log-action">
+                            <i class="fas fa-check-circle success-icon"></i>
+                            Updated Health Record: Ana Santos
+                        </div>
+                        <div class="log-meta">
+                            <span><i class="fas fa-map-marker-alt"></i> IP: 192.168.1.67</span>
+                            <span>| Device: Tablet</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Log Entry 4 -->
+                <div class="log-entry">
+                    <div class="log-time">
+                        <i class="far fa-clock"></i> 9:40 AM
+                    </div>
+                    <div class="log-divider">|</div>
+                    <div class="log-user">Pharmacist</div>
+                    <div class="log-details">
+                        <div class="log-action">
+                            <i class="fas fa-exclamation-triangle warning-icon"></i>
+                            Stock alert: Paracetamol 500mg (15 units)
+                        </div>
+                        <div class="log-meta">
+                            <span><i class="fas fa-map-marker-alt"></i> IP: 192.168.1.89</span>
+                            <span>| Device: Desktop</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Log Entry 5 -->
+                <div class="log-entry">
+                    <div class="log-time">
+                        <i class="far fa-clock"></i> 9:30 AM
+                    </div>
+                    <div class="log-divider">|</div>
+                    <div class="log-user">Admin</div>
+                    <div class="log-details">
+                        <div class="log-action">
+                            <i class="fas fa-cog settings-icon"></i>
+                            Modified user permissions: Nurse role
+                        </div>
+                        <div class="log-meta">
+                            <span><i class="fas fa-map-marker-alt"></i> IP: 192.168.1.12</span>
+                            <span>| Device: Desktop</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Stats Section -->
+        <div class="quick-stats-section">
+            <div class="stats-header">
+                <h2>Quick Stats</h2>
+                <div class="stats-total">Total: <strong>1,248</strong></div>
+            </div>
+
+            <div class="stat-cards">
+                <div class="stat-card">
+                    <div class="stat-content">
+                        <div class="stat-label">Today</div>
+                        <div class="stat-value">45</div>
+                        <div class="stat-sublabel">logs</div>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-content">
+                        <div class="stat-label">This Week</div>
+                        <div class="stat-value">280</div>
+                        <div class="stat-sublabel">logs</div>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-content">
+                        <div class="stat-label">This Month</div>
+                        <div class="stat-value">1,248</div>
+                        <div class="stat-sublabel">logs</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (showExportModal)
+{
+    <div class="export-overlay" @onclick="CloseExportModal">
+        <div class="export-modal" @onclick:stopPropagation>
+            <div class="modal-header">
+                <i class="fas fa-file-export"></i>
+                <h2>Export Audit Logs</h2>
+            </div>
+            <div class="modal-body">
+                <div class="form-section">
+                    <div class="section-label">Export Format</div>
+                    <div class="radio-group">
+                        <label class="radio-option">
+                            <input type="radio" name="exportFormat" value="csv" checked @onchange="e => exportFormat = e.Value?.ToString() ?? string.Empty" />
+                            <span>CSV (Comma Separated Values)</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="exportFormat" value="pdf" @onchange="e => exportFormat = e.Value?.ToString() ?? string.Empty" />
+                            <span>PDF Document</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="exportFormat" value="excel" @onchange="e => exportFormat = e.Value?.ToString() ?? string.Empty" />
+                            <span>Excel (XLSX)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="section-label">Date Range</div>
+                    <div class="date-range-inputs">
+                        <div class="date-input-group">
+                            <label>From</label>
+                            <input type="date" class="date-input" @bind="exportStartDate" />
+                        </div>
+                        <div class="date-input-group">
+                            <label>To</label>
+                            <input type="date" class="date-input" @bind="exportEndDate" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="section-label">Include Columns</div>
+                    <div class="checkbox-grid">
+                        <div class="checkbox-list">
+                            <label class="checkbox-option">
+                                <input type="checkbox" checked @onchange="e => includeTime = e.Value as bool? ?? false" />
+                                <span>Time</span>
+                            </label>
+                            <label class="checkbox-option">
+                                <input type="checkbox" checked @onchange="e => includeUser = e.Value as bool? ?? false" />
+                                <span>User</span>
+                            </label>
+                            <label class="checkbox-option">
+                                <input type="checkbox" checked @onchange="e => includeAction = e.Value as bool? ?? false" />
+                                <span>Action</span>
+                            </label>
+                            <label class="checkbox-option">
+                                <input type="checkbox" checked @onchange="e => includeDetails = e.Value as bool? ?? false" />
+                                <span>Details</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" @onclick="CloseExportModal">Cancel</button>
+                <button class="btn-export" @onclick="ExportData">Export</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // Export Modal State
+    private bool showExportModal = false;
+    private string exportFormat = "csv";
+    private DateTime exportStartDate = DateTime.Today.AddDays(-7);
+    private DateTime exportEndDate = DateTime.Today;
+    private bool includeTime = true;
+    private bool includeUser = true;
+    private bool includeAction = true;
+    private bool includeDetails = true;
+
+    private void ShowExportModal()
+    {
+        showExportModal = true;
+        StateHasChanged();
+    }
+
+    private void CloseExportModal()
+    {
+        showExportModal = false;
+        StateHasChanged();
+    }
+
+    private async Task ExportData()
+    {
+        try
+        {
+            // TODO: Implement actual export logic based on selected options
+            // For now, we'll just show an alert
+            await JsRuntime!.InvokeVoidAsync("alert", $"Exporting data as {exportFormat.ToUpper()} from {exportStartDate:d} to {exportEndDate:d}");
+            
+            // Close the modal after export
+            CloseExportModal();
+        }
+        catch (Exception ex)
+        {
+            // Handle any errors during export
+            await JsRuntime.InvokeVoidAsync("console.error", $"Export failed: {ex.Message}");
+        }
+    }
+
+    [Inject]
+    private IJSRuntime? JsRuntime { get; set; } = default!;
+}

@@ -1,0 +1,333 @@
+@page "/doctor-consultation"
+@layout Layout.DashboardLayout
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Data
+@using Microsoft.EntityFrameworkCore
+
+@inject ApplicationDbContext DbContext
+@inject LocalDbContext LocalDbContext
+@inject SyncService SyncService
+@inject NavigationManager Navigation
+@inject IJSRuntime JsRuntime
+
+<div class="dc-page">
+    <header class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title">Doctors HealthRecord Form</h1>
+            <p class="dashboard-subtitle">Clinical Findings, Treatment, and Approval</p>
+        </div>
+
+        <div class="dashboard-user-info">
+            <span class="dashboard-user-email">doctor@gmail.com</span>
+            <div class="dashboard-user-avatar">👤</div>
+            <span class="dashboard-user-name">Clinical</span>
+        </div>
+    </header>
+
+    <section class="dc-card">
+        <div class="dc-header-row">
+            <div class="dc-title-wrap">
+                <span class="dc-title-icon">👤</span>
+                <h2 class="dc-title">Doctors HealthRecord Form</h2>
+            </div>
+        </div>
+
+        <!-- Patient Selection -->
+        <div class="dc-patient-section">
+            <label class="dc-field">
+                <span class="dc-label">Select Patient</span>
+                <select class="dc-input" @bind="SelectedPatientId">
+                    <option value="">Select a patient</option>
+                    @foreach (var patient in Patients)
+                    {
+                        <option value="@patient.PatientId">@patient.FirstName @patient.LastName (@patient.Email)</option>
+                    }
+                </select>
+            </label>
+        </div>
+
+        <div class="dc-grid">
+            <!-- Clinical Findings -->
+            <div class="dc-column">
+                <h3 class="dc-section-title">Clinical Findings</h3>
+
+                <label class="dc-field">
+                    <span class="dc-label">Subjective Findings</span>
+                    <textarea class="dc-input dc-input-multi" @bind="HealthRecord.SubjectiveFindings" oninput="this.style.height='auto';this.style.height=this.scrollHeight + 'px'"></textarea>
+                </label>
+
+                <label class="dc-field">
+                    <span class="dc-label">Objective Findings</span>
+                    <textarea class="dc-input dc-input-multi" @bind="HealthRecord.ObjectiveFindings" oninput="this.style.height='auto';this.style.height=this.scrollHeight + 'px'"></textarea>
+                </label>
+
+                <label class="dc-field">
+                    <span class="dc-label">Assessment / Diagnosis</span>
+                    <textarea class="dc-input dc-input-multi" @bind="HealthRecord.AssessmentDiagnosis" oninput="this.style.height='auto';this.style.height=this.scrollHeight + 'px'"></textarea>
+                </label>
+
+                <label class="dc-field">
+                    <span class="dc-label">ICD-10 Code</span>
+                    <input class="dc-input" @bind="HealthRecord.Icd10Code" />
+                </label>
+
+                <label class="dc-field">
+                    <span class="dc-label">Additional Tests Order</span>
+                    <input class="dc-input" @bind="HealthRecord.AdditionalTestsOrder" />
+                </label>
+
+                <label class="dc-field">
+                    <span class="dc-label">Doctor's Remarks (Notes)</span>
+                    <textarea class="dc-input dc-input-multi" @bind="HealthRecord.DoctorRemarks" oninput="this.style.height='auto';this.style.height=this.scrollHeight + 'px'"></textarea>
+                </label>
+
+                <label class="dc-field">
+                    <span class="dc-label">Nurse Remarks (Notes)</span>
+                    <textarea class="dc-input dc-input-multi" @bind="HealthRecord.NurseRemarks" oninput="this.style.height='auto';this.style.height=this.scrollHeight + 'px'"></textarea>
+                </label>
+
+                <label class="dc-field">
+                    <span class="dc-label">Recommendation (Notes)</span>
+                    <textarea class="dc-input dc-input-multi" @bind="HealthRecord.Recommendations" oninput="this.style.height='auto';this.style.height=this.scrollHeight + 'px'"></textarea>
+                </label>
+            </div>
+
+            <!-- Treatment / Prescription -->
+            <div class="dc-column">
+                <h3 class="dc-section-title">Treatment / Prescription</h3>
+
+                <label class="dc-field">
+                    <span class="dc-label">Medicine Name</span>
+                    <input class="dc-input" @bind="HealthRecord.MedicineName" />
+                </label>
+
+                <label class="dc-field">
+                    <span class="dc-label">Dosage</span>
+                    <input class="dc-input" @bind="HealthRecord.Dosage" />
+                </label>
+
+                <label class="dc-field">
+                    <span class="dc-label">Frequency</span>
+                    <input class="dc-input" @bind="HealthRecord.Frequency" />
+                </label>
+
+                <label class="dc-field">
+                    <span class="dc-label">Duration</span>
+                    <input class="dc-input" @bind="HealthRecord.Duration" />
+                </label>
+
+                <label class="dc-field">
+                    <span class="dc-label">Notes / Special Instructions</span>
+                    <textarea class="dc-input dc-input-multi" @bind="HealthRecord.TreatmentNotes" oninput="this.style.height='auto';this.style.height=this.scrollHeight + 'px'"></textarea>
+                </label>
+
+                <h3 class="dc-section-title dc-section-title-spaced">Follow-up &amp; Outcome</h3>
+
+                <label class="dc-field dc-field-inline-icon">
+                    <span class="dc-label">Follow-up Date</span>
+                    <div class="dc-input-with-icon">
+                        <input class="dc-input" type="date" @bind="HealthRecord.FollowUpDate" />
+                        <span class="dc-input-icon">📅</span>
+                    </div>
+                </label>
+
+                <label class="dc-field">
+                    <span class="dc-label">Visit Status</span>
+                    <select class="dc-input" @bind="HealthRecord.VisitStatus">
+                        <option value="">Select status</option>
+                        <option value="New">New</option>
+                        <option value="Follow-up">Follow-up</option>
+                        <option value="Completed">Completed</option>
+                    </select>
+                </label>
+
+                <h3 class="dc-section-title dc-section-title-spaced">Doctor Approval</h3>
+
+                <label class="dc-field">
+                    <span class="dc-label">Electronic Signature / Name</span>
+                    <select class="dc-input" @bind="HealthRecord.DoctorSignature">
+                        <option value="">Select doctor</option>
+                        <option value="Doctor 1">Doctor 1</option>
+                        <option value="Doctor 2">Doctor 2</option>
+                    </select>
+                </label>
+
+                <label class="dc-field dc-field-inline-icon">
+                    <span class="dc-label">Date Approved</span>
+                    <div class="dc-input-with-icon">
+                        <input class="dc-input" type="date" @bind="HealthRecord.ApprovalDate" />
+                        <span class="dc-input-icon">📅</span>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <div class="dc-notes-section">
+            <label class="dc-field">
+                <span class="dc-label">Doctors Initial Remarks</span>
+                <textarea class="dc-input dc-input-multi" @bind="HealthRecord.DoctorInitialRemarks" oninput="this.style.height='auto';this.style.height=this.scrollHeight + 'px'"></textarea>
+            </label>
+        </div>
+
+        <div class="dc-actions">
+            <button class="dc-back-btn" @onclick="GoBack">Back</button>
+            <button class="dc-save-btn" @onclick="SaveHealthRecord">Save</button>
+        </div>
+    </section>
+</div>
+
+@code {
+    private Models.HealthRecord HealthRecord { get; set; } = new Models.HealthRecord();
+    private List<Patient> Patients { get; set; } = new List<Patient>();
+    private int SelectedPatientId { get; set; }
+    private bool IsSaving { get; set; } = false;
+    private string ErrorMessage { get; set; } = "";
+    private bool IsLoading { get; set; } = true;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPatients();
+    }
+    
+    private async Task LoadPatients()
+    {
+        try
+        {
+            Patients = await DbContext.Patients
+                .Where(p => p.IsArchived == false)
+                .OrderBy(p => p.FirstName)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error loading patients: {ex.Message}";
+            await JsRuntime.InvokeVoidAsync("alert", ErrorMessage);
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task SaveHealthRecord()
+    {
+        try
+        {
+            IsSaving = true;
+            ErrorMessage = "";
+            
+            // Set default values
+            HealthRecord.RecordDate = DateTime.Now;
+            HealthRecord.DoctorId = 1; // Assuming doctor ID 1 for doctor@gmail.com
+            
+            // Initialize new properties to prevent database errors
+            HealthRecord.DoctorInitialRemarks = null;
+            HealthRecord.SpecialInstructions = null;
+            
+            // Validate required fields
+            if (SelectedPatientId == 0)
+            {
+                ErrorMessage = "Please select a patient.";
+                await JsRuntime.InvokeVoidAsync("alert", ErrorMessage);
+                return;
+            }
+            
+            if (string.IsNullOrWhiteSpace(HealthRecord.AssessmentDiagnosis))
+            {
+                ErrorMessage = "Assessment/Diagnosis is required.";
+                await JsRuntime.InvokeVoidAsync("alert", ErrorMessage);
+                return;
+            }
+            
+            // Set the patient ID
+            HealthRecord.PatientId = SelectedPatientId;
+            
+            DbContext.HealthRecords.Add(HealthRecord);
+            await DbContext.SaveChangesAsync();
+
+            // Also save to local database
+            try
+            {
+                var localHealthRecord = new Models.HealthRecord
+                {
+                    PatientId = HealthRecord.PatientId,
+                    DoctorId = HealthRecord.DoctorId,
+                    ChiefComplaint = HealthRecord.ChiefComplaint,
+                    SymptomDuration = HealthRecord.SymptomDuration,
+                    VisitType = HealthRecord.VisitType,
+                    Department = HealthRecord.Department,
+                    TimeInOut = HealthRecord.TimeInOut,
+                    SubjectiveFindings = HealthRecord.SubjectiveFindings,
+                    ObjectiveFindings = HealthRecord.ObjectiveFindings,
+                    AssessmentDiagnosis = HealthRecord.AssessmentDiagnosis,
+                    Icd10Code = HealthRecord.Icd10Code,
+                    AdditionalTestsOrder = HealthRecord.AdditionalTestsOrder,
+                    DoctorRemarks = HealthRecord.DoctorRemarks,
+                    NurseRemarks = HealthRecord.NurseRemarks,
+                    Recommendations = HealthRecord.Recommendations,
+                    MedicineName = HealthRecord.MedicineName,
+                    Dosage = HealthRecord.Dosage,
+                    Frequency = HealthRecord.Frequency,
+                    Duration = HealthRecord.Duration,
+                    TreatmentNotes = HealthRecord.TreatmentNotes,
+                    FollowUpDate = HealthRecord.FollowUpDate,
+                    VisitStatus = HealthRecord.VisitStatus,
+                    DoctorSignature = HealthRecord.DoctorSignature,
+                    ApprovalDate = HealthRecord.ApprovalDate,
+                    RecordDate = HealthRecord.RecordDate,
+                    Diagnosis = HealthRecord.Diagnosis,
+                    Treatment = HealthRecord.Treatment,
+                    Prescription = HealthRecord.Prescription,
+                    SpecialInstructions = HealthRecord.SpecialInstructions,
+                    DoctorInitialRemarks = HealthRecord.DoctorInitialRemarks,
+                    IsArchived = false
+                };
+                
+                LocalDbContext.HealthRecords.Add(localHealthRecord);
+                await LocalDbContext.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to save health record to local: {ex.Message}");
+            }
+            
+            await JsRuntime.InvokeVoidAsync("alert", "HealthRecord saved successfully!");
+            Navigation.NavigateTo("/doctor-health-records");
+        }
+        catch (Exception ex)
+        {
+            // Log the full exception details for debugging
+            ErrorMessage = $"Error saving consultation: {ex.Message}";
+            if (ex.InnerException != null)
+            {
+                ErrorMessage += $" | Inner: {ex.InnerException.Message}";
+                if (ex.InnerException.InnerException != null)
+                {
+                    ErrorMessage += $" | Inner: {ex.InnerException.InnerException.Message}";
+                }
+            }
+            await JsRuntime.InvokeVoidAsync("alert", ErrorMessage);
+            Console.WriteLine(ErrorMessage); // Also log to console for debugging
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+    
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/doctor-health-records");
+    }
+}
+
+
+
+
+
+
+
+
+
+
