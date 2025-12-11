@@ -4,7 +4,7 @@
 <div class="dashboard-page @(IsNotificationDismissed ? "dashboard-no-notification" : string.Empty)">
     <header class="dashboard-header">
         <div>
-            <h1 class="dashboard-title">Dashboard</h1>
+            <h1 class="dashboard-title">Overview</h1>
             <p class="dashboard-subtitle">Welcome back Admin!</p>
         </div>
 
@@ -56,86 +56,179 @@
     <section class="dashboard-cards-row">
         <div class="dashboard-card">
             <h3>Monthly Revenue</h3>
-            <div class="card-placeholder">
+            <div class="card-content">
                 <div class="card-kpi-value">$45,280</div>
                 <div class="card-kpi-change positive">+12%</div>
                 <div class="card-kpi-subtitle">Total paid receipts this month</div>
-                <div class="card-chart-placeholder">[Chart placeholder]</div>
+            </div>
+            <div class="card-sparkline">
+                <div class="spark-chart">
+                    <div class="spark-bar" style="height: 40%"></div>
+                    <div class="spark-bar" style="height: 60%"></div>
+                    <div class="spark-bar" style="height: 45%"></div>
+                    <div class="spark-bar" style="height: 80%"></div>
+                    <div class="spark-bar" style="height: 65%"></div>
+                    <div class="spark-bar" style="height: 90%"></div>
+                    <div class="spark-bar" style="height: 75%"></div>
+                </div>
             </div>
         </div>
         <div class="dashboard-card">
             <h3>Total Patients</h3>
-            <div class="card-placeholder">
+            <div class="card-content">
                 <div class="card-kpi-value">1,247</div>
                 <div class="card-kpi-change neutral">0%</div>
                 <div class="card-kpi-subtitle">Active patients in MedFlow</div>
-                <div class="card-chart-placeholder">[Chart placeholder]</div>
+            </div>
+            <div class="card-sparkline">
+                <div class="spark-chart">
+                    <div class="spark-bar" style="height: 50%"></div>
+                    <div class="spark-bar" style="height: 50%"></div>
+                    <div class="spark-bar" style="height: 50%"></div>
+                    <div class="spark-bar" style="height: 50%"></div>
+                    <div class="spark-bar" style="height: 50%"></div>
+                    <div class="spark-bar" style="height: 50%"></div>
+                    <div class="spark-bar" style="height: 50%"></div>
+                </div>
             </div>
         </div>
         <div class="dashboard-card">
             <h3>Occupancy Rate</h3>
-            <div class="card-placeholder">
+            <div class="card-content">
                 <div class="card-kpi-value">87%</div>
                 <div class="card-kpi-change negative">-8%</div>
                 <div class="card-kpi-subtitle">Bed occupancy vs available</div>
-                <div class="card-chart-placeholder">[Chart placeholder]</div>
+            </div>
+            <div class="card-sparkline">
+                <div class="spark-chart">
+                    <div class="spark-bar" style="height: 70%"></div>
+                    <div class="spark-bar" style="height: 85%"></div>
+                    <div class="spark-bar" style="height: 60%"></div>
+                    <div class="spark-bar" style="height: 45%"></div>
+                    <div class="spark-bar" style="height: 30%"></div>
+                    <div class="spark-bar" style="height: 20%"></div>
+                    <div class="spark-bar" style="height: 15%"></div>
+                </div>
             </div>
         </div>
         <div class="dashboard-card">
             <h3>Department Revenue</h3>
-            <div class="card-placeholder">
+            <div class="card-content">
                 <div class="card-kpi-value">$128,450</div>
                 <div class="card-kpi-change positive">+5%</div>
                 <div class="card-kpi-subtitle">Top department: Outpatient</div>
-                <div class="card-chart-placeholder">[Chart placeholder]</div>
+            </div>
+            <div class="card-sparkline">
+                <div class="spark-chart">
+                    <div class="spark-bar" style="height: 30%"></div>
+                    <div class="spark-bar" style="height: 50%"></div>
+                    <div class="spark-bar" style="height: 65%"></div>
+                    <div class="spark-bar" style="height: 70%"></div>
+                    <div class="spark-bar" style="height: 85%"></div>
+                    <div class="spark-bar" style="height: 60%"></div>
+                    <div class="spark-bar" style="height: 95%"></div>
+                </div>
             </div>
         </div>
     </section>
 
-    <section class="dashboard-activity">
-        <div class="activity-header">
-            <h3>Recent Activity</h3>
-            <div class="activity-search-area">
-                <input class="activity-search" placeholder="Search activity..." />
-                <div class="activity-actions">
-                    <button class="activity-action-btn">Sort</button>
-                    <button class="activity-action-btn">Filters</button>
-                </div>
-            </div>
+    <section class="dashboard-appointments">
+        <div class="appointments-header">
+            <h3>Todays Appointments</h3>
         </div>
 
-        <div class="activity-table-wrapper">
-            <table class="activity-table">
+        <div class="appointments-table-wrapper">
+            <table class="appointments-table">
                 <thead>
                     <tr>
-                        <th>Activity</th>
-                        <th>User</th>
-                        <th>Date &amp; Time</th>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Situation</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td>Registered new patient: Juan Dela Cruz</td>
-                        <td>Receptionist</td>
-                        <td>10:24 AM</td>
+                        <td>
+                            <div class="patient-info">
+                                <div class="patient-avatar">JD</div>
+                                <span>Juan Dela Cruz</span>
+                            </div>
+                        </td>
+                        <td><span class="status-badge confirmed">Confirmed</span></td>
+                        <td>Dec 11, 2025</td>
+                        <td>9:00 AM</td>
+                        <td>Regular Checkup</td>
+                        <td><button class="action-btn">View Details</button></td>
                     </tr>
                     <tr>
-                        <td>Added Invoice #INV-10321 ($1,850)</td>
-                        <td>Billing Staff</td>
-                        <td>10:15 AM</td>
+                        <td>
+                            <div class="patient-info">
+                                <div class="patient-avatar">AS</div>
+                                <span>Ana Santos</span>
+                            </div>
+                        </td>
+                        <td><span class="status-badge pending">Pending</span></td>
+                        <td>Dec 11, 2025</td>
+                        <td>10:30 AM</td>
+                        <td>Follow-up</td>
+                        <td><button class="action-btn">View Details</button></td>
                     </tr>
                     <tr>
-                        <td>Updated Health Record: Ana Santos</td>
-                        <td>Dr. Reyes</td>
-                        <td>9:59 AM</td>
+                        <td>
+                            <div class="patient-info">
+                                <div class="patient-avatar">MR</div>
+                                <span>Maria Reyes</span>
+                            </div>
+                        </td>
+                        <td><span class="status-badge confirmed">Confirmed</span></td>
+                        <td>Dec 11, 2025</td>
+                        <td>2:00 PM</td>
+                        <td>Consultation</td>
+                        <td><button class="action-btn">View Details</button></td>
                     </tr>
                     <tr>
-                        <td>Dispensed Paracetamol 500mg (10 tabs)</td>
-                        <td>Pharmacist</td>
-                        <td>9:40 AM</td>
+                        <td>
+                            <div class="patient-info">
+                                <div class="patient-avatar">CL</div>
+                                <span>Carlos Lim</span>
+                            </div>
+                        </td>
+                        <td><span class="status-badge cancelled">Cancelled</span></td>
+                        <td>Dec 11, 2025</td>
+                        <td>3:30 PM</td>
+                        <td>Emergency</td>
+                        <td><button class="action-btn">View Details</button></td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="patient-info">
+                                <div class="patient-avatar">ST</div>
+                                <span>Sofia Tan</span>
+                            </div>
+                        </td>
+                        <td><span class="status-badge confirmed">Confirmed</span></td>
+                        <td>Dec 11, 2025</td>
+                        <td>4:00 PM</td>
+                        <td>Regular Checkup</td>
+                        <td><button class="action-btn">View Details</button></td>
                     </tr>
                 </tbody>
             </table>
+        </div>
+
+        <div class="pagination">
+            <button class="pagination-btn" disabled>Previous</button>
+            <div class="pagination-numbers">
+                <span class="page-number active">1</span>
+                <span class="page-number">2</span>
+                <span class="page-number">3</span>
+                <span class="page-number">4</span>
+                <span class="page-number">5</span>
+            </div>
+            <button class="pagination-btn">Next</button>
         </div>
     </section>
 </div>

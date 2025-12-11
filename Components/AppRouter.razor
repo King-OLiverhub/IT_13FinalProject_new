@@ -220,7 +220,7 @@ else if (path == "admin-receipt-pdf")
 else if (path == "receipt-pdf")
 {
     <DashboardLayout>
-        <ReceiptPdf />
+        <AdminReceiptPdf />
     </DashboardLayout>
 }
 else if (path == "nurse-patient-list")
@@ -315,6 +315,20 @@ else if (path == "doctor-consultation-edit")
     <DashboardLayout>
         <DoctorConsultEdit />
     </DashboardLayout>
+}
+else if (path.StartsWith("doctor-consultation-edit/"))
+{
+    var idString = path.Substring("doctor-consultation-edit/".Length);
+    if (int.TryParse(idString, out int id))
+    {
+        <DashboardLayout>
+            <DoctorConsultEdit ConsultationId="@id" />
+        </DashboardLayout>
+    }
+    else
+    {
+        <Login />
+    }
 }
 else if (path.StartsWith("doctor-consultation-view/"))
 {

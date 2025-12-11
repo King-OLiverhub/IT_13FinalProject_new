@@ -1,20 +1,21 @@
 .dashboard-page {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 24px;
+    background-color: #f8fafc;
+    min-height: 100vh;
+    padding: 20px;
 }
 
 .dashboard-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 16px;
-    margin: -10px -16px 6px;
-    background-color: #f3faf9;
-    border-bottom: 1px solid #e0f0ee;
-    position: sticky;
-    top: 0;
-    z-index: 5;
+    padding: 0;
+    margin: 0 0 24px 0;
+    background-color: transparent;
+    border-bottom: none;
+    position: relative;
 }
 
 .dashboard-notification-toggle {
@@ -41,14 +42,16 @@
 }
 
 .dashboard-title {
-    font-size: 28px;
+    font-size: 32px;
     font-weight: 700;
     margin: 0;
+    color: #1e293b;
 }
 
 .dashboard-subtitle {
     margin: 4px 0 0;
-    font-size: 14px;
+    font-size: 16px;
+    color: #64748b;
 }
 
 .dashboard-user-info {
@@ -165,33 +168,89 @@
 .dashboard-cards-row {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 14px;
-    margin-top: 4px;
+    gap: 20px;
+    margin-bottom: 32px;
 }
 
 .dashboard-card {
     background-color: #ffffff;
     border-radius: 16px;
-    padding: 12px 14px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+    border: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
 }
 
 .dashboard-card h3 {
     font-size: 14px;
-    margin-bottom: 8px;
+    margin-bottom: 16px;
+    color: #64748b;
+    font-weight: 500;
 }
 
-.card-placeholder {
-    min-height: 140px;
-    border-radius: 10px;
-    background: #f4fbfb;
+/* Card Styles */
+.card-content {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    justify-content: space-between;
-    padding: 10px 12px;
+}
+
+.card-kpi-value {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: #1e293b;
+}
+
+.card-kpi-change {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+.card-kpi-change.positive {
+    background-color: #dcfce7;
+    color: #16a34a;
+}
+
+.card-kpi-change.negative {
+    background-color: #fee2e2;
+    color: #dc2626;
+}
+
+.card-kpi-change.neutral {
+    background-color: #f1f5f9;
+    color: #64748b;
+}
+
+.card-kpi-subtitle {
     font-size: 12px;
-    color: #333;
+    color: #64748b;
+    margin-bottom: 16px;
+}
+
+.card-sparkline {
+    margin-top: auto;
+}
+
+.spark-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 40px;
+}
+
+.spark-bar {
+    flex: 1;
+    min-width: 3px;
+    border-radius: 2px 2px 0 0;
+    background: linear-gradient(180deg, #3b82f6, #1e40af);
 }
 
 .dashboard-no-notification .card-placeholder {
@@ -444,8 +503,184 @@
     background-color: #d32f2f;
 }
 
-.dashboard-activity {
-    margin-top: 0;
+/* Appointments Table Styles */
+.dashboard-appointments {
+    background-color: #ffffff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+    border: 1px solid #e2e8f0;
+}
+
+.appointments-header {
+    margin-bottom: 24px;
+}
+
+.appointments-header h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0;
+}
+
+.appointments-table-wrapper {
+    overflow-x: auto;
+    margin-bottom: 24px;
+}
+
+.appointments-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.appointments-table th {
+    background-color: #f8fafc;
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 14px;
+    color: #64748b;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.appointments-table th:first-child {
+    border-top-left-radius: 8px;
+}
+
+.appointments-table th:last-child {
+    border-top-right-radius: 8px;
+}
+
+.appointments-table td {
+    padding: 16px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 14px;
+    color: #475569;
+}
+
+.appointments-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+.patient-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.patient-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #e2e8f0;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    display: inline-block;
+}
+
+.status-badge.confirmed {
+    background-color: #dcfce7;
+    color: #16a34a;
+}
+
+.status-badge.pending {
+    background-color: #fef3c7;
+    color: #d97706;
+}
+
+.status-badge.cancelled {
+    background-color: #fee2e2;
+    color: #dc2626;
+}
+
+.action-btn {
+    padding: 8px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background-color: #ffffff;
+    color: #64748b;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+    background-color: #f8fafc;
+    border-color: #cbd5e1;
+    color: #475569;
+}
+
+/* Pagination Styles */
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+}
+
+.pagination-btn {
+    padding: 8px 16px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background-color: #ffffff;
+    color: #64748b;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    background-color: #f8fafc;
+    border-color: #cbd5e1;
+    color: #475569;
+}
+
+.pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pagination-numbers {
+    display: flex;
+    gap: 8px;
+}
+
+.page-number {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.page-number:hover {
+    background-color: #f8fafc;
+    color: #475569;
+}
+
+.page-number.active {
+    background-color: #3b82f6;
+    color: #ffffff;
 }
 
 @media (max-width: 1200px) {
