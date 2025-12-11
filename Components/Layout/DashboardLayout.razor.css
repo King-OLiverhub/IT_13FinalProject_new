@@ -424,6 +424,7 @@
     padding: 20px 26px;
     box-sizing: border-box;
     overflow-y: auto;
+    background-color: #ffffff;
 }
 
 /* Dark mode for the main dashboard area */

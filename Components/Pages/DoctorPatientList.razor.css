@@ -11,7 +11,7 @@
     align-items: center;
     padding: 10px 16px;
     margin: -10px -16px 6px;
-    background-color: #f3faf9;
+    background-color: transparent;
     border-bottom: 1px solid #e0f0ee;
     position: sticky;
     top: 0;
@@ -161,16 +161,19 @@
 }
 
 .pm-actions .activity-action-btn {
-    padding: 6px 14px;
+    padding: 6px 10px;
     border-radius: 999px;
-    border: 1px solid #0f8b8d;
+    border: 1px solid #c9d9dd;
     background-color: #ffffff;
     font-size: 12px;
     cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .pm-actions .activity-action-btn:hover {
     background-color: #e9f6f5;
+    border-color: #0FA4A4;
+    color: #0FA4A4;
 }
 
 .pm-table-outer {
@@ -202,9 +205,11 @@
     vertical-align: middle;
 }
 
-/* Force center alignment for the Vital Sign Monitoring column */
+/* Force center alignment for Vital Signs and Actions columns */
 .pm-table th.pm-col-vitals,
-.pm-table td.pm-col-vitals {
+.pm-table td.pm-col-vitals,
+.pm-table th.pm-col-actions,
+.pm-table td.pm-col-actions {
     text-align: center !important;
 }
 
@@ -245,17 +250,20 @@
 }
 
 .pm-view-btn {
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    border-radius: 50%;
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
     border: none;
-    background-color: #0f8b8d;
+    background-color: #0FA4A4;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     margin: 0 auto;
+    box-shadow: 0 2px 6px rgba(15, 164, 164, 0.35);
+    transition: background-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .pm-view-icon {
@@ -268,24 +276,52 @@
     background-size: 14px 14px;
 }
 
+.pm-edit-icon,
+.pm-archive-icon {
+	width: 14px;
+	height: 14px;
+	display: inline-block;
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: 14px 14px;
+}
+
+.pm-edit-icon {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M11 2l3 3-8 8-3 0 0-3 8-8z' stroke='%23ffffff' stroke-width='1.2' fill='none'/%3E%3C/svg%3E");
+}
+
+.pm-archive-icon {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M2 4h12v8H2V4z' stroke='%23ffffff' stroke-width='1.2' fill='none'/%3E%3Cpath d='M5 7h6' stroke='%23ffffff' stroke-width='1.2'/%3E%3C/svg%3E");
+}
+
 .pm-view-btn:hover {
-    background-color: #0b6f70;
+    background-color: #0C8B8B;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(15, 139, 141, 0.4);
 }
 
 .pm-add-btn {
-    padding: 4px 12px;      /* smaller, compact pill like nurse view */
-    border-radius: 999px;
+    padding: 6px 14px !important;
+    min-width: 0 !important;
+    border-radius: 999px !important;
     border: none;
-    background-color: #0f8b8d;
+    background-color: #0FA4A4;
     color: #ffffff;
     font-weight: 600;
-    font-size: 0.72rem;
+    font-size: 12px;
     cursor: pointer;
     margin: 0 auto; /* center inside the cell */
+    box-shadow: 0 2px 6px rgba(15, 164, 164, 0.35);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .pm-add-btn:hover {
-    background-color: #0b6f70;
+    background-color: #0C8B8B;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(15, 139, 141, 0.4);
 }
 
 /* Action buttons container */
@@ -296,129 +332,235 @@
     align-items: center;
 }
 
-/* Modern rounded action buttons */
+/* Ensure action buttons stay compact and do not stretch across the cell */
+.pm-col-actions .pm-action-buttons button {
+	flex: 0 0 auto;
+	max-width: 36px;
+}
+
+/* Rounded icon action buttons, aligned with dashboard style */
 .pm-edit-btn,
 .pm-archive-btn,
 .pm-delete-btn,
 .pm-update-btn {
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    border-radius: 50%;
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    padding: 0 !important;
+    border-radius: 999px !important;
     border: none;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 14px;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
 }
 
-.pm-edit-btn {
-    background-color: #4a90e2;
-    color: white;
+.pm-edit-btn,
+.pm-update-btn {
+    background-color: #0FA4A4;
+    color: #ffffff;
 }
 
-.pm-edit-btn:hover {
-    background-color: #357abd;
+.pm-edit-btn:hover,
+.pm-update-btn:hover {
+    background-color: #0C8B8B;
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(74, 144, 226, 0.3);
+    box-shadow: 0 4px 12px rgba(15, 139, 141, 0.35);
 }
 
 .pm-archive-btn {
-    background-color: #f39c12;
-    color: white;
+    background-color: #e2e8f0;
+    color: #0f172a;
 }
 
 .pm-archive-btn:hover {
-    background-color: #e67e22;
+    background-color: #cbd5e1;
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(243, 156, 18, 0.3);
+    box-shadow: 0 4px 10px rgba(148, 163, 184, 0.3);
 }
 
 .pm-delete-btn {
-    background-color: #e74c3c;
-    color: white;
+    background-color: #fee2e2;
+    color: #b91c1c;
 }
 
 .pm-delete-btn:hover {
-    background-color: #c0392b;
+    background-color: #fecaca;
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
+    box-shadow: 0 4px 10px rgba(248, 113, 113, 0.35);
 }
 
-.pm-update-btn {
-    background-color: #27ae60;
-    color: white;
-}
-
-.pm-update-btn:hover {
-    background-color: #229954;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(39, 174, 96, 0.3);
-}
-
-/* Modal buttons with modern styling */
+/* Modal buttons styled to match dashboard pill buttons */
 .pm-btn {
     padding: 8px 16px;
-    border-radius: 8px;
+    border-radius: 999px;
     border: none;
     font-weight: 500;
     font-size: 14px;
     cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
 }
 
 .pm-btn-primary {
-    background-color: #0f8b8d;
-    color: white;
+    background-color: #0FA4A4;
+    color: #ffffff;
 }
 
 .pm-btn-primary:hover {
-    background-color: #0b6f70;
+    background-color: #0C8B8B;
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(15, 139, 141, 0.3);
+    box-shadow: 0 4px 12px rgba(15, 139, 141, 0.35);
 }
 
 .pm-btn-secondary {
-    background-color: #f8f9fa;
-    color: #6c757d;
-    border: 1px solid #dee2e6;
+    background-color: #f8fafc;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
 }
 
 .pm-btn-secondary:hover {
-    background-color: #e9ecef;
-    color: #495057;
+    background-color: #e5e7eb;
+    color: #111827;
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 10px rgba(148, 163, 184, 0.25);
 }
 
 .pm-back-btn {
     padding: 8px 16px;
-    border-radius: 8px;
-    border: 1px solid #6c757d;
-    background-color: #f8f9fa;
-    color: #6c757d;
+    border-radius: 999px;
+    border: 1px solid #e2e8f0;
+    background-color: #f8fafc;
+    color: #64748b;
     font-weight: 500;
     font-size: 14px;
     cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
 }
 
 .pm-back-btn:hover {
-    background-color: #e9ecef;
-    color: #495057;
+    background-color: #e5e7eb;
+    color: #111827;
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 10px rgba(148, 163, 184, 0.25);
+}
+
+/* Shared modal styling for Add / Edit Patient */
+.pm-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 20;
+}
+
+.pm-modal {
+    background-color: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    max-width: 720px;
+    width: 100%;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.pm-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 18px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.pm-modal-body {
+    padding: 16px 18px 18px;
+    overflow-y: auto;
+}
+
+.pm-modal-footer {
+    padding: 10px 18px 14px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.pm-modal-close {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    border: none;
+    background-color: #f3f4f6;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+.pm-modal-close:hover {
+    background-color: #e5e7eb;
+}
+
+/* Modal form layout for Add/Edit Patient */
+.pm-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 24px; /* row gap, column gap */
+}
+
+.pm-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pm-form-group label {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.pm-form-input {
+    width: 100%;
+    padding: 6px 10px;
+    font-size: 13px;
+    border-radius: 999px;
+    border: 1px solid #0f8b8d;
+    outline: none;
+    box-sizing: border-box;
+}
+
+/* Full-width rows (e.g., Address) span both columns */
+.pm-form-group.pm-form-full {
+    grid-column: 1 / -1;
+}
+
+.pm-form-group.pm-form-full textarea.pm-form-input {
+    border-radius: 10px;
+    min-height: 60px;
+    resize: vertical;
+}
+
+@media (max-width: 900px) {
+    .pm-form-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
 }
 
 .pm-pagination {
     margin-top: 32px;
     display: flex;
-    justify-content: flex-end;
+    justify-content: center;
     align-items: center;
     gap: 6px;
 
@@ -438,21 +580,24 @@
     width: 32px;
     height: 32px;
     border-radius: 999px;
-    border: none;
-    background-color: transparent;
-    color: #222222;
+    border: 1px solid #e2e8f0;
+    background-color: #ffffff;
+    color: #64748b;
     font-size: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: none;
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15);
     cursor: pointer;
     z-index: 6;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .pm-pagination-toggle:hover {
-    background-color: transparent;
-    color: #000000;
+    background-color: #e9f6f5;
+    color: #0FA4A4;
+    border-color: #0FA4A4;
+    box-shadow: 0 6px 14px rgba(15, 164, 164, 0.35);
 }
 
 .pm-page-btn,
@@ -460,26 +605,44 @@
     min-width: 40px;
     padding: 6px 14px;
     border-radius: 999px;
-    border: 1px solid #c9d9dd;
+    border: 1px solid #e2e8f0;
     background-color: #ffffff;
     font-size: 12px;
     cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .pm-page-number.active {
-    background-color: #0f8b8d;
+    background-color: #0FA4A4;
     color: #ffffff;
-    border-color: #0f8b8d;
+    border-color: #0FA4A4;
+    box-shadow: 0 4px 12px rgba(15, 164, 164, 0.35);
 }
 
 .pm-page-btn:hover,
 .pm-page-number:hover {
-    background-color: #e9f6f5;
-    border-color: #0f8b8d;
+    background-color: #ffffff;
+    border-color: #e2e8f0;
+    color: #64748b;
 }
 
 .pm-page-dots {
     font-size: 12px;
+    color: #94a3b8;
 }
 
-
+/* Force all text within DoctorPatientList page to be black */
+.pm-page,
+.pm-page h1,
+.pm-page h2,
+.pm-page h3,
+.pm-page p,
+.pm-page span,
+.pm-page label,
+.pm-page td,
+.pm-page th,
+.pm-page button,
+.pm-page input,
+.pm-page div {
+    color: #000000 !important;
+}

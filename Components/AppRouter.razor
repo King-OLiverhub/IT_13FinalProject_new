@@ -293,16 +293,22 @@ else if (path == "doctor-patient-profile")
 }
 else if (path == "doctor-vitals-info")
 {
-    <DashboardLayout>
-        <DoctorVitalsInfo />
-    </DashboardLayout>
+    // doctor-vitals-info without an ID is not valid; redirect to login or a safe page
+    <Login />
 }
 else if (path.StartsWith("doctor-vitals-info/"))
 {
-    var patientId = path.Substring("doctor-vitals-info/".Length);
-    <DashboardLayout>
-        <DoctorVitalsInfo PatientId="@patientId" />
-    </DashboardLayout>
+    var idString = path.Substring("doctor-vitals-info/".Length);
+    if (int.TryParse(idString, out int id))
+    {
+        <DashboardLayout>
+            <DoctorVitalsInfo patientId="@id" />
+        </DashboardLayout>
+    }
+    else
+    {
+        <Login />
+    }
 }
 else if (path == "doctor-consultation")
 {

@@ -1,21 +1,27 @@
 .dashboard-page {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
+    padding: 20px 24px 32px;
+    background: #ffffff;
+    min-height: 100vh;
+    height: 100vh;
+    margin: 0;
 }
 
-/* Reuse the same dashboard page styling as admin/nurse */
+/* Header area similar to modern dashboard top bar */
 .dashboard-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 16px;
-    margin: -10px -16px 6px;
-    background-color: #f3faf9;
-    border-bottom: 1px solid #e0f0ee;
+    padding: 16px 24px;
+    margin: 0;
+    background-color: #ffffff;
+    border-bottom: none;
     position: sticky;
     top: 0;
     z-index: 5;
+    box-shadow: none;
 }
 
 .dashboard-notification-toggle {
@@ -25,8 +31,8 @@
 }
 
 .notification-toggle-icon {
-    width: 22px;
-    height: 12px;
+    width: 16px;
+    height: 4px;
     border-radius: 0 0 999px 999px;
     background-color: #333333;
     color: #ffffff;
@@ -42,14 +48,16 @@
 }
 
 .dashboard-title {
-    font-size: 28px;
+    font-size: 26px;
     font-weight: 700;
     margin: 0;
+    color: #055b5b;
 }
 
 .dashboard-subtitle {
     margin: 4px 0 0;
     font-size: 14px;
+    color: #64748b;
 }
 
 .dashboard-user-info {
@@ -60,14 +68,14 @@
 
 .dashboard-user-email {
     font-size: 13px;
-    color: #555;
+    color: #64748b;
 }
 
 .dashboard-user-avatar {
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    background-color: #40b6ae;
+    background-color: #0FA4A4;
     color: #ffffff;
     display: flex;
     align-items: center;
@@ -80,10 +88,11 @@
 }
 
 .dashboard-notification {
-    background-color: #ffe8a3;
-    border-radius: 12px;
-    padding: 10px 16px;
+    background-color: #eef4ff;
+    border-radius: 18px;
+    padding: 12px 16px;
     position: relative;
+    border: 1px solid #d3e1ff;
 }
 
 .notification-header-row {
@@ -91,10 +100,6 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-}
-
-.notification-title {
-    font-weight: 600;
 }
 
 .notification-controls {
@@ -110,17 +115,17 @@
     width: 16px;
     height: 16px;
     border-radius: 999px;
-    border: 1px solid #f5c76b;
+    border: 1px solid #c7d2fe;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 9px;
     cursor: pointer;
-    background-color: #ffe19a;
+    background-color: #e0e7ff;
 }
 
 .notification-control-icon:hover {
-    background-color: #ffd36b;
+    background-color: #c7d2fe;
 }
 
 .notification-body {
@@ -133,7 +138,7 @@
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    background-color: #ffd36b;
+    background-color: #d3e1ff;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -150,61 +155,122 @@
 .notification-button {
     border: none;
     border-radius: 999px;
-    background-color: #00a792;
+    background-color: #0FA4A4;
     color: #ffffff;
-    padding: 3px 10px;
-    font-size: 11px;
+    padding: 2px 8px;   /* smaller height and width */
+    font-size: 10px;    /* slightly smaller text */
     font-weight: 500;
     cursor: pointer;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 }
 
 .notification-button:hover {
-    background-color: #00907f;
+    background-color: #0C8B8B;
 }
 
 .dashboard-cards-row {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 14px;
+    gap: 18px;
+    margin-top: 4px;
 }
 
 .dashboard-card {
-    background-color: #ffffff;
-    border-radius: 16px;
-    padding: 12px 14px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    background-color: #f4fbfb;
+    border-radius: 18px;
+    padding: 14px 16px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    border: 1px solid rgba(15, 164, 164, 0.25);
 }
 
 .dashboard-card h3 {
-    font-size: 14px;
-    margin-bottom: 8px;
+    font-size: 13px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #94a3b8;
 }
 
 .card-placeholder {
-    height: 120px;
-    border-radius: 10px;
-    background: #f4fbfb;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #f9fbff, #f4f7ff);
+    padding: 12px 14px;
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
     justify-content: center;
+    gap: 6px;
     font-size: 12px;
-    color: #777;
+    color: #64748b;
+}
+
+.card-kpi-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.card-kpi-change {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background-color: #e0f2fe;
+}
+
+.card-kpi-change.positive {
+    color: #16a34a;
+    background-color: #dcfce7;
+}
+
+.card-kpi-change.negative {
+    color: #dc2626;
+    background-color: #fee2e2;
+}
+
+.card-kpi-change.neutral {
+    color: #64748b;
+    background-color: #e2e8f0;
+}
+
+.card-kpi-subtitle {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.card-chart-placeholder {
+    margin-top: 4px;
+    width: 100%;
+    height: 42px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.03));
 }
 
 .dashboard-no-notification .card-placeholder {
-    height: 160px;
+    min-height: 120px;
 }
 
 .dashboard-activity {
-    margin-top: 8px;
+    margin-top: 20px;
+    background-color: #ffffff;
+    border-radius: 18px;
+    padding: 16px 18px 18px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    border: 1px solid #e5e7f1;
 }
 
 .activity-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
+}
+
+.activity-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #0f172a;
 }
 
 .activity-search-area {
@@ -216,7 +282,8 @@
 .activity-search {
     padding: 6px 10px;
     border-radius: 999px;
-    border: 1px solid #c9e3e1;
+    border: 1px solid #e2e8f0;
+    background-color: #f8fafc;
     font-size: 13px;
     min-width: 260px;
 }
@@ -229,29 +296,30 @@
 .activity-action-btn {
     padding: 6px 10px;
     border-radius: 999px;
-    border: 1px solid #c9e3e1;
+    border: 1px solid #e2e8f0;
     background-color: #ffffff;
     cursor: pointer;
     font-size: 12px;
 }
 
 .activity-action-btn:hover {
-    background-color: #e9f6f5;
-    border-color: #0f8b8d;
-    color: #0f8b8d;
+    background-color: #eef2ff;
+    border-color: #0FA4A4;
+    color: #0FA4A4;
 }
 
 .activity-table-wrapper {
     max-height: 260px; /* fixed box height so only rows scroll when there are many */
     overflow-y: auto;
     border-radius: 16px;
-    padding: 4px 0;
+    padding: 2px 4px 4px; /* less vertical padding */
+    background-color: #f8fafc;
 }
 
 .activity-table {
     width: 100%;
     border-collapse: separate;
-    border-spacing: 0 8px;
+    border-spacing: 0 4px; /* less space between rows */
     background-color: transparent;
 }
 
@@ -262,9 +330,17 @@
     text-align: left;
 }
 
+.activity-table thead th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #94a3b8;
+    border-bottom: 1px solid #e2e8f0;
+}
+
 .activity-table tbody td {
-    padding-top: 12px;
-    padding-bottom: 12px;
+    padding-top: 6px;   /* tighter row height */
+    padding-bottom: 6px;
 }
 
 .activity-table thead {
@@ -286,4 +362,52 @@
     border-bottom-right-radius: 12px;
 }
 
+@media (max-width: 1200px) {
+    .dashboard-cards-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
 
+@media (max-width: 768px) {
+    .dashboard-page {
+        padding: 16px 14px 24px;
+    }
+
+    .dashboard-header {
+        padding: 12px 16px;
+        margin: -16px -14px 2px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .dashboard-cards-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .activity-search-area {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .activity-search {
+        min-width: 0;
+        width: 100%;
+    }
+}
+
+/* Ensure all text within the Doctor dashboard uses black text (sidebar is in a different stylesheet) */
+.dashboard-page,
+.dashboard-page h1,
+.dashboard-page h2,
+.dashboard-page h3,
+.dashboard-page p,
+.dashboard-page span,
+.dashboard-page label,
+.dashboard-page td,
+.dashboard-page th,
+.dashboard-page button,
+.dashboard-page input,
+.dashboard-page div {
+    color: #000000 !important;
+}
