@@ -4,7 +4,12 @@
 
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Forms
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Services
 @inject NavigationManager Navigation
+@inject IUserAccountService UserAccountService
+@inject CurrentUserState CurrentUserState
+@inject IJSRuntime JsRuntime
 
 <div class="dashboard-page up-page">
     <header class="dashboard-header">
@@ -14,19 +19,19 @@
         </div>
 
         <div class="dashboard-user-info">
-            <span class="dashboard-user-email">admin@gmail.com</span>
-            <div class="dashboard-user-avatar">U</div>
-            <span class="dashboard-user-name">Admin</span>
+            <span class="dashboard-user-email">@(_user?.Email ?? string.Empty)</span>
+            <div class="dashboard-user-avatar">@HeaderInitials</div>
+            <span class="dashboard-user-name">@(_user?.FullName ?? _user?.Username ?? "User")</span>
         </div>
     </header>
 
     <section class="up-main">
         <div class="up-topbar">
             <div class="up-userchip">
-                <div class="up-userchip-avatar">JD</div>
+                <div class="up-userchip-avatar">@HeaderInitials</div>
                 <div class="up-userchip-text">
-                    <div class="up-userchip-name">Juan Dela Cruz</div>
-                    <div class="up-userchip-email">juan.delacruz@gmail.com</div>
+                    <div class="up-userchip-name">@(_user?.FullName ?? _user?.Username ?? "User")</div>
+                    <div class="up-userchip-email">@(_user?.Email ?? string.Empty)</div>
                 </div>
             </div>
         </div>
@@ -43,11 +48,11 @@
                 </div>
 
                 <div class="up-right">
-                    <h2 class="up-name">Juan Dela Cruz</h2>
-                    <div class="up-field-row"><span class="up-field-label">Email:</span> <a href="mailto:juan.delacruz@gmail.com" class="up-field-link">juan.delacruz@gmail.com</a></div>
-                    <div class="up-field-row"><span class="up-field-label">Username:</span> <span class="up-field-value">@(string.IsNullOrEmpty(Role) ? "User" : Role)1</span></div>
+                    <h2 class="up-name">@(_user?.FullName ?? _user?.Username ?? "User")</h2>
+                    <div class="up-field-row"><span class="up-field-label">Email:</span> <a href="mailto:@(_user?.Email ?? string.Empty)" class="up-field-link">@(_user?.Email ?? string.Empty)</a></div>
+                    <div class="up-field-row"><span class="up-field-label">Username:</span> <span class="up-field-value">@(_user?.Username ?? string.Empty)</span></div>
                     <div class="up-field-row"><span class="up-field-label">Pass:</span> <span class="up-field-value">•••••</span></div>
-                    <div class="up-field-row"><span class="up-field-label">Role:</span> <span class="up-field-value">@(string.IsNullOrEmpty(Role) ? "User" : Role)</span></div>
+                    <div class="up-field-row"><span class="up-field-label">Role:</span> <span class="up-field-value">@(_user?.Role ?? (string.IsNullOrEmpty(Role) ? "User" : Role))</span></div>
 
                     <div class="up-actions">
                         <button type="button" class="up-action-link" @onclick="() => ShowMoreDetails = true">Add more details</button>
@@ -95,13 +100,12 @@
             <div class="up-more-panel">
                 <h2 class="up-more-title">Edit Details</h2>
                 <div class="up-more-fields">
-                    <input class="up-more-input" placeholder="Name" value="Juan Dela Cruz" />
-                    <input class="up-more-input" placeholder="Email" value="juan.delacruz@gmail.com" />
-                    <input class="up-more-input" placeholder="Contact" />
+                    <input class="up-more-input" placeholder="Name" @bind="EditFullName" />
+                    <input class="up-more-input" placeholder="Email" @bind="EditEmail" />
                 </div>
                 <div class="up-more-actions">
                     <button type="button" class="up-more-btn up-more-cancel" @onclick="() => ShowEditDetails = false">Cancel</button>
-                    <button type="button" class="up-more-btn up-more-save" @onclick="SaveEditDetails">Save</button>
+                    <button type="button" class="up-more-btn up-more-save" @onclick="SaveEditDetails" disabled="@IsSaving">Save</button>
                 </div>
             </div>
         </div>
@@ -131,13 +135,13 @@
             <div class="up-more-panel">
                 <h2 class="up-more-title">Change Username</h2>
                 <div class="up-more-fields">
-                    <input class="up-more-input" placeholder="Current username" />
-                    <input class="up-more-input" placeholder="New username" />
-                    <input class="up-more-input" placeholder="Confirm new username" />
+                    <input class="up-more-input" placeholder="Current username" value="@(_user?.Username ?? string.Empty)" disabled />
+                    <input class="up-more-input" placeholder="New username" @bind="NewUsername" />
+                    <input class="up-more-input" placeholder="Confirm new username" @bind="ConfirmNewUsername" />
                 </div>
                 <div class="up-more-actions">
                     <button type="button" class="up-more-btn up-more-cancel" @onclick="() => ShowChangeUsername = false">Cancel</button>
-                    <button type="button" class="up-more-btn up-more-save" @onclick="SaveChangeUsername">Save</button>
+                    <button type="button" class="up-more-btn up-more-save" @onclick="SaveChangeUsername" disabled="@IsSaving">Save</button>
                 </div>
             </div>
         </div>
@@ -151,12 +155,12 @@
                 <h2 class="up-more-title">Change Password</h2>
                 <div class="up-more-fields">
                     <input type="password" class="up-more-input" placeholder="Current password" />
-                    <input type="password" class="up-more-input" placeholder="New password" />
-                    <input type="password" class="up-more-input" placeholder="Confirm new password" />
+                    <input type="password" class="up-more-input" placeholder="New password" @bind="NewPassword" />
+                    <input type="password" class="up-more-input" placeholder="Confirm new password" @bind="ConfirmNewPassword" />
                 </div>
                 <div class="up-more-actions">
                     <button type="button" class="up-more-btn up-more-cancel" @onclick="() => ShowChangePassword = false">Cancel</button>
-                    <button type="button" class="up-more-btn up-more-save" @onclick="SaveChangePassword">Save</button>
+                    <button type="button" class="up-more-btn up-more-save" @onclick="SaveChangePassword" disabled="@IsSaving">Save</button>
                 </div>
             </div>
         </div>
@@ -178,6 +182,93 @@
     private bool ShowChangeUsername { get; set; }
     private string? _selectedFileName;
 
+    private User? _user;
+    private string EditFullName { get; set; } = string.Empty;
+    private string EditEmail { get; set; } = string.Empty;
+    private string NewUsername { get; set; } = string.Empty;
+    private string ConfirmNewUsername { get; set; } = string.Empty;
+    private string NewPassword { get; set; } = string.Empty;
+    private string ConfirmNewPassword { get; set; } = string.Empty;
+    private bool IsSaving { get; set; }
+
+    private string HeaderInitials
+    {
+        get
+        {
+            var name = _user?.FullName;
+            if (string.IsNullOrWhiteSpace(name))
+                name = _user?.Username;
+
+            if (string.IsNullOrWhiteSpace(name))
+                return "U";
+
+            var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 1)
+                return parts[0].Substring(0, 1).ToUpperInvariant();
+
+            var first = parts[0].Substring(0, 1).ToUpperInvariant();
+            var last = parts[^1].Substring(0, 1).ToUpperInvariant();
+            return first + last;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUser();
+    }
+
+    private async Task LoadUser()
+    {
+        try
+        {
+            if (!CurrentUserState.IsAuthenticated || string.IsNullOrWhiteSpace(CurrentUserState.Username))
+            {
+                var restoredUsername = await JsRuntime.InvokeAsync<string>("localStorage.getItem", "medflow.username");
+                if (!string.IsNullOrWhiteSpace(restoredUsername))
+                {
+                    var restored = await UserAccountService.GetUserByUsernameAsync(restoredUsername);
+                    if (restored != null)
+                    {
+                        CurrentUserState.Set(restored);
+                    }
+                }
+            }
+
+            if (!CurrentUserState.IsAuthenticated || string.IsNullOrWhiteSpace(CurrentUserState.Username))
+            {
+                _user = null;
+                return;
+            }
+
+            if (CurrentUserState.UserId == 0)
+            {
+                _user = new User
+                {
+                    Id = 0,
+                    Username = CurrentUserState.Username ?? string.Empty,
+                    Role = CurrentUserState.Role ?? string.Empty,
+                    Email = CurrentUserState.Email,
+                    FullName = CurrentUserState.FullName,
+                    IsActive = true
+                };
+            }
+            else
+            {
+                _user = await UserAccountService.GetUserByUsernameAsync(CurrentUserState.Username);
+            }
+
+            if (_user != null)
+            {
+                EditFullName = _user.FullName ?? string.Empty;
+                EditEmail = _user.Email ?? string.Empty;
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Failed to load user profile: {ex.Message}");
+        }
+    }
+
     // Methods
     private void OnProfileImageSelected(InputFileChangeEventArgs e)
     {
@@ -193,24 +284,125 @@
         // Show success message
     }
 
-    private void SaveEditDetails()
+    private async Task SaveEditDetails()
     {
-        // Save edit details logic
-        ShowEditDetails = false;
-        // Show success message
+        if (IsSaving)
+            return;
+
+        if (_user == null)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "No user loaded.");
+            return;
+        }
+
+        try
+        {
+            IsSaving = true;
+            var updated = new User
+            {
+                Id = _user.Id,
+                Username = _user.Username,
+                Role = _user.Role,
+                Email = EditEmail,
+                FullName = EditFullName,
+                IsActive = _user.IsActive
+            };
+
+            var saved = await UserAccountService.UpdateUserAsync(updated);
+            if (saved != null)
+            {
+                _user = saved;
+                CurrentUserState.Set(saved);
+                ShowEditDetails = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", ex.Message);
+        }
+        finally
+        {
+            IsSaving = false;
+        }
     }
 
-    private void SaveChangeUsername()
+    private async Task SaveChangeUsername()
     {
-        // Save username logic
-        ShowChangeUsername = false;
-        // Show success message
+        if (IsSaving)
+            return;
+
+        if (_user == null)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "No user loaded.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(NewUsername) || !string.Equals(NewUsername, ConfirmNewUsername, StringComparison.Ordinal))
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "Username confirmation does not match.");
+            return;
+        }
+
+        try
+        {
+            IsSaving = true;
+            var saved = await UserAccountService.ChangeUsernameAsync(_user.Id, NewUsername);
+            if (saved != null)
+            {
+                _user = saved;
+                CurrentUserState.Set(saved);
+                NewUsername = string.Empty;
+                ConfirmNewUsername = string.Empty;
+                ShowChangeUsername = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", ex.Message);
+        }
+        finally
+        {
+            IsSaving = false;
+        }
     }
 
-    private void SaveChangePassword()
+    private async Task SaveChangePassword()
     {
-        // Save password logic
-        ShowChangePassword = false;
-        // Show success message
+        if (IsSaving)
+            return;
+
+        if (_user == null)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "No user loaded.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(NewPassword) || !string.Equals(NewPassword, ConfirmNewPassword, StringComparison.Ordinal))
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "Password confirmation does not match.");
+            return;
+        }
+
+        try
+        {
+            IsSaving = true;
+            var saved = await UserAccountService.ChangePasswordAsync(_user.Id, NewPassword);
+            if (saved != null)
+            {
+                _user = saved;
+                CurrentUserState.Set(saved);
+                NewPassword = string.Empty;
+                ConfirmNewPassword = string.Empty;
+                ShowChangePassword = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", ex.Message);
+        }
+        finally
+        {
+            IsSaving = false;
+        }
     }
 }

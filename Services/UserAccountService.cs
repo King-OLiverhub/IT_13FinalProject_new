@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace IT_13FinalProject.Services
 {
@@ -62,6 +63,8 @@ namespace IT_13FinalProject.Services
         public Task<User?> AuthenticateUserAsync(string username, string password) => Task.FromResult<User?>(null);
         public Task<List<User>> GetAllUsersAsync() => Task.FromResult(new List<User>());
         public Task<User?> UpdateUserAsync(User user) => Task.FromResult<User?>(null);
+        public Task<User?> ChangeUsernameAsync(int userId, string newUsername) => Task.FromResult<User?>(null);
+        public Task<User?> ChangePasswordAsync(int userId, string newPassword) => Task.FromResult<User?>(null);
         public Task<bool> DeleteUserAsync(int userId) => Task.FromResult(false);
     }
 
@@ -69,6 +72,7 @@ namespace IT_13FinalProject.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly ILogger<DatabaseUserAccountService> _logger;
+        private readonly SemaphoreSlim _dbLock = new(1, 1);
 
         public DatabaseUserAccountService(ApplicationDbContext context, ILogger<DatabaseUserAccountService> logger)
         {
@@ -76,114 +80,190 @@ namespace IT_13FinalProject.Services
             _logger = logger;
         }
 
+        private async Task<T> WithDbLock<T>(Func<Task<T>> action)
+        {
+            await _dbLock.WaitAsync();
+            try
+            {
+                return await action();
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
+        private async Task WithDbLock(Func<Task> action)
+        {
+            await _dbLock.WaitAsync();
+            try
+            {
+                await action();
+            }
+            finally
+            {
+                _dbLock.Release();
+            }
+        }
+
         public async Task<bool> UserExistsAsync(string username)
         {
-            return await _context.Users.AnyAsync(u => u.Username.ToLower() == username.ToLower());
+            return await WithDbLock(async () =>
+                await _context.Users.AnyAsync(u => u.Username.ToLower() == username.ToLower()));
         }
 
         public async Task<bool> EmailExistsAsync(string email)
         {
-            return await _context.Users.AnyAsync(u => u.Email.ToLower() == email.ToLower());
+            return await WithDbLock(async () =>
+                await _context.Users.AnyAsync(u => u.Email != null && u.Email.ToLower() == email.ToLower()));
         }
 
         public async Task<User?> GetUserByUsernameAsync(string username)
         {
-            return await _context.Users
-                .FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower());
+            return await WithDbLock(async () =>
+                await _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower()));
         }
 
         public async Task<User?> GetUserByEmailAsync(string email)
         {
-            return await _context.Users
-                .FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
+            return await WithDbLock(async () =>
+                await _context.Users.FirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == email.ToLower()));
         }
 
         public async Task<User> CreateUserAsync(User user)
         {
-            if (user == null) throw new ArgumentNullException(nameof(user));
-
-            // Check if username already exists
-            if (await UserExistsAsync(user.Username))
+            return await WithDbLock(async () =>
             {
-                throw new InvalidOperationException("Username already exists.");
-            }
+                if (user == null) throw new ArgumentNullException(nameof(user));
 
-            // Check if email already exists
-            if (!string.IsNullOrEmpty(user.Email) && await EmailExistsAsync(user.Email))
-            {
-                throw new InvalidOperationException("Email already exists.");
-            }
+                // Check if username already exists
+                if (await _context.Users.AnyAsync(u => u.Username.ToLower() == user.Username.ToLower()))
+                {
+                    throw new InvalidOperationException("Username already exists.");
+                }
 
-            // Hash the password
-            user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
-            
-            // Set defaults
-            user.CreatedAt = DateTime.UtcNow;
-            user.IsActive = true;
+                // Check if email already exists
+                if (!string.IsNullOrEmpty(user.Email) && await _context.Users.AnyAsync(u => u.Email != null && u.Email.ToLower() == user.Email.ToLower()))
+                {
+                    throw new InvalidOperationException("Email already exists.");
+                }
 
-            // Save to cloud database
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+                // Hash the password
+                user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
 
-            _logger.LogInformation("Created new user in cloud: {Username}", user.Username);
-            return user;
+                // Set defaults
+                user.CreatedAt = DateTime.UtcNow;
+                user.IsActive = true;
+
+                // Save to cloud database
+                _context.Users.Add(user);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Created new user in cloud: {Username}", user.Username);
+                return user;
+            });
         }
 
         public async Task<User?> AuthenticateUserAsync(string username, string password)
         {
-            var user = await GetUserByUsernameAsync(username);
-            
-            if (user != null && BCrypt.Net.BCrypt.Verify(password, user.Password))
+            return await WithDbLock(async () =>
             {
-                return user;
-            }
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower());
 
-            return null;
+                if (user != null && BCrypt.Net.BCrypt.Verify(password, user.Password))
+                {
+                    return user;
+                }
+
+                return null;
+            });
         }
 
         public async Task<List<User>> GetAllUsersAsync()
         {
-            return await _context.Users
-                .OrderBy(u => u.Username)
-                .ToListAsync();
+            return await WithDbLock(async () =>
+                await _context.Users.OrderBy(u => u.Username).ToListAsync());
         }
 
         public async Task<User?> UpdateUserAsync(User user)
         {
-            if (user == null) throw new ArgumentNullException(nameof(user));
-
-            var existingUser = await GetUserByUsernameAsync(user.Username);
-            if (existingUser == null || existingUser.Id != user.Id)
+            return await WithDbLock(async () =>
             {
-                throw new InvalidOperationException("User not found or username conflict.");
-            }
+                if (user == null) throw new ArgumentNullException(nameof(user));
 
-            // Update properties
-            existingUser.Email = user.Email;
-            existingUser.Role = user.Role;
-            existingUser.FullName = user.FullName;
-            existingUser.IsActive = user.IsActive;
+                var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == user.Id);
+                if (existingUser == null)
+                {
+                    throw new InvalidOperationException("User not found.");
+                }
 
-            if (!string.IsNullOrEmpty(user.Password) && user.Password != existingUser.Password)
+                // Update properties
+                existingUser.Email = user.Email;
+                existingUser.Role = user.Role;
+                existingUser.FullName = user.FullName;
+                existingUser.IsActive = user.IsActive;
+
+                if (!string.IsNullOrEmpty(user.Password) && user.Password != existingUser.Password)
+                {
+                    existingUser.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
+                }
+
+                await _context.SaveChangesAsync();
+                return existingUser;
+            });
+        }
+
+        public async Task<User?> ChangeUsernameAsync(int userId, string newUsername)
+        {
+            return await WithDbLock(async () =>
             {
-                existingUser.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
-            }
+                if (string.IsNullOrWhiteSpace(newUsername))
+                    throw new ArgumentException("Username is required.", nameof(newUsername));
 
-            await _context.SaveChangesAsync();
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+                if (user == null)
+                    return null;
 
-            return existingUser;
+                var exists = await _context.Users.AnyAsync(u => u.Id != userId && u.Username.ToLower() == newUsername.ToLower());
+                if (exists)
+                    throw new InvalidOperationException("Username already exists.");
+
+                user.Username = newUsername;
+                await _context.SaveChangesAsync();
+                return user;
+            });
+        }
+
+        public async Task<User?> ChangePasswordAsync(int userId, string newPassword)
+        {
+            return await WithDbLock(async () =>
+            {
+                if (string.IsNullOrWhiteSpace(newPassword))
+                    throw new ArgumentException("Password is required.", nameof(newPassword));
+
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+                if (user == null)
+                    return null;
+
+                user.Password = BCrypt.Net.BCrypt.HashPassword(newPassword);
+                await _context.SaveChangesAsync();
+                return user;
+            });
         }
 
         public async Task<bool> DeleteUserAsync(int userId)
         {
-            var user = await _context.Users.FindAsync(userId);
-            if (user == null) return false;
+            return await WithDbLock(async () =>
+            {
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null) return false;
 
-            _context.Users.Remove(user);
-            await _context.SaveChangesAsync();
+                _context.Users.Remove(user);
+                await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Deleted user: {Username}", user.Username);
-            return true;
+                _logger.LogInformation("Deleted user: {Username}", user.Username);
+                return true;
+            });
         }
 
         // Legacy methods for compatibility with existing CreateAccount component

@@ -577,7 +577,7 @@
         // If role not in URL, use the current role from the URL path
         role = CurrentRole;
     }
-    Navigation.NavigateTo($"/user-profile/role/{role}", forceLoad: true);
+    Navigation.NavigateTo($"/user-profile/role/{role}");
 }
     
 private string GetCurrentRoleFromUrl()

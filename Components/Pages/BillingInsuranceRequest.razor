@@ -4,6 +4,7 @@
 @using IT_13FinalProject.Models
 @using IT_13FinalProject.Services
 @inject IPatientBillService BillService
+@inject IClaimDocumentStore ClaimDocumentStore
 @inject NavigationManager Navigation
 
 <div class="insreq-page">
@@ -120,9 +121,16 @@
                     <span>Complete all the document requirement to submit request</span>
                 </label>
 
+                @if (!string.IsNullOrWhiteSpace(SubmitMessage))
+                {
+                    <div class="insreq-empty-claim">
+                        <p>@SubmitMessage</p>
+                    </div>
+                }
+
                 <div class="insreq-actions-row">
-                    <button class="insreq-generate-button" @onclick="GenerateClaimForm" disabled="@(SelectedBill == null)">Generate Claim Form</button>
-                    <button class="insreq-submit-button" @onclick="SubmitToAdmin" disabled="@(SelectedBill == null)">Submit to Admin</button>
+                    <button type="button" class="insreq-generate-button" @onclick="GenerateClaimForm" disabled="@(SelectedBill == null)">Generate Claim Form</button>
+                    <button type="button" class="insreq-submit-button" @onclick="SubmitToAdmin" disabled="@(SelectedBill == null || IsSubmitting)">@(IsSubmitting ? "Submitting..." : "Submit to Admin")</button>
                 </div>
             </div>
         </div>
@@ -144,6 +152,8 @@
     private PatientBill? SelectedBill { get; set; }
     private bool isLoading { get; set; } = true;
     private bool AllDocumentsComplete { get; set; } = true;
+    private string? SubmitMessage { get; set; }
+    private bool IsSubmitting { get; set; }
 
     private readonly string[] DocumentItems = new[]
     {
@@ -206,6 +216,19 @@
         if (file is not null)
         {
             DocumentFileNames[docKey] = file.Name;
+
+            if (SelectedBill != null)
+            {
+                using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+
+                ClaimDocumentStore.Save(
+                    SelectedBill.BillId,
+                    docKey,
+                    new ClaimDocument(file.Name, file.ContentType ?? "application/octet-stream", ms.ToArray())
+                );
+            }
         }
 
         await Task.CompletedTask;
@@ -238,6 +261,11 @@
     private async Task SubmitToAdmin()
     {
         if (SelectedBill == null) return;
+
+        if (IsSubmitting) return;
+        IsSubmitting = true;
+
+        SubmitMessage = null;
         
         try
         {
@@ -258,11 +286,18 @@
             Console.WriteLine($"Status: {SelectedBill.AssessmentStatus}");
             
             // Show success message and navigate back
+            SubmitMessage = "Submitted to Admin.";
             Navigation.NavigateTo("/billing-insurance-claims");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error submitting claim: {ex.Message}");
+            SubmitMessage = $"Submit failed: {ex.Message}";
+            StateHasChanged();
+        }
+        finally
+        {
+            IsSubmitting = false;
         }
     }
 

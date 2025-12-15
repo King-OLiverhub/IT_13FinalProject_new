@@ -12,6 +12,8 @@ namespace IT_13FinalProject.Services
         Task<User?> AuthenticateUserAsync(string username, string password);
         Task<List<User>> GetAllUsersAsync();
         Task<User?> UpdateUserAsync(User user);
+        Task<User?> ChangeUsernameAsync(int userId, string newUsername);
+        Task<User?> ChangePasswordAsync(int userId, string newPassword);
         Task<bool> DeleteUserAsync(int userId);
 
         // Legacy methods for compatibility with existing components

@@ -176,11 +176,15 @@ else
     [Parameter]
     public int BillId { get; set; }
 
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "createdAt")]
+    public string? CreatedAtQuery { get; set; }
+
     private PatientBill? bill;
     private string? errorMessage;
     private string? successMessage;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
         await LoadBill();
     }
@@ -189,10 +193,26 @@ else
     {
         try
         {
-            bill = await BillService.GetByIdAsync(BillId);
+            errorMessage = null;
+            successMessage = null;
+            bill = null;
+
+            if (BillId > 0)
+            {
+                bill = await BillService.GetByIdAsync(BillId);
+            }
+
+            if (bill == null && !string.IsNullOrWhiteSpace(CreatedAtQuery) && DateTime.TryParse(CreatedAtQuery, out var createdAt))
+            {
+                var all = await BillService.GetAllAsync(includeArchived: true);
+                bill = all
+                    .OrderByDescending(b => b.CreatedAt)
+                    .FirstOrDefault(b => b.CreatedAt.ToString("O") == createdAt.ToString("O"));
+            }
+
             if (bill == null)
             {
-                errorMessage = "Bill not found";
+                errorMessage = BillId <= 0 ? "Invalid bill id." : "Bill not found";
             }
         }
         catch (Exception ex)

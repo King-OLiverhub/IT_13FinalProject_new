@@ -3,6 +3,7 @@
 @using IT_13FinalProject.Models
 @using IT_13FinalProject.Services
 @inject IPatientBillService BillService
+@inject IClaimDocumentStore ClaimDocumentStore
 
 <div class="inv-page">
     <header class="dashboard-header">
@@ -208,61 +209,97 @@
                                 <span class="inv-view-doc-folder"></span>
                                 <span class="inv-view-doc-name">Medical Certificate</span>
                             </div>
-                            <button type="button" class="inv-view-doc-eye">👁</button>
+                            <button type="button" class="inv-view-doc-eye" @onclick='() => OpenDocumentViewer("Medical Certificate")'>👁</button>
                         </div>
                         <div class="inv-view-doc-row">
                             <div class="inv-view-doc-left">
                                 <span class="inv-view-doc-folder"></span>
                                 <span class="inv-view-doc-name">Laboratory Results</span>
                             </div>
-                            <button type="button" class="inv-view-doc-eye">👁</button>
+                            <button type="button" class="inv-view-doc-eye" @onclick='() => OpenDocumentViewer("Laboratory Results")'>👁</button>
                         </div>
                         <div class="inv-view-doc-row">
                             <div class="inv-view-doc-left">
                                 <span class="inv-view-doc-folder"></span>
                                 <span class="inv-view-doc-name">Prescription Copies</span>
                             </div>
-                            <button type="button" class="inv-view-doc-eye">👁</button>
+                            <button type="button" class="inv-view-doc-eye" @onclick='() => OpenDocumentViewer("Prescription Copies")'>👁</button>
                         </div>
                         <div class="inv-view-doc-row">
                             <div class="inv-view-doc-left">
                                 <span class="inv-view-doc-folder"></span>
                                 <span class="inv-view-doc-name">Eligibility Verification</span>
                             </div>
-                            <button type="button" class="inv-view-doc-eye">👁</button>
+                            <button type="button" class="inv-view-doc-eye" @onclick='() => OpenDocumentViewer("Eligibility Verification")'>👁</button>
                         </div>
                         <div class="inv-view-doc-row">
                             <div class="inv-view-doc-left">
                                 <span class="inv-view-doc-folder"></span>
                                 <span class="inv-view-doc-name">Claim Form</span>
                             </div>
-                            <button type="button" class="inv-view-doc-eye">👁</button>
+                            <button type="button" class="inv-view-doc-eye" @onclick='() => OpenDocumentViewer("Claim Form")'>👁</button>
                         </div>
                         <div class="inv-view-doc-row">
                             <div class="inv-view-doc-left">
                                 <span class="inv-view-doc-folder"></span>
                                 <span class="inv-view-doc-name">Official Receipt/Invoice</span>
                             </div>
-                            <button type="button" class="inv-view-doc-eye">👁</button>
+                            <button type="button" class="inv-view-doc-eye" @onclick='() => OpenDocumentViewer("Official Receipt/Invoice")'>👁</button>
                         </div>
                         <div class="inv-view-doc-row">
                             <div class="inv-view-doc-left">
                                 <span class="inv-view-doc-folder"></span>
                                 <span class="inv-view-doc-name">Patient Information Sheet</span>
                             </div>
-                            <button type="button" class="inv-view-doc-eye">👁</button>
+                            <button type="button" class="inv-view-doc-eye" @onclick='() => OpenDocumentViewer("Patient Information Sheet")'>👁</button>
                         </div>
                         <div class="inv-view-doc-row">
                             <div class="inv-view-doc-left">
                                 <span class="inv-view-doc-folder"></span>
                                 <span class="inv-view-doc-name">Valid ID Copies</span>
                             </div>
-                            <button type="button" class="inv-view-doc-eye">👁</button>
+                            <button type="button" class="inv-view-doc-eye" @onclick='() => OpenDocumentViewer("Valid ID Copies")'>👁</button>
                         </div>
                     </div>
 
                     <div class="inv-view-footer">
                         <button type="button" class="inv-view-close" @onclick="CloseViewPanel">Close</button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (IsDocumentViewerOpen)
+        {
+            <div class="inv-view-overlay" @onclick="CloseDocumentViewer">
+                <div class="inv-view-panel" @onclick:stopPropagation>
+                    <h3 class="inv-view-title">@DocumentViewerTitle</h3>
+
+                    @if (!string.IsNullOrEmpty(DocumentViewerError))
+                    {
+                        <div class="inv-empty">
+                            <p>@DocumentViewerError</p>
+                        </div>
+                    }
+                    else if (!string.IsNullOrEmpty(DocumentViewerDataUrl) && DocumentViewerIsEmbeddable)
+                    {
+                        <iframe style="width: 100%; height: 70vh; border: 0;" src="@DocumentViewerDataUrl"></iframe>
+                    }
+                    else if (!string.IsNullOrEmpty(DocumentViewerDownloadDataUrl))
+                    {
+                        <div class="inv-empty">
+                            <a href="@DocumentViewerDownloadDataUrl" download="@DocumentViewerFileName">Download @DocumentViewerFileName</a>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="inv-empty">
+                            <p>No file uploaded.</p>
+                        </div>
+                    }
+
+                    <div class="inv-view-footer">
+                        <button type="button" class="inv-view-close" @onclick="CloseDocumentViewer">Close</button>
                     </div>
                 </div>
             </div>
@@ -323,6 +360,14 @@
 
     private bool IsViewPanelOpen { get; set; }
 
+    private bool IsDocumentViewerOpen { get; set; }
+    private string DocumentViewerTitle { get; set; } = string.Empty;
+    private string? DocumentViewerFileName { get; set; }
+    private string? DocumentViewerDataUrl { get; set; }
+    private string? DocumentViewerDownloadDataUrl { get; set; }
+    private string? DocumentViewerError { get; set; }
+    private bool DocumentViewerIsEmbeddable { get; set; }
+
     private void TogglePagination()
     {
         ShowPagination = !ShowPagination;
@@ -341,6 +386,51 @@
     private void CloseViewPanel()
     {
         IsViewPanelOpen = false;
+        StateHasChanged();
+    }
+
+    private void OpenDocumentViewer(string docKey)
+    {
+        DocumentViewerTitle = docKey;
+        DocumentViewerFileName = null;
+        DocumentViewerDataUrl = null;
+        DocumentViewerDownloadDataUrl = null;
+        DocumentViewerError = null;
+        DocumentViewerIsEmbeddable = false;
+
+        if (SelectedRow is null)
+        {
+            DocumentViewerError = "No claim selected.";
+            IsDocumentViewerOpen = true;
+            return;
+        }
+
+        if (!ClaimDocumentStore.TryGet(SelectedRow.BillId, docKey, out var doc) || doc is null)
+        {
+            DocumentViewerError = "No file uploaded.";
+            IsDocumentViewerOpen = true;
+            return;
+        }
+
+        DocumentViewerFileName = doc.FileName;
+
+        var base64 = Convert.ToBase64String(doc.Content);
+        var dataUrl = $"data:{doc.ContentType};base64,{base64}";
+        DocumentViewerDownloadDataUrl = dataUrl;
+
+        var ct = (doc.ContentType ?? string.Empty).ToLowerInvariant();
+        DocumentViewerIsEmbeddable = ct.StartsWith("image/") || ct == "application/pdf";
+        if (DocumentViewerIsEmbeddable)
+        {
+            DocumentViewerDataUrl = dataUrl;
+        }
+
+        IsDocumentViewerOpen = true;
+    }
+
+    private void CloseDocumentViewer()
+    {
+        IsDocumentViewerOpen = false;
         StateHasChanged();
     }
 

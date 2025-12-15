@@ -120,6 +120,9 @@
     [Inject]
     private IUserAccountService UserAccountService { get; set; } = default!;
 
+    [Inject]
+    private CurrentUserState CurrentUserState { get; set; } = default!;
+
     // ===================== EVENT HANDLERS =====================
     // This method is called when the form is submitted successfully
     private async Task HandleLogin()
@@ -139,6 +142,11 @@
 
             if (userFromService is not null)
             {
+                CurrentUserState.Set(userFromService);
+
+                await JsRuntime.InvokeVoidAsync("localStorage.setItem", "medflow.username", userFromService.Username);
+                await JsRuntime.InvokeVoidAsync("localStorage.setItem", "medflow.role", userFromService.Role ?? string.Empty);
+
                 if (string.Equals(userFromService.Role, "Admin", StringComparison.OrdinalIgnoreCase))
                 {
                     Navigation.NavigateTo("/admin-dashboard");
@@ -188,35 +196,57 @@
 
             if (isAdmin)
             {
+                var demo = new IT_13FinalProject.Models.User { Id = 0, Username = "Admin", Role = "Admin", Email = "admin@gmail.com", FullName = "Admin" };
+                CurrentUserState.Set(demo);
+                await JsRuntime.InvokeVoidAsync("localStorage.setItem", "medflow.username", demo.Username);
+                await JsRuntime.InvokeVoidAsync("localStorage.setItem", "medflow.role", demo.Role ?? string.Empty);
                 Navigation.NavigateTo("/admin-dashboard");
                 return;
             }
 
             if (isNurse)
             {
+                var demo = new IT_13FinalProject.Models.User { Id = 0, Username = "Nurse", Role = "Nurse", Email = "nurse@gmail.com", FullName = "Nurse" };
+                CurrentUserState.Set(demo);
+                await JsRuntime.InvokeVoidAsync("localStorage.setItem", "medflow.username", demo.Username);
+                await JsRuntime.InvokeVoidAsync("localStorage.setItem", "medflow.role", demo.Role ?? string.Empty);
                 Navigation.NavigateTo("/nurse-dashboard");
                 return;
             }
 
             if (isDoctor)
             {
+                var demo = new IT_13FinalProject.Models.User { Id = 0, Username = "Doctor", Role = "Doctor", Email = "doctor@gmail.com", FullName = "Doctor" };
+                CurrentUserState.Set(demo);
+                await JsRuntime.InvokeVoidAsync("localStorage.setItem", "medflow.username", demo.Username);
+                await JsRuntime.InvokeVoidAsync("localStorage.setItem", "medflow.role", demo.Role ?? string.Empty);
                 Navigation.NavigateTo("/doctor-dashboard");
                 return;
             }
 
             if (isBilling)
             {
+                var demo = new IT_13FinalProject.Models.User { Id = 0, Username = "Billing", Role = "Billing Staff", Email = "billing@gmail.com", FullName = "Billing" };
+                CurrentUserState.Set(demo);
+                await JsRuntime.InvokeVoidAsync("localStorage.setItem", "medflow.username", demo.Username);
+                await JsRuntime.InvokeVoidAsync("localStorage.setItem", "medflow.role", demo.Role ?? string.Empty);
                 Navigation.NavigateTo("/billing-dashboard");
                 return;
             }
 
             if (isInventory)
             {
+                var demo = new IT_13FinalProject.Models.User { Id = 0, Username = "Inventory", Role = "Inventory Staff", Email = "inventory@gmail.com", FullName = "Inventory" };
+                CurrentUserState.Set(demo);
+                await JsRuntime.InvokeVoidAsync("localStorage.setItem", "medflow.username", demo.Username);
+                await JsRuntime.InvokeVoidAsync("localStorage.setItem", "medflow.role", demo.Role ?? string.Empty);
                 Navigation.NavigateTo("/inventory-dashboard");
                 return;
             }
 
             // Show a simple dialog when credentials are invalid
+            await JsRuntime.InvokeVoidAsync("localStorage.removeItem", "medflow.username");
+            await JsRuntime.InvokeVoidAsync("localStorage.removeItem", "medflow.role");
             await JsRuntime.InvokeVoidAsync("alert", "Invalid Credentials!");
         }
         catch (Exception ex)

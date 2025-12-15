@@ -234,7 +234,8 @@
 
     private void EditBill(PatientBill bill)
     {
-        Navigation.NavigateTo($"/billing-edit/{bill.BillId}");
+        var createdAt = Uri.EscapeDataString(bill.CreatedAt.ToString("O"));
+        Navigation.NavigateTo($"/billing-edit/{bill.BillId}?createdAt={createdAt}");
     }
 
     private async Task ArchiveBill(int billId)

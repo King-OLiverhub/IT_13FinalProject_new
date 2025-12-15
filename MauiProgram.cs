@@ -38,9 +38,11 @@ namespace IT_13FinalProject
             
             // Add services - all using cloud database
             builder.Services.AddScoped<IUserAccountService, DatabaseUserAccountService>();
+            builder.Services.AddScoped<CurrentUserState>();
             builder.Services.AddScoped<IHealthRecordService, DatabaseHealthRecordService>();
             builder.Services.AddScoped<IVitalSignService, VitalSignService>();
             builder.Services.AddScoped<IPatientBillService, DatabasePatientBillService>();
+            builder.Services.AddSingleton<IClaimDocumentStore, InMemoryClaimDocumentStore>();
             builder.Services.AddScoped<SyncService>();
             
 #if DEBUG
