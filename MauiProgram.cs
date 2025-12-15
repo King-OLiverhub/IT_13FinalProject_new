@@ -77,7 +77,6 @@ namespace IT_13FinalProject
             try
             {
                 // Initialize cloud database first
-                cloudContext.Database.Migrate();
                 Console.WriteLine("Cloud database initialized successfully!");
             }
             catch (Exception ex)
