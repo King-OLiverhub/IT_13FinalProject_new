@@ -67,6 +67,12 @@ else if (path == "billing-dashboard")
         <BillingDashboard />
     </DashboardLayout>
 }
+else if (path == "notification" || path.EndsWith("-notification"))
+{
+    <DashboardLayout>
+        <Notification />
+    </DashboardLayout>
+}
 else if (path == "billing-patient-overview")
 {
     <DashboardLayout>
