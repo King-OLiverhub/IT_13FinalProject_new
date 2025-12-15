@@ -206,7 +206,7 @@
                 </div>
 
                 <div class="settings-modal-body">
-                    <button class="settings-item">
+                    <button class="settings-item" @onclick="GoToNotificationSettings">
                         <span class="sidebar-icon sidebar-icon-request"></span>
                         Notification
                     </button>
@@ -635,6 +635,22 @@ private string GetCurrentRoleFromUrl()
     private void ToggleAccessibilityPanel()
     {
         IsAccessibilityOpen = !IsAccessibilityOpen;
+    }
+
+    private void GoToNotificationSettings()
+    {
+        IsSettingsOpen = false;
+        IsAccessibilityOpen = false;
+
+        var role = GetCurrentRoleFromUrl();
+        if (!string.IsNullOrWhiteSpace(role) && !role.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+        {
+            Navigation.NavigateTo($"/notification?role={role.ToLowerInvariant()}");
+        }
+        else
+        {
+            Navigation.NavigateTo("/notification");
+        }
     }
 
     private void CloseAccessibilityPanel()
