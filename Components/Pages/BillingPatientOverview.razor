@@ -111,18 +111,16 @@
                                     <div class="pm-actions-grid">
                                         @if (ShowArchived)
                                         {
-                                            <button class="pm-restore-btn" @onclick="() => RestoreBill(b.BillId)" title="Restore Bill" aria-label="Restore Bill">
-                                                <span class="pm-restore-icon" aria-hidden="true"></span>
-                                            </button>
+                                            <button class="pm-restore-btn" @onclick="() => RestoreBill(b.BillId)">Restore</button>
                                             <button class="pm-delete-btn" @onclick="() => DeleteBill(b.BillId)">Delete</button>
                                         }
                                         else
                                         {
-                                            <button type="button" class="pm-edit-btn" aria-label="Update bill" @onclick="() => EditBill(b)">
-                                                <span class="pm-edit-icon" aria-hidden="true"></span>
+                                            <button class="pm-edit-btn" @onclick="() => EditBill(b)" title="Update" aria-label="Update bill">
+                                                <span class="pm-edit-icon"></span>
                                             </button>
-                                            <button type="button" class="pm-archive-btn" aria-label="Archive bill" @onclick="() => ArchiveBill(b.BillId)">
-                                                <span class="pm-archive-icon" aria-hidden="true"></span>
+                                            <button class="pm-archive-btn" @onclick="() => ArchiveBill(b.BillId)" title="Archive" aria-label="Archive bill">
+                                                <span class="pm-archive-icon"></span>
                                             </button>
                                         }
                                     </div>
@@ -136,15 +134,22 @@
         }
         </div>
 
-        <div class="pm-pagination">
-            <button class="pm-page-btn">Previous</button>
-            <button class="pm-page-number active">1</button>
-            <button class="pm-page-number">2</button>
-            <button class="pm-page-number">3</button>
-            <span class="pm-page-dots">...</span>
-            <button class="pm-page-number">8</button>
-            <button class="pm-page-btn">Next</button>
-        </div>
+        <button type="button" class="pm-pagination-toggle" @onclick="TogglePagination" aria-label="Hide or show page buttons">
+            <span>@(ShowPagination ? "›" : "‹")</span>
+        </button>
+
+        @if (ShowPagination)
+        {
+            <div class="pm-pagination">
+                <button class="pm-page-btn">Previous</button>
+                <button class="pm-page-number active">1</button>
+                <button class="pm-page-number">2</button>
+                <button class="pm-page-number">3</button>
+                <span class="pm-page-dots">...</span>
+                <button class="pm-page-number">8</button>
+                <button class="pm-page-btn">Next</button>
+            </div>
+        }
     </section>
 </div>
 
@@ -153,6 +158,8 @@
     private List<PatientBill> FilteredBills { get; set; } = new();
     private bool isLoading { get; set; } = true;
     private string? errorMessage { get; set; }
+
+    private bool ShowPagination { get; set; } = true;
     private bool ShowArchived { get; set; } = false;
     private string SearchTerm { get; set; } = string.Empty;
 
@@ -199,6 +206,11 @@
         return FilteredBills.OrderByDescending(b => b.CreatedAt);
     }
 
+    private void TogglePagination()
+    {
+        ShowPagination = !ShowPagination;
+    }
+
     private async Task SearchBills()
     {
         try
@@ -226,7 +238,8 @@
 
     private void EditBill(PatientBill bill)
     {
-        Navigation.NavigateTo($"/billing-edit/{bill.BillId}");
+        var createdAt = Uri.EscapeDataString(bill.CreatedAt.ToString("O"));
+        Navigation.NavigateTo($"/billing-edit/{bill.BillId}?createdAt={createdAt}");
     }
 
     private async Task ArchiveBill(int billId)

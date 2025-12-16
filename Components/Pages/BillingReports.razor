@@ -1,5 +1,9 @@
-﻿@layout DashboardLayout
+﻿@page "/billing-reports"
+@layout DashboardLayout
+@using IT_13FinalProject.Models
 @using IT_13FinalProject.Services
+@inject IPatientBillService BillService
+@inject IJSRuntime JsRuntime
 
 <PageTitle>Reports</PageTitle>
 
@@ -56,18 +60,23 @@
                     </div>
                 </div>
 
+                @if (!string.IsNullOrWhiteSpace(ReportError))
+                {
+                    <div style="margin-top: 8px; color: #b42318; font-weight: 600;">@ReportError</div>
+                }
+
                 <div class="action-buttons">
-                    <button class="btn-action generate" @onclick="GenerateReport">
+                    <button class="btn-action generate" @onclick="GenerateReport" disabled="@IsGenerating">
                         <i class="fas fa-file-alt"></i>
-                        Generate Report
+                        @(IsGenerating ? "Generating..." : "Generate Report")
                     </button>
-                    <button class="btn-action preview" @onclick="ShowPreview">
+                    <button class="btn-action preview" @onclick="ShowPreview" disabled="@(GeneratedReport == null)">
                         <i class="fas fa-eye"></i>
                         Preview
                     </button>
-                    <button class="btn-action export">
+                    <button class="btn-action export" @onclick="ExportCsv" disabled="@(GeneratedReport == null)">
                         <i class="fas fa-file-pdf"></i>
-                        Export PDF
+                        Export CSV
                     </button>
                 </div>
             </div>
@@ -81,19 +90,19 @@
             </div>
             <ul class="report-list">
                 <li class="report-item">
-                    <input type="checkbox" checked>
+                    <input type="checkbox" @bind="RevenueDaily" @bind:event="onchange">
                     <span>Daily Revenue Summary</span>
                 </li>
                 <li class="report-item">
-                    <input type="checkbox" checked>
+                    <input type="checkbox" @bind="RevenueMonthly" @bind:event="onchange">
                     <span>Monthly Revenue Analysis</span>
                 </li>
                 <li class="report-item">
-                    <input type="checkbox" checked>
+                    <input type="checkbox" @bind="RevenueServiceBreakdown" @bind:event="onchange">
                     <span>Service Revenue Breakdown</span>
                 </li>
                 <li class="report-item">
-                    <input type="checkbox">
+                    <input type="checkbox" @bind="RevenueDepartmentComparison" @bind:event="onchange">
                     <span>Department Revenue Comparison</span>
                 </li>
             </ul>
@@ -107,19 +116,19 @@
             </div>
             <ul class="report-list">
                 <li class="report-item">
-                    <input type="checkbox" checked>
+                    <input type="checkbox" @bind="PaymentMethodAnalysis" @bind:event="onchange">
                     <span>Payment Method Analysis</span>
                 </li>
                 <li class="report-item">
-                    <input type="checkbox" checked>
+                    <input type="checkbox" @bind="PaymentCashTransactions" @bind:event="onchange">
                     <span>Cash Transaction Report</span>
                 </li>
                 <li class="report-item">
-                    <input type="checkbox">
+                    <input type="checkbox" @bind="PaymentCreditCardSummary" @bind:event="onchange">
                     <span>Credit Card Payment Summary</span>
                 </li>
                 <li class="report-item">
-                    <input type="checkbox">
+                    <input type="checkbox" @bind="PaymentOnlineReport" @bind:event="onchange">
                     <span>Online Payment Report</span>
                 </li>
             </ul>
@@ -133,19 +142,19 @@
             </div>
             <ul class="report-list">
                 <li class="report-item">
-                    <input type="checkbox" checked>
+                    <input type="checkbox" @bind="InsuranceClaimsStatus" @bind:event="onchange">
                     <span>Insurance Claims Status</span>
                 </li>
                 <li class="report-item">
-                    <input type="checkbox" checked>
+                    <input type="checkbox" @bind="InsuranceRejectedAnalysis" @bind:event="onchange">
                     <span>Rejected Claims Analysis</span>
                 </li>
                 <li class="report-item">
-                    <input type="checkbox">
+                    <input type="checkbox" @bind="InsuranceProviderPerformance" @bind:event="onchange">
                     <span>Insurance Provider Performance</span>
                 </li>
                 <li class="report-item">
-                    <input type="checkbox">
+                    <input type="checkbox" @bind="InsurancePendingClaims" @bind:event="onchange">
                     <span>Pending Claims Report</span>
                 </li>
             </ul>
@@ -171,33 +180,63 @@
         <div class="modal-overlay" @onclick="HidePreview">
             <div class="modal-panel" @onclick:stopPropagation="true">
                 <div class="modal-header">
-                    <h2>BILLING REVENUE REPORT <span class="report-date">- Nov 15, 2024</span></h2>
+                    <h2>@(GeneratedReport?.Title ?? "Report") <span class="report-date">- @FormatRange()</span></h2>
                     <button class="modal-close" @onclick="HidePreview">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
 
                 <div class="modal-body">
-                    <div class="report-section">
-                        <h3>REVENUE SUMMARY:</h3>
-                        <div class="report-stats">
-                            <p>Total Revenue Today: <strong>$12,450.00</strong></p>
-                            <p>Cash Payments: <strong>$5,200.00</strong></p>
-                            <p>Credit Card Payments: <strong>$4,800.00</strong></p>
-                            <p>Insurance Claims: <strong>$2,450.00</strong></p>
+                    @if (GeneratedReport == null)
+                    {
+                        <div class="report-section">
+                            <p>No report generated.</p>
                         </div>
-                    </div>
+                    }
+                    else
+                    {
+                        <div class="report-section">
+                            <h3>SUMMARY:</h3>
+                            <div class="report-stats">
+                                @foreach (var kv in GeneratedReport.Summary)
+                                {
+                                    <p>@kv.Key: <strong>@kv.Value</strong></p>
+                                }
+                            </div>
+                        </div>
 
-                    <div class="report-section">
-                        <h3>PAYMENT BREAKDOWN:</h3>
-                        <ul class="report-list-items">
-                            <li>Consultation Fees - $3,200.00</li>
-                            <li>Laboratory Services - $2,800.00</li>
-                            <li>Medication Sales - $1,950.00</li>
-                            <li>Imaging Services - $2,100.00</li>
-                            <li>Emergency Services - $2,400.00</li>
-                        </ul>
-                    </div>
+                        <div class="report-section">
+                            <h3>DETAILS:</h3>
+                            @if (GeneratedReport.Rows.Count == 0)
+                            {
+                                <p>No data for the selected range.</p>
+                            }
+                            else
+                            {
+                                <table class="pm-table" style="margin-top: 8px;">
+                                    <thead>
+                                        <tr>
+                                            @foreach (var col in GeneratedReport.Columns)
+                                            {
+                                                <th>@col</th>
+                                            }
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var row in GeneratedReport.Rows)
+                                        {
+                                            <tr>
+                                                @foreach (var col in GeneratedReport.Columns)
+                                                {
+                                                    <td>@(row.TryGetValue(col, out var v) ? v : string.Empty)</td>
+                                                }
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                        </div>
+                    }
                 </div>
 
                 <div class="modal-footer">
@@ -206,22 +245,91 @@
             </div>
         </div>
     }
-</div>
+
+ </div>
 
 @code {
     private DateTime startDate = DateTime.Today;
     private DateTime endDate = DateTime.Today;
     private string selectedReportType = "";
-    private bool showPreviewModal = false;
 
-    private void GenerateReport()
+    private bool showPreviewModal = false;
+    private bool IsGenerating { get; set; }
+    private ReportResult? GeneratedReport { get; set; }
+    private string? ReportError { get; set; }
+
+    private static DateTime GetReportDate(PatientBill b)
     {
-        // Implement report generation logic
-        Console.WriteLine($"Generating report: {selectedReportType}");
+        if (b.DateOfVisit > new DateTime(2000, 1, 1))
+            return b.DateOfVisit;
+
+        return b.CreatedAt;
+    }
+
+    private bool RevenueDaily { get; set; } = true;
+    private bool RevenueMonthly { get; set; } = true;
+    private bool RevenueServiceBreakdown { get; set; } = true;
+    private bool RevenueDepartmentComparison { get; set; }
+
+    private bool PaymentMethodAnalysis { get; set; } = true;
+    private bool PaymentCashTransactions { get; set; } = true;
+    private bool PaymentCreditCardSummary { get; set; }
+    private bool PaymentOnlineReport { get; set; }
+
+    private bool InsuranceClaimsStatus { get; set; } = true;
+    private bool InsuranceRejectedAnalysis { get; set; } = true;
+    private bool InsuranceProviderPerformance { get; set; }
+    private bool InsurancePendingClaims { get; set; }
+
+    private async Task GenerateReport()
+    {
+        ReportError = null;
+        GeneratedReport = null;
+
+        if (string.IsNullOrWhiteSpace(selectedReportType))
+        {
+            ReportError = "Please select a report type.";
+            return;
+        }
+
+        if (endDate.Date < startDate.Date)
+        {
+            ReportError = "End Date must be greater than or equal to Start Date.";
+            return;
+        }
+
+        IsGenerating = true;
+        try
+        {
+            var allBills = await BillService.GetAllAsync(includeArchived: true);
+            var from = startDate.Date;
+            var toInclusive = endDate.Date.AddDays(1).AddTicks(-1);
+
+            var billsInRange = allBills
+                .Where(b => GetReportDate(b) >= from && GetReportDate(b) <= toInclusive)
+                .ToList();
+
+            GeneratedReport = BuildReport(selectedReportType, billsInRange, from, endDate.Date);
+
+            if (GeneratedReport == null)
+            {
+                ReportError = "Please select at least one report option.";
+            }
+        }
+        catch (Exception ex)
+        {
+            ReportError = $"Failed to generate report: {ex.Message}";
+        }
+        finally
+        {
+            IsGenerating = false;
+        }
     }
 
     private void ShowPreview()
     {
+        if (GeneratedReport == null)
+            return;
         showPreviewModal = true;
     }
 
@@ -233,6 +341,322 @@
     private void QuickGenerate(string reportType)
     {
         selectedReportType = reportType;
-        GenerateReport();
+        _ = GenerateReport();
+    }
+
+    private string FormatRange()
+    {
+        var s = startDate.ToString("MMM dd, yyyy");
+        var e = endDate.ToString("MMM dd, yyyy");
+        return s == e ? s : $"{s} to {e}";
+    }
+
+    private async Task ExportCsv()
+    {
+        if (GeneratedReport == null)
+            return;
+
+        var csv = GeneratedReport.ToCsv();
+        var bytes = System.Text.Encoding.UTF8.GetBytes(csv);
+        var base64 = Convert.ToBase64String(bytes);
+        var fileName = $"{GeneratedReport.ExportBaseName}_{startDate:yyyyMMdd}_{endDate:yyyyMMdd}.csv";
+
+        await JsRuntime.InvokeVoidAsync("medflow.downloadBase64File", "text/csv", base64, fileName);
+    }
+
+    private ReportResult? BuildReport(string type, List<PatientBill> bills, DateTime from, DateTime to)
+    {
+        switch (type)
+        {
+            case "revenue":
+                if (!RevenueDaily && !RevenueMonthly)
+                    return null;
+                return BuildRevenueReport(bills);
+            case "payments":
+                if (!PaymentMethodAnalysis && !PaymentCashTransactions && !PaymentCreditCardSummary && !PaymentOnlineReport)
+                    return null;
+                return BuildPaymentsReport(bills);
+            case "insurance":
+                if (!InsuranceClaimsStatus && !InsuranceRejectedAnalysis && !InsuranceProviderPerformance && !InsurancePendingClaims)
+                    return null;
+                return BuildInsuranceReport(bills);
+            case "unpaid":
+                return BuildUnpaidReport(bills);
+            default:
+                return null;
+        }
+    }
+
+    private ReportResult BuildRevenueReport(List<PatientBill> bills)
+    {
+        var r = new ReportResult("Revenue Summary Report", "revenue_report");
+        r.Columns.AddRange(new[] { "Period", "Granularity", "Total Bills", "Total Amount", "Insurance Coverage", "Patient Responsibility" });
+
+        IEnumerable<(string Period, string Granularity, int Count, decimal Amount, decimal Coverage, decimal Patient)> Rows()
+        {
+            if (RevenueDaily)
+            {
+                foreach (var g in bills.GroupBy(b => GetReportDate(b).Date).OrderBy(g => g.Key))
+                {
+                    yield return (
+                        g.Key.ToString("MM/dd/yy"),
+                        "Daily",
+                        g.Count(),
+                        g.Sum(x => x.TotalAmount),
+                        g.Sum(x => x.InsuranceCoverage),
+                        g.Sum(x => x.PatientResponsibility)
+                    );
+                }
+            }
+
+            if (RevenueMonthly)
+            {
+                foreach (var g in bills.GroupBy(b => {
+                    var d = GetReportDate(b);
+                    return new DateTime(d.Year, d.Month, 1);
+                }).OrderBy(g => g.Key))
+                {
+                    yield return (
+                        g.Key.ToString("MMM yyyy"),
+                        "Monthly",
+                        g.Count(),
+                        g.Sum(x => x.TotalAmount),
+                        g.Sum(x => x.InsuranceCoverage),
+                        g.Sum(x => x.PatientResponsibility)
+                    );
+                }
+            }
+        }
+
+        decimal totalAmount = 0;
+        decimal totalCoverage = 0;
+        decimal totalPatient = 0;
+        int totalBills = 0;
+
+        foreach (var row in Rows())
+        {
+            totalBills += row.Count;
+            totalAmount += row.Amount;
+            totalCoverage += row.Coverage;
+            totalPatient += row.Patient;
+
+            r.Rows.Add(new Dictionary<string, string>
+            {
+                ["Period"] = row.Period,
+                ["Granularity"] = row.Granularity,
+                ["Total Bills"] = row.Count.ToString(),
+                ["Total Amount"] = row.Amount.ToString("F2"),
+                ["Insurance Coverage"] = row.Coverage.ToString("F2"),
+                ["Patient Responsibility"] = row.Patient.ToString("F2"),
+            });
+        }
+
+        r.Summary["Total Bills"] = totalBills.ToString();
+        r.Summary["Total Amount"] = totalAmount.ToString("F2");
+        r.Summary["Total Insurance Coverage"] = totalCoverage.ToString("F2");
+        r.Summary["Total Patient Responsibility"] = totalPatient.ToString("F2");
+        return r;
+    }
+
+    private ReportResult BuildPaymentsReport(List<PatientBill> bills)
+    {
+        var r = new ReportResult("Payment Reports", "payment_report");
+        r.Columns.AddRange(new[] { "Report", "Key", "Count", "Total Amount" });
+
+        decimal grandTotal = 0;
+        int totalCount = 0;
+
+        void AddGroups(string reportName, IEnumerable<IGrouping<string, PatientBill>> groups)
+        {
+            foreach (var g in groups.OrderBy(g => g.Key))
+            {
+                var count = g.Count();
+                var total = g.Sum(x => x.TotalAmount);
+                totalCount += count;
+                grandTotal += total;
+
+                r.Rows.Add(new Dictionary<string, string>
+                {
+                    ["Report"] = reportName,
+                    ["Key"] = g.Key,
+                    ["Count"] = count.ToString(),
+                    ["Total Amount"] = total.ToString("F2"),
+                });
+            }
+        }
+
+        if (PaymentMethodAnalysis)
+        {
+            AddGroups(
+                "Payment Method",
+                bills.GroupBy(b => string.IsNullOrWhiteSpace(b.PaymentMethod) ? "Unknown" : b.PaymentMethod)
+            );
+        }
+
+        if (PaymentCashTransactions)
+        {
+            AddGroups(
+                "Cash Transactions",
+                bills.Where(b => string.Equals(b.PaymentMethod, "Cash", StringComparison.OrdinalIgnoreCase))
+                    .GroupBy(b => string.IsNullOrWhiteSpace(b.PaymentStatus) ? "Unknown" : b.PaymentStatus)
+            );
+        }
+
+        if (PaymentCreditCardSummary)
+        {
+            AddGroups(
+                "Credit Card",
+                bills.Where(b => string.Equals(b.PaymentMethod, "Credit Card", StringComparison.OrdinalIgnoreCase) || string.Equals(b.PaymentMethod, "Card", StringComparison.OrdinalIgnoreCase))
+                    .GroupBy(b => string.IsNullOrWhiteSpace(b.PaymentStatus) ? "Unknown" : b.PaymentStatus)
+            );
+        }
+
+        if (PaymentOnlineReport)
+        {
+            AddGroups(
+                "Online Payment",
+                bills.Where(b => string.Equals(b.PaymentMethod, "Online", StringComparison.OrdinalIgnoreCase) || string.Equals(b.PaymentMethod, "Digital", StringComparison.OrdinalIgnoreCase))
+                    .GroupBy(b => string.IsNullOrWhiteSpace(b.PaymentStatus) ? "Unknown" : b.PaymentStatus)
+            );
+        }
+
+        r.Summary["Total Records"] = totalCount.ToString();
+        r.Summary["Grand Total Amount"] = grandTotal.ToString("F2");
+        return r;
+    }
+
+    private ReportResult BuildInsuranceReport(List<PatientBill> bills)
+    {
+        var r = new ReportResult("Insurance Claims Report", "insurance_report");
+        r.Columns.AddRange(new[] { "Report", "Key", "Count", "Total Coverage" });
+
+        decimal totalCoverage = 0;
+        int totalCount = 0;
+
+        void AddGroups(string reportName, IEnumerable<IGrouping<string, PatientBill>> groups)
+        {
+            foreach (var g in groups.OrderBy(g => g.Key))
+            {
+                var count = g.Count();
+                var coverage = g.Sum(x => x.InsuranceCoverage);
+                totalCount += count;
+                totalCoverage += coverage;
+
+                r.Rows.Add(new Dictionary<string, string>
+                {
+                    ["Report"] = reportName,
+                    ["Key"] = g.Key,
+                    ["Count"] = count.ToString(),
+                    ["Total Coverage"] = coverage.ToString("F2"),
+                });
+            }
+        }
+
+        var insured = bills.Where(b => !string.IsNullOrWhiteSpace(b.InsuranceProvider) || b.InsuranceCoverage > 0).ToList();
+
+        if (InsuranceClaimsStatus)
+        {
+            AddGroups(
+                "Claim Status",
+                insured.GroupBy(b => string.IsNullOrWhiteSpace(b.AssessmentStatus) ? "Unknown" : b.AssessmentStatus)
+            );
+        }
+
+        if (InsuranceRejectedAnalysis)
+        {
+            AddGroups(
+                "Rejected Claims",
+                insured.Where(b => (b.AssessmentStatus ?? string.Empty).Contains("reject", StringComparison.OrdinalIgnoreCase))
+                    .GroupBy(b => string.IsNullOrWhiteSpace(b.InsuranceProvider) ? "Unknown" : b.InsuranceProvider)
+            );
+        }
+
+        if (InsurancePendingClaims)
+        {
+            AddGroups(
+                "Pending Claims",
+                insured.Where(b => (b.AssessmentStatus ?? string.Empty).Contains("pending", StringComparison.OrdinalIgnoreCase))
+                    .GroupBy(b => string.IsNullOrWhiteSpace(b.InsuranceProvider) ? "Unknown" : b.InsuranceProvider)
+            );
+        }
+
+        if (InsuranceProviderPerformance)
+        {
+            AddGroups(
+                "Provider Performance",
+                insured.GroupBy(b => string.IsNullOrWhiteSpace(b.InsuranceProvider) ? "Unknown" : b.InsuranceProvider)
+            );
+        }
+
+        r.Summary["Total Claims"] = totalCount.ToString();
+        r.Summary["Total Coverage"] = totalCoverage.ToString("F2");
+        return r;
+    }
+
+    private ReportResult BuildUnpaidReport(List<PatientBill> bills)
+    {
+        var r = new ReportResult("Unpaid Bills Report", "unpaid_bills_report");
+        r.Columns.AddRange(new[] { "Bill ID", "Patient", "Date", "Total Amount", "Payment Status" });
+
+        var unpaid = bills
+            .Where(b => !string.Equals(b.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(b => GetReportDate(b))
+            .ToList();
+
+        decimal totalAmount = 0;
+        foreach (var b in unpaid)
+        {
+            totalAmount += b.TotalAmount;
+            r.Rows.Add(new Dictionary<string, string>
+            {
+                ["Bill ID"] = b.BillId.ToString(),
+                ["Patient"] = b.PatientName,
+                ["Date"] = GetReportDate(b).ToString("MM/dd/yy"),
+                ["Total Amount"] = b.TotalAmount.ToString("F2"),
+                ["Payment Status"] = b.PaymentStatus,
+            });
+        }
+
+        r.Summary["Unpaid Count"] = unpaid.Count.ToString();
+        r.Summary["Total Unpaid Amount"] = totalAmount.ToString("F2");
+        return r;
+    }
+
+    private class ReportResult
+    {
+        public string Title { get; }
+        public string ExportBaseName { get; }
+        public List<string> Columns { get; } = new();
+        public List<Dictionary<string, string>> Rows { get; } = new();
+        public Dictionary<string, string> Summary { get; } = new();
+
+        public ReportResult(string title, string exportBaseName)
+        {
+            Title = title;
+            ExportBaseName = exportBaseName;
+        }
+
+        public string ToCsv()
+        {
+            static string Esc(string s)
+            {
+                s ??= string.Empty;
+                if (s.Contains('"') || s.Contains(',') || s.Contains('\n') || s.Contains('\r'))
+                {
+                    s = s.Replace("\"", "\"\"");
+                    return $"\"{s}\"";
+                }
+                return s;
+            }
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine(string.Join(",", Columns.Select(Esc)));
+            foreach (var row in Rows)
+            {
+                var line = string.Join(",", Columns.Select(c => Esc(row.TryGetValue(c, out var v) ? v : string.Empty)));
+                sb.AppendLine(line);
+            }
+            return sb.ToString();
+        }
     }
 }

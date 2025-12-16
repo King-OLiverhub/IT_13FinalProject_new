@@ -7,7 +7,7 @@
     padding: 24px;
 }
 
-/* Clean header design */
+/* Header match other billing pages */
 .dashboard-header {
     display: flex;
     justify-content: space-between;
@@ -24,47 +24,39 @@
 .dashboard-title {
     font-size: 28px;
     font-weight: 700;
-    color: #2c3e50;
     margin: 0;
 }
 
 .dashboard-subtitle {
-    font-size: 14px;
-    color: #6c757d;
     margin: 4px 0 0;
+    font-size: 14px;
 }
 
 .dashboard-user-info {
     display: flex;
     align-items: center;
-    gap: 12px;
-    background: #ffffff;
-    padding: 8px 16px;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    gap: 8px;
 }
 
 .dashboard-user-email {
-    font-size: 14px;
-    color: #6c757d;
+    font-size: 13px;
+    color: #555;
 }
 
 .dashboard-user-avatar {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-color: #40b6ae;
     color: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 14px;
 }
 
 .dashboard-user-name {
     font-weight: 600;
-    color: #2c3e50;
 }
 
 /* Search section */
@@ -79,9 +71,9 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 5px 16px;
+    padding: 12px 16px;
     border: 2px solid #e9ecef;
-    border-radius: 10px;
+    border-radius: 12px;
     background: #ffffff;
 }
 
@@ -339,16 +331,32 @@
     gap: 14px;
 }
 
+@media (max-width: 1200px) {
+    .dashboard-cards-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 720px) {
+    .dashboard-cards-row {
+        grid-template-columns: 1fr;
+    }
+}
+
 .dashboard-card {
     background-color: #ffffff;
     border-radius: 16px;
     padding: 12px 14px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(15, 139, 141, 0.12);
+    overflow: hidden;
 }
 
 .dashboard-card h3 {
     font-size: 14px;
     margin-bottom: 8px;
+    color: #0f5f60;
+    font-weight: 700;
 }
 
 .card-placeholder {
@@ -360,6 +368,79 @@
     justify-content: center;
     font-size: 12px;
     color: #777;
+}
+
+/* New KPI + sparkline card layout */
+.card-content {
+    min-height: 132px;
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(15, 139, 141, 0.08), rgba(15, 139, 141, 0.03));
+    border: 1px solid rgba(15, 139, 141, 0.10);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.card-kpi-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: #0b3d3d;
+    line-height: 1.15;
+}
+
+.card-kpi-change {
+    font-size: 12px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+.card-kpi-change.positive {
+    background-color: #dcfce7;
+    color: #15803d;
+}
+
+.card-kpi-change.negative {
+    background-color: #fee2e2;
+    color: #b91c1c;
+}
+
+.card-kpi-subtitle {
+    font-size: 12px;
+    color: #436e6e;
+    margin-bottom: 6px;
+}
+
+.card-sparkline {
+    margin-top: auto;
+}
+
+.spark-chart {
+    height: 42px;
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+}
+
+.spark-bar {
+    flex: 1;
+    min-width: 3px;
+    border-radius: 3px 3px 0 0;
+    background: linear-gradient(180deg, #1aa7a2 0%, #0f8b8d 70%, #0a6f71 100%);
+    opacity: 0.95;
+}
+
+.card-chart-caption {
+    font-size: 11px;
+    color: #3f6a6a;
+    margin-top: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .dashboard-no-notification .card-placeholder {
@@ -384,7 +465,7 @@
 }
 
 .activity-search {
-    padding: 6px 10px;
+    padding: 6px 12px;
     border-radius: 10px;
     border: 1px solid #c9e3e1;
     font-size: 13px;
@@ -500,7 +581,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 5px 12px;
+    padding: 8px 12px;
     border-radius: 10px;
     border: 2px solid #0f8b8d;
     background-color: #ffffff;
@@ -542,44 +623,4 @@
     background-color: #e9f6f5;
 }
 
-
-/* Centered sticky pagination for billing dashboard (reuse PM style) */
-.pm-pagination {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 4px;
-    margin: 12px auto;
-    padding: 8px 12px;
-    border-radius: 6px;
-    background-color: #f8f9fa;
-    border: 1px solid #e9ecef;
-    width: fit-content;
-    max-width: 100%;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-    position: sticky;
-    bottom: 10px;
-    z-index: 6;
-}
-
-.pm-page-btn,
-.pm-page-number {
-    min-width: 40px;
-    padding: 6px 14px;
-    border-radius: 999px;
-    border: 1px solid #c9d9dd;
-    background-color: #ffffff;
-    font-size: 12px;
-    cursor: pointer;
-}
-
-.pm-page-number.active {
-    background-color: #0f8b8d;
-    color: #ffffff;
-    border-color: #0f8b8d;
-}
-
-.pm-page-dots {
-    font-size: 12px;
-}
 

@@ -291,6 +291,50 @@
     {
         get
         {
+            // Notification route should preserve role from query string (?role=doctor|nurse|billing|inventory)
+            // or from the route pattern /{role}-notification.
+            try
+            {
+                var uriObj = new Uri(Navigation.Uri);
+                var path = uriObj.AbsolutePath.ToLowerInvariant();
+
+                if (path.EndsWith("/notification", StringComparison.OrdinalIgnoreCase)
+                    || path.EndsWith("-notification", StringComparison.OrdinalIgnoreCase))
+                {
+                    var query = uriObj.Query ?? string.Empty;
+                    if (!string.IsNullOrWhiteSpace(query))
+                    {
+                        var trimmed = query.TrimStart('?');
+                        foreach (var pair in trimmed.Split('&', StringSplitOptions.RemoveEmptyEntries))
+                        {
+                            var kv = pair.Split('=', 2);
+                            if (kv.Length == 2 && kv[0].Equals("role", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var value = Uri.UnescapeDataString(kv[1]);
+                                if (!string.IsNullOrWhiteSpace(value))
+                                {
+                                    var roleValue = value.Split('-')[0];
+                                    return char.ToUpper(roleValue[0]) + roleValue.Substring(1).ToLower();
+                                }
+                                break;
+                            }
+                        }
+                    }
+
+                    var seg = path.Trim('/').Split('/').LastOrDefault() ?? string.Empty;
+                    if (seg.EndsWith("-notification", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var roleValue = seg.Substring(0, seg.Length - "-notification".Length);
+                        if (!string.IsNullOrWhiteSpace(roleValue))
+                            return char.ToUpper(roleValue[0]) + roleValue.Substring(1).ToLower();
+                    }
+                }
+            }
+            catch
+            {
+                // ignore malformed URI
+            }
+
             // First check if we're on the user profile page with new format
             if (Navigation.Uri.Contains("/user-profile/role/", StringComparison.OrdinalIgnoreCase))
             {

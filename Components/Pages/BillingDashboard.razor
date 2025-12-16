@@ -1,5 +1,8 @@
 @page "/billing-dashboard"
 @layout Layout.DashboardLayout
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Services
+@inject IPatientBillService BillService
 
 <div class="dashboard-page @(IsNotificationDismissed ? "dashboard-no-notification" : string.Empty)">
     <header class="dashboard-header">
@@ -66,7 +69,7 @@
                                         <div class="pm-patient-email">@b.PatientEmail</div>
                                     </td>
                                     <td>@b.AssessmentStatus</td>
-                                    <td class="pm-col-date">@b.DateOfVisit</td>
+                                    <td class="pm-col-date">@b.DateOfVisit.ToString("MM/dd/yy")</td>
                                     <td class="pm-col-action">
                                         <button class="pm-view-btn" @onclick="() => ViewBill(b)" aria-label="View patient bill">
                                             <span class="pm-view-icon"></span>
@@ -79,15 +82,22 @@
                 </div>
             </div>
 
-            <div class="pm-pagination">
-                <button class="pm-page-btn">Previous</button>
-                <button class="pm-page-number active">1</button>
-                <button class="pm-page-number">2</button>
-                <button class="pm-page-number">3</button>
-                <span class="pm-page-dots">...</span>
-                <button class="pm-page-number">8</button>
-                <button class="pm-page-btn">Next</button>
-            </div>
+            <button type="button" class="pm-pagination-toggle" @onclick="TogglePagination" aria-label="Hide or show page buttons">
+                <span>@(ShowPagination ? "▾" : "▴")</span>
+            </button>
+
+            @if (ShowPagination)
+            {
+                <div class="pm-pagination">
+                    <button class="pm-page-btn">Previous</button>
+                    <button class="pm-page-number active">1</button>
+                    <button class="pm-page-number">2</button>
+                    <button class="pm-page-number">3</button>
+                    <span class="pm-page-dots">...</span>
+                    <button class="pm-page-number">8</button>
+                    <button class="pm-page-btn">Next</button>
+                </div>
+            }
         </section>
     }
     else
@@ -122,8 +132,8 @@
                     <div class="notification-body">
                         <div class="notification-icon">!</div>
                         <div class="notification-text">
-                            <div>Unpaid invoice detected: INV-2045 for Patient #122 is overdue by 7 days.</div>
-                            <button class="notification-button" @onclick="GoToNotification">Go to notification</button>
+                            <div>@(NotificationText ?? "No notifications.")</div>
+                            <button class="notification-button" @onclick="GoToOutstanding">Go to notification</button>
                         </div>
                     </div>
                 }
@@ -133,38 +143,70 @@
         <section class="dashboard-cards-row">
             <div class="dashboard-card">
                 <h3>Daily / Monthly Revenue Trend</h3>
-                <div class="card-placeholder">
-                    <div class="card-kpi-value">$28,450</div>
-                    <div class="card-kpi-change positive">+18%</div>
+                <div class="card-content">
+                    <div class="card-kpi-value">@Currency(MonthlyRevenue)</div>
+                    <div class="card-kpi-change @(MonthlyRevenueChangePct >= 0 ? "positive" : "negative")">@Pct(MonthlyRevenueChangePct)</div>
                     <div class="card-kpi-subtitle">Revenue this month</div>
-                    <div class="card-chart-placeholder">[Bar chart placeholder]</div>
+                    <div class="card-sparkline" aria-hidden="true">
+                        <div class="spark-chart">
+                            @foreach (var h in RevenueSpark)
+                            {
+                                <div class="spark-bar" style="height:@h%"></div>
+                            }
+                        </div>
+                    </div>
+                    <div class="card-chart-caption">@RevenueTrendCaption</div>
                 </div>
             </div>
             <div class="dashboard-card">
                 <h3>Claims Status</h3>
-                <div class="card-placeholder">
-                    <div class="card-kpi-value">142</div>
-                    <div class="card-kpi-change positive">+12%</div>
+                <div class="card-content">
+                    <div class="card-kpi-value">@ActiveClaimsCount</div>
+                    <div class="card-kpi-change @(ClaimsChangePct >= 0 ? "positive" : "negative")">@Pct(ClaimsChangePct)</div>
                     <div class="card-kpi-subtitle">Active insurance claims</div>
-                    <div class="card-chart-placeholder">[Pie chart placeholder]</div>
+                    <div class="card-sparkline" aria-hidden="true">
+                        <div class="spark-chart">
+                            @foreach (var h in ClaimsSpark)
+                            {
+                                <div class="spark-bar" style="height:@h%"></div>
+                            }
+                        </div>
+                    </div>
+                    <div class="card-chart-caption">@ClaimsCaption</div>
                 </div>
             </div>
             <div class="dashboard-card">
                 <h3>Payment Method Distribution</h3>
-                <div class="card-placeholder">
-                    <div class="card-kpi-value">68%</div>
-                    <div class="card-kpi-change positive">+5%</div>
+                <div class="card-content">
+                    <div class="card-kpi-value">@Pct(DigitalPaymentPct)</div>
+                    <div class="card-kpi-change @(DigitalPaymentChangePct >= 0 ? "positive" : "negative")">@Pct(DigitalPaymentChangePct)</div>
                     <div class="card-kpi-subtitle">Digital payments this month</div>
-                    <div class="card-chart-placeholder">[Pie chart placeholder]</div>
+                    <div class="card-sparkline" aria-hidden="true">
+                        <div class="spark-chart">
+                            @foreach (var h in PaymentSpark)
+                            {
+                                <div class="spark-bar" style="height:@h%"></div>
+                            }
+                        </div>
+                    </div>
+                    <div class="card-chart-caption">@PaymentMethodCaption</div>
                 </div>
             </div>
             <div class="dashboard-card">
                 <h3>Outstanding Bills / Unpaid Balances</h3>
-                <div class="card-placeholder">
-                    <div class="card-kpi-value">$45,280</div>
-                    <div class="card-kpi-change negative">-8%</div>
+                <div class="card-content">
+                    <div class="card-kpi-value">@Currency(OutstandingAmount)</div>
+                    <div class="card-kpi-change @(OutstandingChangePct >= 0 ? "positive" : "negative")">@Pct(OutstandingChangePct)</div>
                     <div class="card-kpi-subtitle">Total outstanding amount</div>
-                    <div class="card-chart-placeholder">[Bar chart placeholder]</div>
+                    <div class="card-sparkline" aria-hidden="true">
+                        <div class="spark-chart">
+                            @foreach (var h in OutstandingSpark)
+                            {
+                                <div class="spark-bar" style="height:@h%"></div>
+                            }
+                        </div>
+                    </div>
+                    <div class="card-chart-caption">@OutstandingCaption</div>
                 </div>
             </div>
         </section>
@@ -191,16 +233,23 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td>Generated invoice INV-2045 for Patient #122</td>
-                            <td>Billing Staff</td>
-                            <td>10:24 AM</td>
-                        </tr>
-                        <tr>
-                            <td>Marked payment received for Invoice INV-1980</td>
-                            <td>Billing Staff</td>
-                            <td>10:15 AM</td>
-                        </tr>
+                        @if (RecentActivities.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="3">No recent activity.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var a in RecentActivities)
+                            {
+                                <tr>
+                                    <td>@a.Activity</td>
+                                    <td>@a.User</td>
+                                    <td>@a.When.ToString("MMM dd, yyyy hh:mm tt")</td>
+                                </tr>
+                            }
+                        }
                     </tbody>
                 </table>
             </div>
@@ -216,16 +265,42 @@
     private bool IsNotificationDismissed { get; set; }
     private bool IsOverviewMode { get; set; }
 
-    private record BillingRow(string PatientName, string PatientEmail, string AssessmentStatus, string DateOfVisit);
+    
 
-    private readonly BillingRow[] Bills = new BillingRow[]
+    private List<PatientBill> Bills { get; set; } = new();
+
+    
+    
+    private bool ShowPagination { get; set; } = true;
+
+    private decimal MonthlyRevenue { get; set; }
+    private decimal MonthlyRevenueChangePct { get; set; }
+    private int ActiveClaimsCount { get; set; }
+    private decimal ClaimsChangePct { get; set; }
+    private decimal DigitalPaymentPct { get; set; }
+    private decimal DigitalPaymentChangePct { get; set; }
+    private decimal OutstandingAmount { get; set; }
+    private decimal OutstandingChangePct { get; set; }
+
+    private string RevenueTrendCaption { get; set; } = "";
+    private string ClaimsCaption { get; set; } = "";
+    private string PaymentMethodCaption { get; set; } = "";
+    private string OutstandingCaption { get; set; } = "";
+
+    private int[] RevenueSpark { get; set; } = Array.Empty<int>();
+    private int[] ClaimsSpark { get; set; } = Array.Empty<int>();
+    private int[] PaymentSpark { get; set; } = Array.Empty<int>();
+    private int[] OutstandingSpark { get; set; } = Array.Empty<int>();
+
+    private string? NotificationText { get; set; }
+    private List<ActivityRow> RecentActivities { get; set; } = new();
+
+    private record ActivityRow(string Activity, string User, DateTime When);
+
+    protected override async Task OnInitializedAsync()
     {
-        new("Himeko Murata", "himeko_murata@gmail.com", "For Discharge", "03/09/24"),
-        new("Yae Miko", "miko.yae@mail.com", "For Discharge", "03/09/24"),
-        new("Black Swan", "ms.blkswan@mail.com", "For Discharge", "03/09/24"),
-        new("Ruan Mei", "therm_ei@gmail.com", "For Discharge", "03/09/24"),
-        new("Bronya Rand", "bronya.rr@mail.com", "For Discharge", "03/09/24"),
-    };
+        await LoadDashboardAsync();
+    }
 
     protected override void OnParametersSet()
     {
@@ -236,9 +311,9 @@
     }
 
     
-    private IEnumerable<BillingRow> GetOrderedRows()
+    private IEnumerable<PatientBill> GetOrderedRows()
     {
-        return Bills;
+        return Bills.OrderByDescending(b => b.DateOfVisit);
     }
 
     private void HideNotification()
@@ -263,14 +338,160 @@
         IsNotificationCollapsed = false;
     }
 
-    private void GoToNotification()
+    private void TogglePagination()
     {
-        Navigation.NavigateTo("/notification?role=billing");
+        ShowPagination = !ShowPagination;
     }
 
-    private void ViewBill(BillingRow row)
+    private void ViewBill(PatientBill bill)
     {
         Navigation.NavigateTo("/admin-invoice-pdf?source=billing");
+    }
+
+    private void GoToOutstanding()
+    {
+        Navigation.NavigateTo("/billing-patient-overview");
+    }
+
+    private async Task LoadDashboardAsync()
+    {
+        try
+        {
+            Bills = (await BillService.GetAllAsync(includeArchived: true)).ToList();
+        }
+        catch
+        {
+            Bills = new();
+        }
+
+        var now = DateTime.Now;
+        var thisMonthStart = new DateTime(now.Year, now.Month, 1);
+        var nextMonthStart = thisMonthStart.AddMonths(1);
+        var lastMonthStart = thisMonthStart.AddMonths(-1);
+
+        var thisMonth = Bills.Where(b => b.DateOfVisit >= thisMonthStart && b.DateOfVisit < nextMonthStart).ToList();
+        var lastMonth = Bills.Where(b => b.DateOfVisit >= lastMonthStart && b.DateOfVisit < thisMonthStart).ToList();
+
+        MonthlyRevenue = thisMonth.Sum(b => b.TotalAmount);
+        var lastRevenue = lastMonth.Sum(b => b.TotalAmount);
+        MonthlyRevenueChangePct = SafePctChange(lastRevenue, MonthlyRevenue);
+
+        var activeClaimsThisMonth = thisMonth.Count(b => (b.InsuranceCoverage > 0) && !string.Equals(b.AssessmentStatus, "Rejected", StringComparison.OrdinalIgnoreCase));
+        var activeClaimsLastMonth = lastMonth.Count(b => (b.InsuranceCoverage > 0) && !string.Equals(b.AssessmentStatus, "Rejected", StringComparison.OrdinalIgnoreCase));
+        ActiveClaimsCount = activeClaimsThisMonth;
+        ClaimsChangePct = SafePctChange(activeClaimsLastMonth, activeClaimsThisMonth);
+
+        var digitalMethods = new[] { "Online", "Digital", "GCash", "Card", "Credit Card", "Debit Card" };
+        bool IsDigital(PatientBill b) => !string.IsNullOrWhiteSpace(b.PaymentMethod) && digitalMethods.Any(m => string.Equals(b.PaymentMethod, m, StringComparison.OrdinalIgnoreCase));
+
+        var thisPaidCount = thisMonth.Count(b => string.Equals(b.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase) || string.Equals(b.PaymentStatus, "Partial", StringComparison.OrdinalIgnoreCase));
+        var thisDigitalPaidCount = thisMonth.Count(b => IsDigital(b) && (string.Equals(b.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase) || string.Equals(b.PaymentStatus, "Partial", StringComparison.OrdinalIgnoreCase)));
+        DigitalPaymentPct = thisPaidCount == 0 ? 0 : (decimal)thisDigitalPaidCount / thisPaidCount;
+
+        var lastPaidCount = lastMonth.Count(b => string.Equals(b.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase) || string.Equals(b.PaymentStatus, "Partial", StringComparison.OrdinalIgnoreCase));
+        var lastDigitalPaidCount = lastMonth.Count(b => IsDigital(b) && (string.Equals(b.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase) || string.Equals(b.PaymentStatus, "Partial", StringComparison.OrdinalIgnoreCase)));
+        var lastDigitalPct = lastPaidCount == 0 ? 0 : (decimal)lastDigitalPaidCount / lastPaidCount;
+        DigitalPaymentChangePct = SafePctChange(lastDigitalPct, DigitalPaymentPct);
+
+        var outstandingThisMonth = thisMonth.Where(b => !string.Equals(b.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase)).Sum(b => b.PatientResponsibility);
+        var outstandingLastMonth = lastMonth.Where(b => !string.Equals(b.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase)).Sum(b => b.PatientResponsibility);
+        OutstandingAmount = outstandingThisMonth;
+        OutstandingChangePct = SafePctChange(outstandingLastMonth, outstandingThisMonth);
+
+        RevenueTrendCaption = $"{thisMonth.Count} bills this month";
+        ClaimsCaption = $"{thisMonth.Count(b => b.InsuranceCoverage > 0)} claims this month";
+
+        var methodCounts = thisMonth
+            .Where(b => !string.IsNullOrWhiteSpace(b.PaymentMethod))
+            .GroupBy(b => b.PaymentMethod!)
+            .Select(g => new { Method = g.Key, Count = g.Count() })
+            .OrderByDescending(x => x.Count)
+            .Take(2)
+            .ToList();
+        PaymentMethodCaption = methodCounts.Count == 0 ? "No payment methods" : string.Join(" • ", methodCounts.Select(x => $"{x.Method}: {x.Count}"));
+
+        OutstandingCaption = $"{thisMonth.Count(b => !string.Equals(b.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase))} unpaid/partial bills";
+
+        RevenueSpark = BuildSpark(thisMonth, b => b.TotalAmount, 12);
+        ClaimsSpark = BuildSpark(thisMonth.Where(b => b.InsuranceCoverage > 0), b => 1m, 12);
+        PaymentSpark = BuildSpark(thisMonth.Where(b => string.Equals(b.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase) || string.Equals(b.PaymentStatus, "Partial", StringComparison.OrdinalIgnoreCase)), b => IsDigital(b) ? 1m : 0m, 12);
+        OutstandingSpark = BuildSpark(thisMonth.Where(b => !string.Equals(b.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase)), b => b.PatientResponsibility, 12);
+
+        var overdue = Bills
+            .Where(b => !string.Equals(b.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(b => b.DateOfVisit)
+            .FirstOrDefault();
+        if (overdue != null)
+        {
+            var days = (now.Date - overdue.DateOfVisit.Date).Days;
+            NotificationText = $"Unpaid bill detected: #{overdue.BillId} for {overdue.PatientName} is overdue by {Math.Max(days, 0)} days.";
+        }
+        else
+        {
+            NotificationText = null;
+        }
+
+        RecentActivities = Bills
+            .Select(b => new ActivityRow(
+                (b.UpdatedAt.HasValue && b.UpdatedAt.Value > b.CreatedAt)
+                    ? $"Updated bill #{b.BillId} for {b.PatientName}"
+                    : $"Created bill #{b.BillId} for {b.PatientName}",
+                "Billing Staff",
+                (b.UpdatedAt ?? b.CreatedAt)
+            ))
+            .OrderByDescending(a => a.When)
+            .Take(10)
+            .ToList();
+    }
+
+    private static decimal SafePctChange(decimal oldValue, decimal newValue)
+    {
+        if (oldValue == 0)
+        {
+            if (newValue == 0) return 0;
+            return 1;
+        }
+
+        return (newValue - oldValue) / Math.Abs(oldValue);
+    }
+
+    private static int[] BuildSpark(IEnumerable<PatientBill> bills, Func<PatientBill, decimal> selector, int buckets)
+    {
+        var list = bills.ToList();
+        if (list.Count == 0 || buckets <= 0)
+            return Enumerable.Repeat(20, Math.Max(1, buckets)).ToArray();
+
+        var ordered = list.OrderBy(b => b.DateOfVisit).ToList();
+        var min = ordered.First().DateOfVisit.Date;
+        var max = ordered.Last().DateOfVisit.Date;
+        var days = (int)(max - min).TotalDays + 1;
+        if (days <= 0)
+            days = 1;
+
+        var values = new decimal[buckets];
+        foreach (var b in ordered)
+        {
+            var idx = (int)((b.DateOfVisit.Date - min).TotalDays * buckets / days);
+            if (idx < 0) idx = 0;
+            if (idx >= buckets) idx = buckets - 1;
+            values[idx] += selector(b);
+        }
+
+        var maxVal = values.Max();
+        if (maxVal <= 0)
+            return Enumerable.Repeat(20, buckets).ToArray();
+
+        return values
+            .Select(v => 18 + (int)Math.Round((double)(v / maxVal) * 82))
+            .ToArray();
+    }
+
+    private static string Currency(decimal value) => $"₱{value:N2}";
+
+    private static string Pct(decimal value)
+    {
+        var sign = value > 0 ? "+" : string.Empty;
+        return $"{sign}{value:P0}";
     }
 }
 
