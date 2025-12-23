@@ -1,6 +1,13 @@
 ﻿@page "/nurse-reports"
 @layout DashboardLayout
+@using IT_13FinalProject.Data
+@using IT_13FinalProject.Models
 @using IT_13FinalProject.Services
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.Data.SqlClient
+@inject ApplicationDbContext DbContext
+@inject LocalDbContext LocalDbContext
+@inject IJSRuntime JsRuntime
 
 <PageTitle>Reports</PageTitle>
 
@@ -57,18 +64,23 @@
                     </div>
                 </div>
 
+                @if (!string.IsNullOrWhiteSpace(ReportError))
+                {
+                    <div style="margin-top: 8px; color: #b42318; font-weight: 600;">@ReportError</div>
+                }
+
                 <div class="action-buttons">
-                    <button class="btn-action generate" @onclick="GenerateReport">
+                    <button class="btn-action generate" @onclick="GenerateReport" disabled="@IsGenerating">
                         <i class="fas fa-file-alt"></i>
-                        Generate Report
+                        @(IsGenerating ? "Generating..." : "Generate Report")
                     </button>
-                    <button class="btn-action preview" @onclick="ShowPreview">
+                    <button class="btn-action preview" @onclick="ShowPreview" disabled="@(GeneratedReport == null)">
                         <i class="fas fa-eye"></i>
                         Preview
                     </button>
-                    <button class="btn-action export">
+                    <button class="btn-action export" @onclick="ExportCsv" disabled="@(GeneratedReport == null)">
                         <i class="fas fa-file-pdf"></i>
-                        Export PDF
+                        Export CSV
                     </button>
                 </div>
             </div>
@@ -167,38 +179,76 @@
     </div>
 
     <!-- Preview Modal -->
-    @if (showPreviewModal)
+    @if (showPreviewModal && GeneratedReport is not null)
     {
         <div class="modal-overlay" @onclick="HidePreview">
             <div class="modal-panel" @onclick:stopPropagation="true">
                 <div class="modal-header">
-                    <h2>NURSE VITAL SIGNS REPORT <span class="report-date">- Nov 15, 2024</span></h2>
+                    <h2>@GeneratedReport.Title <span class="report-date">- @FormatRange()</span></h2>
                     <button class="modal-close" @onclick="HidePreview">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
 
                 <div class="modal-body">
-                    <div class="report-section">
-                        <h3>VITAL SIGNS SUMMARY:</h3>
-                        <div class="report-stats">
-                            <p>Total Patients Monitored: <strong>24 patients</strong></p>
-                            <p>Critical Vitals Alert: <strong>3 patients</strong></p>
-                            <p>Stable Patients: <strong>18 patients</strong></p>
-                            <p>Pending Assessments: <strong>3 patients</strong></p>
+                    @if (!string.IsNullOrWhiteSpace(ReportError))
+                    {
+                        <div class="report-section">
+                            <div style="color:#900;">@ReportError</div>
                         </div>
-                    </div>
+                    }
+                    else
+                    {
+                        @if (GeneratedReport.Summary.Count > 0)
+                        {
+                            <div class="report-section">
+                                <h3>SUMMARY</h3>
+                                <div class="report-stats">
+                                    @foreach (var kvp in GeneratedReport.Summary)
+                                    {
+                                        <p>@kvp.Key: <strong>@kvp.Value</strong></p>
+                                    }
+                                </div>
+                            </div>
+                        }
 
-                    <div class="report-section">
-                        <h3>PATIENT STATUS BREAKDOWN:</h3>
-                        <ul class="report-list-items">
-                            <li>Room 101 - John Doe - BP: 140/90, Temp: 37.2°C</li>
-                            <li>Room 102 - Jane Smith - BP: 120/80, Temp: 36.8°C</li>
-                            <li>Room 103 - Robert Johnson - BP: 160/100, Temp: 38.1°C</li>
-                            <li>Room 104 - Mary Williams - BP: 110/70, Temp: 36.5°C</li>
-                            <li>Room 105 - James Brown - BP: 130/85, Temp: 37.0°C</li>
-                        </ul>
-                    </div>
+                        @if (GeneratedReport.Rows.Count > 0)
+                        {
+                            <div class="report-section">
+                                <h3>DETAILS</h3>
+                                <div style="overflow:auto;max-height:50vh;">
+                                    <table class="ip-table" style="width:100%;">
+                                        <thead>
+                                            <tr>
+                                                @foreach (var col in GeneratedReport.Columns)
+                                                {
+                                                    <th>@col</th>
+                                                }
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var row in GeneratedReport.Rows)
+                                            {
+                                                <tr>
+                                                    @foreach (var col in GeneratedReport.Columns)
+                                                    {
+                                                        row.TryGetValue(col, out var value);
+                                                        <td>@(value ?? string.Empty)</td>
+                                                    }
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="report-section">
+                                <p>No data found for the selected range.</p>
+                            </div>
+                        }
+                    }
                 </div>
 
                 <div class="modal-footer">
@@ -215,14 +265,205 @@
     private string selectedReportType = "";
     private bool showPreviewModal = false;
 
-    private void GenerateReport()
+    private ReportResult? GeneratedReport { get; set; }
+    private string? ReportError { get; set; }
+    private bool IsGenerating { get; set; }
+
+    private static bool IsCloudConnectionFailure(Exception ex)
     {
-        // Implement report generation logic
-        Console.WriteLine($"Generating report: {selectedReportType}");
+        if (ex is SqlException)
+            return true;
+
+        if (ex is DbUpdateException dbu && dbu.InnerException is SqlException)
+            return true;
+
+        if (ex is DbUpdateException dbu2 && dbu2.GetBaseException() is SqlException)
+            return true;
+
+        return false;
+    }
+
+    private async Task GenerateReport()
+    {
+        ReportError = null;
+        GeneratedReport = null;
+
+        if (string.IsNullOrWhiteSpace(selectedReportType))
+        {
+            ReportError = "Please select a report type.";
+            return;
+        }
+
+        if (endDate.Date < startDate.Date)
+        {
+            ReportError = "End Date must be greater than or equal to Start Date.";
+            return;
+        }
+
+        IsGenerating = true;
+        try
+        {
+            var from = startDate.Date;
+            var toInclusive = endDate.Date.AddDays(1).AddTicks(-1);
+
+            switch (selectedReportType)
+            {
+                case "vitals":
+                    {
+                        List<VitalSign> vitals;
+                        try
+                        {
+                            vitals = await DbContext.VitalSigns
+                                .AsNoTracking()
+                                .Include(v => v.Patient)
+                                .Where(v => v.IsArchived == false)
+                                .Where(v => v.RecordedDate >= from && v.RecordedDate <= toInclusive)
+                                .ToListAsync();
+                        }
+                        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+                        {
+                            vitals = await LocalDbContext.VitalSigns
+                                .AsNoTracking()
+                                .Include(v => v.Patient)
+                                .Where(v => v.IsArchived == false)
+                                .Where(v => v.RecordedDate >= from && v.RecordedDate <= toInclusive)
+                                .ToListAsync();
+                        }
+
+                        GeneratedReport = BuildVitalsReport(vitals, from, endDate.Date);
+                        break;
+                    }
+
+                case "patient":
+                    {
+                        List<VitalSign> vitals;
+                        List<NurseNote> notes;
+
+                        try
+                        {
+                            vitals = await DbContext.VitalSigns
+                                .AsNoTracking()
+                                .Include(v => v.Patient)
+                                .Where(v => v.IsArchived == false)
+                                .Where(v => v.RecordedDate >= from && v.RecordedDate <= toInclusive)
+                                .ToListAsync();
+
+                            notes = await DbContext.NurseNotes
+                                .AsNoTracking()
+                                .Include(n => n.Patient)
+                                .Where(n => n.IsArchived == false)
+                                .Where(n => n.CreatedAt >= from && n.CreatedAt <= toInclusive)
+                                .ToListAsync();
+                        }
+                        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+                        {
+                            vitals = await LocalDbContext.VitalSigns
+                                .AsNoTracking()
+                                .Include(v => v.Patient)
+                                .Where(v => v.IsArchived == false)
+                                .Where(v => v.RecordedDate >= from && v.RecordedDate <= toInclusive)
+                                .ToListAsync();
+
+                            notes = await LocalDbContext.NurseNotes
+                                .AsNoTracking()
+                                .Include(n => n.Patient)
+                                .Where(n => n.IsArchived == false)
+                                .Where(n => n.CreatedAt >= from && n.CreatedAt <= toInclusive)
+                                .ToListAsync();
+                        }
+
+                        GeneratedReport = BuildPatientCareSummaryReport(vitals, notes, from, endDate.Date);
+                        break;
+                    }
+
+                case "medication":
+                    {
+                        List<IT_13FinalProject.Models.HealthRecord> records;
+                        try
+                        {
+                            records = await DbContext.HealthRecords
+                                .AsNoTracking()
+                                .Include(r => r.Patient)
+                                .Where(r => r.IsArchived == false)
+                                .Where(r => (r.RecordDate ?? r.ApprovalDate ?? DateTime.Now) >= from && (r.RecordDate ?? r.ApprovalDate ?? DateTime.Now) <= toInclusive)
+                                .ToListAsync();
+                        }
+                        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+                        {
+                            records = await LocalDbContext.HealthRecords
+                                .AsNoTracking()
+                                .Include(r => r.Patient)
+                                .Where(r => r.IsArchived == false)
+                                .Where(r => (r.RecordDate ?? r.ApprovalDate ?? DateTime.Now) >= from && (r.RecordDate ?? r.ApprovalDate ?? DateTime.Now) <= toInclusive)
+                                .ToListAsync();
+                        }
+
+                        GeneratedReport = BuildMedicationAdministrationReport(records, from, endDate.Date);
+                        break;
+                    }
+
+                case "shift":
+                    {
+                        List<VitalSign> vitals;
+                        List<NurseNote> notes;
+
+                        try
+                        {
+                            vitals = await DbContext.VitalSigns
+                                .AsNoTracking()
+                                .Where(v => v.IsArchived == false)
+                                .Where(v => v.RecordedDate >= from && v.RecordedDate <= toInclusive)
+                                .ToListAsync();
+
+                            notes = await DbContext.NurseNotes
+                                .AsNoTracking()
+                                .Where(n => n.IsArchived == false)
+                                .Where(n => n.CreatedAt >= from && n.CreatedAt <= toInclusive)
+                                .ToListAsync();
+                        }
+                        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+                        {
+                            vitals = await LocalDbContext.VitalSigns
+                                .AsNoTracking()
+                                .Where(v => v.IsArchived == false)
+                                .Where(v => v.RecordedDate >= from && v.RecordedDate <= toInclusive)
+                                .ToListAsync();
+
+                            notes = await LocalDbContext.NurseNotes
+                                .AsNoTracking()
+                                .Where(n => n.IsArchived == false)
+                                .Where(n => n.CreatedAt >= from && n.CreatedAt <= toInclusive)
+                                .ToListAsync();
+                        }
+
+                        GeneratedReport = BuildShiftHandoverReport(vitals, notes, from, endDate.Date);
+                        break;
+                    }
+
+                default:
+                    ReportError = "Unknown report type.";
+                    return;
+            }
+
+            if (GeneratedReport == null)
+            {
+                ReportError = "No data found for the selected range.";
+            }
+        }
+        catch (Exception ex)
+        {
+            ReportError = $"Failed to generate report: {ex.GetBaseException().Message}";
+        }
+        finally
+        {
+            IsGenerating = false;
+        }
     }
 
     private void ShowPreview()
     {
+        if (GeneratedReport == null)
+            return;
         showPreviewModal = true;
     }
 
@@ -234,6 +475,230 @@
     private void QuickGenerate(string reportType)
     {
         selectedReportType = reportType;
-        GenerateReport();
+        _ = GenerateReport();
+    }
+
+    private string FormatRange()
+    {
+        var s = startDate.ToString("MMM dd, yyyy");
+        var e = endDate.ToString("MMM dd, yyyy");
+        return s == e ? s : $"{s} to {e}";
+    }
+
+    private async Task ExportCsv()
+    {
+        if (GeneratedReport == null)
+            return;
+
+        var csv = GeneratedReport.ToCsv();
+        var bytes = System.Text.Encoding.UTF8.GetBytes(csv);
+        var base64 = Convert.ToBase64String(bytes);
+        var fileName = $"{GeneratedReport.ExportBaseName}_{startDate:yyyyMMdd}_{endDate:yyyyMMdd}.csv";
+
+        await JsRuntime.InvokeVoidAsync("medflow.downloadBase64File", "text/csv", base64, fileName);
+    }
+
+    private static string PatientDisplayName(Patient? p, int patientId)
+    {
+        if (p != null)
+        {
+            var name = $"{p.FirstName} {p.LastName}".Trim();
+            if (!string.IsNullOrWhiteSpace(name))
+                return name;
+        }
+
+        return $"Patient #{patientId}";
+    }
+
+    private static ReportResult BuildVitalsReport(List<VitalSign> vitals, DateTime from, DateTime to)
+    {
+        var r = new ReportResult("Vital Signs Report", "nurse_vital_signs");
+        r.Columns.AddRange(new[] { "Date/Time", "Patient", "BP", "HR", "RR", "Temp", "SpO2", "Nurse" });
+
+        foreach (var v in vitals.OrderByDescending(v => v.RecordedDate))
+        {
+            r.Rows.Add(new Dictionary<string, string>
+            {
+                ["Date/Time"] = v.RecordedDate.ToString("yyyy-MM-dd HH:mm"),
+                ["Patient"] = PatientDisplayName(v.Patient, v.PatientId),
+                ["BP"] = v.BloodPressure ?? "",
+                ["HR"] = v.HeartRate?.ToString() ?? "",
+                ["RR"] = v.RespiratoryRate?.ToString() ?? "",
+                ["Temp"] = v.Temperature?.ToString("F1") ?? "",
+                ["SpO2"] = v.OxygenSaturation?.ToString("F0") ?? "",
+                ["Nurse"] = v.NurseName ?? ""
+            });
+        }
+
+        var patients = vitals.Select(v => v.PatientId).Distinct().Count();
+        var critical = vitals.Count(v =>
+            (v.Temperature.HasValue && v.Temperature.Value >= 38.0m)
+            || (v.OxygenSaturation.HasValue && v.OxygenSaturation.Value < 92.0m)
+            || (v.HeartRate.HasValue && (v.HeartRate.Value < 50 || v.HeartRate.Value > 120))
+        );
+
+        r.Summary["Total Records"] = vitals.Count.ToString();
+        r.Summary["Patients Monitored"] = patients.ToString();
+        r.Summary["Critical Alerts (heuristic)"] = critical.ToString();
+        return r;
+    }
+
+    private static ReportResult BuildPatientCareSummaryReport(List<VitalSign> vitals, List<NurseNote> notes, DateTime from, DateTime to)
+    {
+        var r = new ReportResult("Patient Care Summary", "nurse_patient_care_summary");
+        r.Columns.AddRange(new[] { "Patient", "Vitals Count", "Last Vitals", "Notes Count", "Last Note" });
+
+        var patientIds = vitals.Select(v => v.PatientId).Concat(notes.Select(n => n.PatientId)).Distinct().ToList();
+        foreach (var pid in patientIds)
+        {
+            var pVitals = vitals.Where(v => v.PatientId == pid).OrderByDescending(v => v.RecordedDate).ToList();
+            var pNotes = notes.Where(n => n.PatientId == pid).OrderByDescending(n => n.CreatedAt).ToList();
+
+            var patientName = pVitals.FirstOrDefault()?.Patient != null
+                ? PatientDisplayName(pVitals.First().Patient, pid)
+                : (pNotes.FirstOrDefault()?.Patient != null ? PatientDisplayName(pNotes.First().Patient, pid) : $"Patient #{pid}");
+
+            r.Rows.Add(new Dictionary<string, string>
+            {
+                ["Patient"] = patientName,
+                ["Vitals Count"] = pVitals.Count.ToString(),
+                ["Last Vitals"] = pVitals.FirstOrDefault()?.RecordedDate.ToString("yyyy-MM-dd HH:mm") ?? "",
+                ["Notes Count"] = pNotes.Count.ToString(),
+                ["Last Note"] = pNotes.FirstOrDefault()?.CreatedAt.ToString("yyyy-MM-dd HH:mm") ?? "",
+            });
+        }
+
+        r.Summary["Patients"] = patientIds.Count.ToString();
+        r.Summary["Total Vitals"] = vitals.Count.ToString();
+        r.Summary["Total Notes"] = notes.Count.ToString();
+        return r;
+    }
+
+    private static IEnumerable<string> SplitMeds(string? prescription)
+    {
+        if (string.IsNullOrWhiteSpace(prescription))
+            yield break;
+
+        var lines = prescription
+            .Split(new[] { '\n', '\r', ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => x.Trim())
+            .Where(x => x.Length > 0);
+
+        foreach (var l in lines)
+        {
+            var token = l;
+            var dash = token.IndexOf('-');
+            if (dash > 0)
+                token = token.Substring(0, dash).Trim();
+            yield return token;
+        }
+    }
+
+    private static DateTime GetRecordDate(IT_13FinalProject.Models.HealthRecord r)
+    {
+        return r.RecordDate ?? r.ApprovalDate ?? DateTime.Now;
+    }
+
+    private static ReportResult BuildMedicationAdministrationReport(List<IT_13FinalProject.Models.HealthRecord> records, DateTime from, DateTime to)
+    {
+        var r = new ReportResult("Medication Administration", "nurse_medication_administration");
+        r.Columns.AddRange(new[] { "Date", "Patient", "Medication" });
+
+        var rows = records
+            .SelectMany(hr => SplitMeds(hr.Prescription).Select(med => new { hr, med }))
+            .OrderByDescending(x => GetRecordDate(x.hr))
+            .Take(500)
+            .ToList();
+
+        foreach (var x in rows)
+        {
+            r.Rows.Add(new Dictionary<string, string>
+            {
+                ["Date"] = GetRecordDate(x.hr).ToString("yyyy-MM-dd"),
+                ["Patient"] = x.hr.Patient != null ? PatientDisplayName(x.hr.Patient, x.hr.PatientId ?? 0) : (x.hr.PatientId.HasValue ? $"Patient #{x.hr.PatientId.Value}" : "Unknown"),
+                ["Medication"] = x.med
+            });
+        }
+
+        r.Summary["Health Records"] = records.Count.ToString();
+        r.Summary["Medication Rows"] = rows.Count.ToString();
+        return r;
+    }
+
+    private static ReportResult BuildShiftHandoverReport(List<VitalSign> vitals, List<NurseNote> notes, DateTime from, DateTime to)
+    {
+        var r = new ReportResult("Shift Handover Report", "nurse_shift_handover");
+        r.Columns.AddRange(new[] { "Date", "Vitals Recorded", "Notes Written" });
+
+        var days = Enumerable.Range(0, (to.Date - from.Date).Days + 1)
+            .Select(i => from.Date.AddDays(i))
+            .ToList();
+
+        foreach (var d in days)
+        {
+            var vCount = vitals.Count(v => v.RecordedDate.Date == d);
+            var nCount = notes.Count(n => n.CreatedAt.Date == d);
+
+            r.Rows.Add(new Dictionary<string, string>
+            {
+                ["Date"] = d.ToString("yyyy-MM-dd"),
+                ["Vitals Recorded"] = vCount.ToString(),
+                ["Notes Written"] = nCount.ToString()
+            });
+        }
+
+        var topNurse = vitals
+            .Select(v => v.NurseName)
+            .Concat(notes.Select(n => n.NurseName))
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .GroupBy(n => n!, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Count())
+            .FirstOrDefault();
+
+        r.Summary["Total Vitals"] = vitals.Count.ToString();
+        r.Summary["Total Notes"] = notes.Count.ToString();
+        if (topNurse != null)
+            r.Summary["Top Nurse"] = $"{topNurse.Key} ({topNurse.Count()})";
+        return r;
+    }
+
+    private class ReportResult
+    {
+        public string Title { get; }
+        public string ExportBaseName { get; }
+        public List<string> Columns { get; } = new();
+        public List<Dictionary<string, string>> Rows { get; } = new();
+        public Dictionary<string, string> Summary { get; } = new();
+
+        public ReportResult(string title, string exportBaseName)
+        {
+            Title = title;
+            ExportBaseName = exportBaseName;
+        }
+
+        public string ToCsv()
+        {
+            static string Esc(string s)
+            {
+                s ??= string.Empty;
+                if (s.Contains('"') || s.Contains(',') || s.Contains('\n') || s.Contains('\r'))
+                {
+                    s = s.Replace("\"", "\"\"");
+                    return $"\"{s}\"";
+                }
+                return s;
+            }
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine(string.Join(",", Columns.Select(Esc)));
+
+            foreach (var row in Rows)
+            {
+                var values = Columns.Select(c => row.TryGetValue(c, out var v) ? v ?? string.Empty : string.Empty).Select(Esc);
+                sb.AppendLine(string.Join(",", values));
+            }
+
+            return sb.ToString();
+        }
     }
 }

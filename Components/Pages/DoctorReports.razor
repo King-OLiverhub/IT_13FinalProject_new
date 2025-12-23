@@ -1,6 +1,12 @@
 ﻿@page "/doctor-reports"
 @layout DashboardLayout
 @using IT_13FinalProject.Services
+@using IT_13FinalProject.Data
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.Data.SqlClient
+@inject ApplicationDbContext DbContext
+@inject LocalDbContext LocalDbContext
+@inject IJSRuntime JsRuntime
 
 <PageTitle>Reports</PageTitle>
 
@@ -58,17 +64,17 @@
                 </div>
 
                 <div class="action-buttons">
-                    <button class="btn-action generate" @onclick="GenerateReport">
+                    <button type="button" class="btn-action generate" @onclick="GenerateReport">
                         <i class="fas fa-file-alt"></i>
                         Generate Report
                     </button>
-                    <button class="btn-action preview" @onclick="ShowPreview">
+                    <button type="button" class="btn-action preview" @onclick="ShowPreview" disabled="@(GeneratedReport is null)">
                         <i class="fas fa-eye"></i>
                         Preview
                     </button>
-                    <button class="btn-action export">
+                    <button type="button" class="btn-action export" @onclick="ExportCsv" disabled="@(GeneratedReport is null)">
                         <i class="fas fa-file-pdf"></i>
-                        Export PDF
+                        Export CSV
                     </button>
                 </div>
             </div>
@@ -167,38 +173,70 @@
     </div>
 
     <!-- Preview Modal -->
-    @if (showPreviewModal)
+    @if (showPreviewModal && GeneratedReport is not null)
     {
         <div class="modal-overlay" @onclick="HidePreview">
             <div class="modal-panel" @onclick:stopPropagation="true">
                 <div class="modal-header">
-                    <h2>DOCTOR CONSULTATION REPORT <span class="report-date">- Nov 15, 2024</span></h2>
+                    <h2>@GeneratedReport.Title <span class="report-date">- @FormatRange()</span></h2>
                     <button class="modal-close" @onclick="HidePreview">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
 
                 <div class="modal-body">
-                    <div class="report-section">
-                        <h3>CONSULTATION SUMMARY:</h3>
-                        <div class="report-stats">
-                            <p>Total Patients Consulted: <strong>32 patients</strong></p>
-                            <p>New Patients: <strong>8 patients</strong></p>
-                            <p>Follow-up Visits: <strong>24 patients</strong></p>
-                            <p>Critical Cases: <strong>3 patients</strong></p>
+                    @if (!string.IsNullOrWhiteSpace(ReportError))
+                    {
+                        <div class="report-section">
+                            <div style="color:#900;">@ReportError</div>
                         </div>
-                    </div>
+                    }
+                    else
+                    {
+                        @if (GeneratedReport.Summary.Count > 0)
+                        {
+                            <div class="report-section">
+                                <h3>SUMMARY</h3>
+                                <div class="report-stats">
+                                    @foreach (var kvp in GeneratedReport.Summary)
+                                    {
+                                        <p>@kvp.Key: <strong>@kvp.Value</strong></p>
+                                    }
+                                </div>
+                            </div>
+                        }
 
-                    <div class="report-section">
-                        <h3>DIAGNOSIS BREAKDOWN:</h3>
-                        <ul class="report-list-items">
-                            <li>Respiratory Infections - 12 cases</li>
-                            <li>Hypertension - 8 cases</li>
-                            <li>Diabetes Management - 6 cases</li>
-                            <li>Gastrointestinal Issues - 4 cases</li>
-                            <li>Injuries & Trauma - 2 cases</li>
-                        </ul>
-                    </div>
+                        @if (GeneratedReport.Rows.Count > 0)
+                        {
+                            <div class="report-section">
+                                <h3>DETAILS</h3>
+                                <div style="overflow:auto;max-height:50vh;">
+                                    <table class="ip-table" style="width:100%;">
+                                        <thead>
+                                            <tr>
+                                                @foreach (var col in GeneratedReport.Columns)
+                                                {
+                                                    <th>@col</th>
+                                                }
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var row in GeneratedReport.Rows)
+                                            {
+                                                <tr>
+                                                    @foreach (var col in GeneratedReport.Columns)
+                                                    {
+                                                        row.TryGetValue(col, out var value);
+                                                        <td>@(value ?? string.Empty)</td>
+                                                    }
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        }
+                    }
                 </div>
 
                 <div class="modal-footer">
@@ -215,14 +253,85 @@
     private string selectedReportType = "";
     private bool showPreviewModal = false;
 
-    private void GenerateReport()
+    private ReportResult? GeneratedReport { get; set; }
+    private string? ReportError { get; set; }
+    private bool IsGenerating { get; set; }
+
+    private static bool IsCloudConnectionFailure(Exception ex)
     {
-        // Implement report generation logic
-        Console.WriteLine($"Generating report: {selectedReportType}");
+        if (ex is SqlException)
+            return true;
+
+        if (ex is DbUpdateException dbu && dbu.InnerException is SqlException)
+            return true;
+
+        if (ex is DbUpdateException dbu2 && dbu2.GetBaseException() is SqlException)
+            return true;
+
+        return false;
+    }
+
+    private async Task GenerateReport()
+    {
+        ReportError = null;
+        GeneratedReport = null;
+
+        if (string.IsNullOrWhiteSpace(selectedReportType))
+        {
+            ReportError = "Please select a report type.";
+            return;
+        }
+
+        if (endDate.Date < startDate.Date)
+        {
+            ReportError = "End Date must be greater than or equal to Start Date.";
+            return;
+        }
+
+        IsGenerating = true;
+        try
+        {
+            var from = startDate.Date;
+            var toInclusive = endDate.Date.AddDays(1).AddTicks(-1);
+
+            List<IT_13FinalProject.Models.HealthRecord> records;
+            try
+            {
+                records = await DbContext.HealthRecords
+                    .Include(r => r.Patient)
+                    .Where(r => r.IsArchived == false)
+                    .Where(r => (r.RecordDate ?? r.ApprovalDate ?? DateTime.Now) >= from && (r.RecordDate ?? r.ApprovalDate ?? DateTime.Now) <= toInclusive)
+                    .ToListAsync();
+            }
+            catch (Exception ex) when (IsCloudConnectionFailure(ex))
+            {
+                records = await LocalDbContext.HealthRecords
+                    .Include(r => r.Patient)
+                    .Where(r => r.IsArchived == false)
+                    .Where(r => (r.RecordDate ?? r.ApprovalDate ?? DateTime.Now) >= from && (r.RecordDate ?? r.ApprovalDate ?? DateTime.Now) <= toInclusive)
+                    .ToListAsync();
+            }
+
+            GeneratedReport = BuildReport(selectedReportType, records, from, endDate.Date);
+            if (GeneratedReport == null)
+            {
+                ReportError = "No data found for the selected range.";
+            }
+        }
+        catch (Exception ex)
+        {
+            ReportError = $"Failed to generate report: {ex.Message}";
+        }
+        finally
+        {
+            IsGenerating = false;
+        }
     }
 
     private void ShowPreview()
     {
+        if (GeneratedReport == null)
+            return;
         showPreviewModal = true;
     }
 
@@ -234,6 +343,214 @@
     private void QuickGenerate(string reportType)
     {
         selectedReportType = reportType;
-        GenerateReport();
+        _ = GenerateReport();
+    }
+
+    private string FormatRange()
+    {
+        var s = startDate.ToString("MMM dd, yyyy");
+        var e = endDate.ToString("MMM dd, yyyy");
+        return s == e ? s : $"{s} to {e}";
+    }
+
+    private async Task ExportCsv()
+    {
+        if (GeneratedReport == null)
+            return;
+
+        var csv = GeneratedReport.ToCsv();
+        var bytes = System.Text.Encoding.UTF8.GetBytes(csv);
+        var base64 = Convert.ToBase64String(bytes);
+        var fileName = $"{GeneratedReport.ExportBaseName}_{startDate:yyyyMMdd}_{endDate:yyyyMMdd}.csv";
+
+        await JsRuntime.InvokeVoidAsync("medflow.downloadBase64File", "text/csv", base64, fileName);
+    }
+
+    private static DateTime GetRecordDate(IT_13FinalProject.Models.HealthRecord r)
+    {
+        return r.RecordDate ?? r.ApprovalDate ?? DateTime.Now;
+    }
+
+    private ReportResult? BuildReport(string type, List<IT_13FinalProject.Models.HealthRecord> records, DateTime from, DateTime to)
+    {
+        switch (type)
+        {
+            case "consultation":
+                return BuildConsultationSummary(records, from, to);
+            case "prescription":
+                return BuildPrescriptionAnalysis(records, from, to);
+            case "diagnosis":
+                return BuildDiagnosisReport(records, from, to);
+            case "patient":
+                return BuildPatientTreatmentHistory(records, from, to);
+            default:
+                return null;
+        }
+    }
+
+    private ReportResult BuildConsultationSummary(List<IT_13FinalProject.Models.HealthRecord> records, DateTime from, DateTime to)
+    {
+        var r = new ReportResult("Consultation Summary Report", "doctor_consultation_summary");
+        r.Columns.AddRange(new[] { "Date", "Total Consultations", "New", "Follow-up" });
+
+        foreach (var g in records.GroupBy(x => GetRecordDate(x).Date).OrderBy(g => g.Key))
+        {
+            var newCount = g.Count(x => string.Equals(x.VisitType, "New", StringComparison.OrdinalIgnoreCase));
+            var follow = g.Count(x => string.Equals(x.VisitType, "Follow-up", StringComparison.OrdinalIgnoreCase) || string.Equals(x.VisitType, "Followup", StringComparison.OrdinalIgnoreCase));
+
+            r.Rows.Add(new Dictionary<string, string>
+            {
+                ["Date"] = g.Key.ToString("MM/dd/yy"),
+                ["Total Consultations"] = g.Count().ToString(),
+                ["New"] = newCount.ToString(),
+                ["Follow-up"] = follow.ToString()
+            });
+        }
+
+        r.Summary["Total Consultations"] = records.Count.ToString();
+        r.Summary["New"] = records.Count(x => string.Equals(x.VisitType, "New", StringComparison.OrdinalIgnoreCase)).ToString();
+        r.Summary["Follow-up"] = records.Count(x => string.Equals(x.VisitType, "Follow-up", StringComparison.OrdinalIgnoreCase) || string.Equals(x.VisitType, "Followup", StringComparison.OrdinalIgnoreCase)).ToString();
+
+        return r;
+    }
+
+    private ReportResult BuildDiagnosisReport(List<IT_13FinalProject.Models.HealthRecord> records, DateTime from, DateTime to)
+    {
+        var r = new ReportResult("Diagnosis Report", "doctor_diagnosis_report");
+        r.Columns.AddRange(new[] { "Diagnosis", "Count" });
+
+        var groups = records
+            .Select(x => (x.Diagnosis ?? x.AssessmentDiagnosis ?? string.Empty).Trim())
+            .Where(x => x.Length > 0)
+            .GroupBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Count())
+            .ThenBy(g => g.Key)
+            .ToList();
+
+        foreach (var g in groups)
+        {
+            r.Rows.Add(new Dictionary<string, string>
+            {
+                ["Diagnosis"] = g.Key,
+                ["Count"] = g.Count().ToString()
+            });
+        }
+
+        r.Summary["Unique Diagnoses"] = groups.Count.ToString();
+        r.Summary["Total Records"] = records.Count.ToString();
+        return r;
+    }
+
+    private ReportResult BuildPrescriptionAnalysis(List<IT_13FinalProject.Models.HealthRecord> records, DateTime from, DateTime to)
+    {
+        var r = new ReportResult("Prescription Analysis Report", "doctor_prescription_analysis");
+        r.Columns.AddRange(new[] { "Medication", "Count" });
+
+        var meds = records
+            .SelectMany(x => SplitMeds(x.Prescription))
+            .Where(x => x.Length > 0)
+            .ToList();
+
+        foreach (var g in meds
+            .GroupBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Count())
+            .ThenBy(g => g.Key)
+            .Take(50))
+        {
+            r.Rows.Add(new Dictionary<string, string>
+            {
+                ["Medication"] = g.Key,
+                ["Count"] = g.Count().ToString()
+            });
+        }
+
+        r.Summary["Prescriptions (records)"] = records.Count(x => !string.IsNullOrWhiteSpace(x.Prescription)).ToString();
+        r.Summary["Distinct Medications"] = meds.Distinct(StringComparer.OrdinalIgnoreCase).Count().ToString();
+        return r;
+    }
+
+    private static IEnumerable<string> SplitMeds(string? prescription)
+    {
+        if (string.IsNullOrWhiteSpace(prescription))
+            yield break;
+
+        var lines = prescription
+            .Split(new[] { '\n', '\r', ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => x.Trim())
+            .Where(x => x.Length > 0);
+
+        foreach (var l in lines)
+        {
+            var token = l;
+            var dash = token.IndexOf('-');
+            if (dash > 0)
+                token = token.Substring(0, dash).Trim();
+            yield return token;
+        }
+    }
+
+    private ReportResult BuildPatientTreatmentHistory(List<IT_13FinalProject.Models.HealthRecord> records, DateTime from, DateTime to)
+    {
+        var r = new ReportResult("Patient Treatment History", "doctor_patient_treatment_history");
+        r.Columns.AddRange(new[] { "Patient", "Visits", "First Visit", "Last Visit" });
+
+        foreach (var g in records
+            .GroupBy(x => x.Patient != null ? $"{x.Patient.FirstName} {x.Patient.LastName}".Trim() : (x.PatientId.HasValue ? $"Patient #{x.PatientId.Value}" : "Unknown"))
+            .OrderByDescending(g => g.Count())
+            .ThenBy(g => g.Key))
+        {
+            var dates = g.Select(GetRecordDate).OrderBy(x => x).ToList();
+            r.Rows.Add(new Dictionary<string, string>
+            {
+                ["Patient"] = g.Key,
+                ["Visits"] = g.Count().ToString(),
+                ["First Visit"] = dates.FirstOrDefault().ToString("MM/dd/yy"),
+                ["Last Visit"] = dates.LastOrDefault().ToString("MM/dd/yy")
+            });
+        }
+
+        r.Summary["Patients"] = records.Select(x => x.PatientId).Distinct().Count().ToString();
+        r.Summary["Total Visits"] = records.Count.ToString();
+        return r;
+    }
+
+    private class ReportResult
+    {
+        public string Title { get; }
+        public string ExportBaseName { get; }
+        public List<string> Columns { get; } = new();
+        public List<Dictionary<string, string>> Rows { get; } = new();
+        public Dictionary<string, string> Summary { get; } = new();
+
+        public ReportResult(string title, string exportBaseName)
+        {
+            Title = title;
+            ExportBaseName = exportBaseName;
+        }
+
+        public string ToCsv()
+        {
+            static string Esc(string s)
+            {
+                s ??= string.Empty;
+                if (s.Contains('"') || s.Contains(',') || s.Contains('\n') || s.Contains('\r'))
+                {
+                    s = s.Replace("\"", "\"\"");
+                    return $"\"{s}\"";
+                }
+                return s;
+            }
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine(string.Join(",", Columns.Select(Esc)));
+
+            foreach (var row in Rows)
+            {
+                var values = Columns.Select(c => row.TryGetValue(c, out var v) ? v ?? string.Empty : string.Empty).Select(Esc);
+                sb.AppendLine(string.Join(",", values));
+            }
+
+            return sb.ToString();
+        }
     }
 }

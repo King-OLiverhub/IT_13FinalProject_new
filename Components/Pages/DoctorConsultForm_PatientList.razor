@@ -3,11 +3,13 @@
 @layout Layout.DashboardLayout
 @using IT_13FinalProject.Models
 @using IT_13FinalProject.Data
+@using IT_13FinalProject.Services
 @using Microsoft.EntityFrameworkCore
 
 @inject ApplicationDbContext DbContext
 @inject LocalDbContext LocalDbContext
 @inject SyncService SyncService
+@inject IInventoryStockService InventoryStockService
 @inject NavigationManager Navigation
 @inject IJSRuntime JsRuntime
 
@@ -143,7 +145,18 @@
 
                 <label class="dc-field">
                     <span class="dc-label">Medicine Name</span>
-                    <input class="dc-input" @bind="HealthRecord.MedicineName" />
+                    <select class="dc-input" @bind="SelectedInventoryId" @bind:after="OnMedicineChanged">
+                        <option value="0">Select medicine</option>
+                        @foreach (var m in AvailableMedicines)
+                        {
+                            <option value="@m.InventoryId">@m.ItemName (@m.StockQuantity @m.Unit)</option>
+                        }
+                    </select>
+                </label>
+
+                <label class="dc-field">
+                    <span class="dc-label">Quantity</span>
+                    <input class="dc-input" type="number" min="1" @bind="MedicineQuantity" />
                 </label>
 
                 <label class="dc-field">
@@ -242,10 +255,41 @@
     {
         await LoadPatients();
 
+        await LoadMedicines();
+
         if (patientId.HasValue)
         {
             SelectedPatientId = patientId.Value;
             await LoadLatestVitalSign();
+        }
+    }
+
+    private IReadOnlyList<InventoryMedicineOption> AvailableMedicines { get; set; } = new List<InventoryMedicineOption>();
+    private int SelectedInventoryId { get; set; }
+    private int MedicineQuantity { get; set; } = 1;
+
+    private async Task LoadMedicines()
+    {
+        try
+        {
+            AvailableMedicines = await InventoryStockService.GetAvailableMedicinesAsync();
+        }
+        catch
+        {
+            AvailableMedicines = new List<InventoryMedicineOption>();
+        }
+    }
+
+    private void OnMedicineChanged()
+    {
+        var match = AvailableMedicines.FirstOrDefault(x => x.InventoryId == SelectedInventoryId);
+        if (match != null)
+        {
+            HealthRecord.MedicineName = match.ItemName;
+        }
+        else
+        {
+            HealthRecord.MedicineName = null;
         }
     }
 
@@ -331,12 +375,37 @@
                 await JsRuntime.InvokeVoidAsync("alert", ErrorMessage);
                 return;
             }
+
+            if (SelectedInventoryId != 0)
+            {
+                var match = AvailableMedicines.FirstOrDefault(x => x.InventoryId == SelectedInventoryId);
+                if (match == null)
+                {
+                    ErrorMessage = "Selected medicine is no longer available.";
+                    await JsRuntime.InvokeVoidAsync("alert", ErrorMessage);
+                    return;
+                }
+
+                if (MedicineQuantity < 1)
+                {
+                    ErrorMessage = "Quantity must be at least 1.";
+                    await JsRuntime.InvokeVoidAsync("alert", ErrorMessage);
+                    return;
+                }
+
+                HealthRecord.MedicineName = match.ItemName;
+            }
             
             // Set the patient ID
             HealthRecord.PatientId = SelectedPatientId;
             
             DbContext.HealthRecords.Add(HealthRecord);
             await DbContext.SaveChangesAsync();
+
+            if (SelectedInventoryId != 0)
+            {
+                await InventoryStockService.DecrementStockAsync(SelectedInventoryId, MedicineQuantity);
+            }
 
             // Also save to local database
             try

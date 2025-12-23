@@ -1,6 +1,16 @@
 @page "/nurse-dashboard"
 @layout Layout.DashboardLayout
 
+@using IT_13FinalProject.Data
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Services
+@using Microsoft.Data.SqlClient
+@using Microsoft.EntityFrameworkCore
+
+@inject ApplicationDbContext DbContext
+@inject LocalDbContext LocalDbContext
+@inject INotificationService NotificationService
+
 <div class="dashboard-page @(IsNotificationDismissed ? "dashboard-no-notification" : string.Empty)">
     <header class="dashboard-header">
         <div>
@@ -45,7 +55,16 @@
                 <div class="notification-body">
                     <div class="notification-icon">!</div>
                     <div class="notification-text">
-                        <div>New medication order: Amoxicillin 500mg for Patient #88.</div>
+                        <div>
+                            @if (LatestNotification != null)
+                            {
+                                @LatestNotification.Description
+                            }
+                            else
+                            {
+                                <span>No new notifications.</span>
+                            }
+                        </div>
                         <button class="notification-button" @onclick="GoToNotification">Go to notification</button>
                     </div>
                 </div>
@@ -57,37 +76,37 @@
         <div class="dashboard-card">
             <h3>Patient Admission</h3>
             <div class="card-placeholder">
-                <div class="card-kpi-value">24</div>
-                <div class="card-kpi-change positive">+8%</div>
+                <div class="card-kpi-value">@NewAdmissionsThisWeek</div>
+                <div class="card-kpi-change @(GetChangeCss(AdmissionsChangePct))">@FormatPct(AdmissionsChangePct)</div>
                 <div class="card-kpi-subtitle">New admissions this week</div>
-                <div class="card-chart-placeholder">[Bar chart placeholder]</div>
+                <div class="card-chart-placeholder mini-chart">@((MarkupString)RenderBars(AdmissionsByDay))</div>
             </div>
         </div>
         <div class="dashboard-card">
             <h3>Medication Compliance</h3>
             <div class="card-placeholder">
-                <div class="card-kpi-value">92%</div>
-                <div class="card-kpi-change positive">+3%</div>
+                <div class="card-kpi-value">@FormatPct(MedicationCompliancePct)</div>
+                <div class="card-kpi-change @(GetChangeCss(MedicationComplianceChangePct, neutralIfZero: true))">@FormatPct(MedicationComplianceChangePct)</div>
                 <div class="card-kpi-subtitle">Patients following medication schedule</div>
-                <div class="card-chart-placeholder">[Line chart placeholder]</div>
+                <div class="card-chart-placeholder mini-chart">@((MarkupString)RenderSparkline(ComplianceByDay))</div>
             </div>
         </div>
         <div class="dashboard-card">
             <h3>Vital Signs Status</h3>
             <div class="card-placeholder">
-                <div class="card-kpi-value">156</div>
-                <div class="card-kpi-change neutral">0%</div>
+                <div class="card-kpi-value">@VitalsRecordedToday</div>
+                <div class="card-kpi-change @(GetChangeCss(VitalsChangePct, neutralIfZero: true))">@FormatPct(VitalsChangePct)</div>
                 <div class="card-kpi-subtitle">Vital signs recorded today</div>
-                <div class="card-chart-placeholder">[Pie chart placeholder]</div>
+                <div class="card-chart-placeholder mini-chart">@((MarkupString)RenderDonut(VitalsStatusSlices))</div>
             </div>
         </div>
         <div class="dashboard-card">
             <h3>Nursing Task Completion</h3>
             <div class="card-placeholder">
-                <div class="card-kpi-value">87%</div>
-                <div class="card-kpi-change negative">-2%</div>
+                <div class="card-kpi-value">@FormatPct(TaskCompletionPct)</div>
+                <div class="card-kpi-change @(GetChangeCss(TaskCompletionChangePct, neutralIfZero: true))">@FormatPct(TaskCompletionChangePct)</div>
                 <div class="card-kpi-subtitle">Tasks completed on time</div>
-                <div class="card-chart-placeholder">[Bar chart placeholder]</div>
+                <div class="card-chart-placeholder mini-chart">@((MarkupString)RenderBars(TaskCompletionByDay))</div>
             </div>
         </div>
     </section>
@@ -96,7 +115,7 @@
         <div class="activity-header">
             <h3>Recent Activity</h3>
             <div class="activity-search-area">
-                <input class="activity-search" placeholder="Search activity..." />
+                <input class="activity-search" placeholder="Search activity..." @bind="ActivitySearch" />
                 <div class="activity-actions">
                     <button class="activity-action-btn">Sort</button>
                     <button class="activity-action-btn">Filters</button>
@@ -114,16 +133,14 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td>Updated vital signs for Patient #102</td>
-                        <td>Nurse</td>
-                        <td>10:24 AM</td>
-                    </tr>
-                    <tr>
-                        <td>Recorded medication administration for Patient #88</td>
-                        <td>Nurse</td>
-                        <td>10:15 AM</td>
-                    </tr>
+                    @foreach (var a in FilteredActivities)
+                    {
+                        <tr>
+                            <td>@a.Activity</td>
+                            <td>@a.User</td>
+                            <td>@a.Timestamp.ToString("h:mm tt")</td>
+                        </tr>
+                    }
                 </tbody>
             </table>
         </div>
@@ -136,6 +153,456 @@
 
     private bool IsNotificationCollapsed { get; set; }
     private bool IsNotificationDismissed { get; set; }
+
+    private int NewAdmissionsThisWeek { get; set; }
+    private decimal AdmissionsChangePct { get; set; }
+
+    private decimal MedicationCompliancePct { get; set; }
+    private decimal MedicationComplianceChangePct { get; set; }
+
+    private int VitalsRecordedToday { get; set; }
+    private decimal VitalsChangePct { get; set; }
+
+    private decimal TaskCompletionPct { get; set; }
+    private decimal TaskCompletionChangePct { get; set; }
+
+    private NotificationFeedItem? LatestNotification { get; set; }
+
+    private List<int> AdmissionsByDay { get; set; } = new();
+    private List<int> ComplianceByDay { get; set; } = new();
+    private List<int> TaskCompletionByDay { get; set; } = new();
+    private List<(string Label, int Value)> VitalsStatusSlices { get; set; } = new();
+
+    private string ActivitySearch { get; set; } = string.Empty;
+    private List<ActivityItem> Activities { get; set; } = new();
+
+    private IEnumerable<ActivityItem> FilteredActivities =>
+        string.IsNullOrWhiteSpace(ActivitySearch)
+            ? Activities
+            : Activities.Where(a => a.Activity.Contains(ActivitySearch, StringComparison.OrdinalIgnoreCase)
+                                    || a.User.Contains(ActivitySearch, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardAsync();
+        await base.OnInitializedAsync();
+    }
+
+    private static bool IsCloudConnectionFailure(Exception ex)
+    {
+        if (ex is SqlException)
+            return true;
+
+        if (ex is DbUpdateException dbu && dbu.InnerException is SqlException)
+            return true;
+
+        if (ex is DbUpdateException dbu2 && dbu2.GetBaseException() is SqlException)
+            return true;
+
+        return false;
+    }
+
+    private async Task LoadDashboardAsync()
+    {
+        var today = DateTime.Today;
+        var startOfWeek = today.AddDays(-6);
+        var prevWeekStart = startOfWeek.AddDays(-7);
+        var prevWeekEnd = startOfWeek.AddTicks(-1);
+
+        var startOfDay = today;
+        var endOfDay = today.AddDays(1).AddTicks(-1);
+        var yStart = today.AddDays(-1);
+        var yEnd = today.AddTicks(-1);
+
+        try
+        {
+            var data = await TryLoadDashboardDataAsync(DbContext, today, startOfWeek, prevWeekStart, prevWeekEnd, startOfDay, endOfDay, yStart, yEnd);
+            ApplyDashboardData(data);
+            await LoadNotificationsAsync("nurse");
+        }
+        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+        {
+            var data = await TryLoadDashboardDataAsync(LocalDbContext, today, startOfWeek, prevWeekStart, prevWeekEnd, startOfDay, endOfDay, yStart, yEnd);
+            ApplyDashboardData(data);
+            await LoadNotificationsAsync("nurse");
+        }
+        catch
+        {
+            NewAdmissionsThisWeek = 0;
+            AdmissionsChangePct = 0;
+            MedicationCompliancePct = 0;
+            MedicationComplianceChangePct = 0;
+            VitalsRecordedToday = 0;
+            VitalsChangePct = 0;
+            TaskCompletionPct = 0;
+            TaskCompletionChangePct = 0;
+            Activities = new();
+            LatestNotification = null;
+        }
+    }
+
+    private async Task LoadNotificationsAsync(string role)
+    {
+        try
+        {
+            var feed = await NotificationService.GetFeedAsync(role, 10);
+            LatestNotification = feed.FirstOrDefault(x => !x.IsRead) ?? feed.FirstOrDefault();
+        }
+        catch
+        {
+            LatestNotification = null;
+        }
+    }
+
+    private sealed record DashboardData(
+        int AdmissionsThisWeek,
+        int AdmissionsPrevWeek,
+        int VitalsToday,
+        int VitalsYesterday,
+        decimal CompliancePctThisWeek,
+        decimal CompliancePctPrevWeek,
+        decimal TaskPctToday,
+        decimal TaskPctYesterday,
+        List<int> AdmissionsByDay,
+        List<int> ComplianceByDay,
+        List<int> TaskCompletionByDay,
+        List<(string Label, int Value)> VitalsStatusSlices,
+        List<ActivityItem> Activities
+    );
+
+    private async Task<DashboardData> TryLoadDashboardDataAsync(DbContext ctx,
+        DateTime today,
+        DateTime startOfWeek,
+        DateTime prevWeekStart,
+        DateTime prevWeekEnd,
+        DateTime startOfDay,
+        DateTime endOfDay,
+        DateTime yStart,
+        DateTime yEnd)
+    {
+        static List<DateTime> Last7Days(DateTime t) => Enumerable.Range(0, 7).Select(i => t.Date.AddDays(-6 + i)).ToList();
+
+        var admissionsThisWeek = await ctx.Set<Patient>().AsNoTracking()
+            .Where(p => (p.IsArchived == false || p.IsArchived == null))
+            .Where(p => p.CreatedAt != null && p.CreatedAt >= startOfWeek)
+            .CountAsync();
+
+        var admissionsPrevWeek = await ctx.Set<Patient>().AsNoTracking()
+            .Where(p => (p.IsArchived == false || p.IsArchived == null))
+            .Where(p => p.CreatedAt != null && p.CreatedAt >= prevWeekStart && p.CreatedAt <= prevWeekEnd)
+            .CountAsync();
+
+        var vitalsBase = ctx.Set<VitalSign>().AsNoTracking().Where(v => v.IsArchived == false);
+        var vitalsToday = await vitalsBase.CountAsync(v => v.RecordedDate >= startOfDay && v.RecordedDate <= endOfDay);
+        var vitalsYesterday = await vitalsBase.CountAsync(v => v.RecordedDate >= yStart && v.RecordedDate <= yEnd);
+
+        var days = Last7Days(today);
+
+        var admissionsByDay = new List<int>();
+        foreach (var d in days)
+        {
+            var end = d.AddDays(1).AddTicks(-1);
+            var c = await ctx.Set<Patient>().AsNoTracking()
+                .Where(p => (p.IsArchived == false || p.IsArchived == null))
+                .Where(p => p.CreatedAt != null && p.CreatedAt >= d && p.CreatedAt <= end)
+                .CountAsync();
+            admissionsByDay.Add(c);
+        }
+
+        var hrBase = ctx.Set<IT_13FinalProject.Models.HealthRecord>().AsNoTracking().Where(r => r.IsArchived == false);
+        var weekHrs = await hrBase
+            .Where(r => (r.RecordDate ?? r.ApprovalDate ?? today) >= startOfWeek && (r.RecordDate ?? r.ApprovalDate ?? today) <= today.AddDays(1).AddTicks(-1))
+            .ToListAsync();
+
+        var prevWeekHrs = await hrBase
+            .Where(r => (r.RecordDate ?? r.ApprovalDate ?? today) >= prevWeekStart && (r.RecordDate ?? r.ApprovalDate ?? today) <= prevWeekEnd)
+            .ToListAsync();
+
+        bool HasAnyPrescription(IT_13FinalProject.Models.HealthRecord r)
+        {
+            return !string.IsNullOrWhiteSpace(r.Prescription)
+                || !string.IsNullOrWhiteSpace(r.MedicineName)
+                || !string.IsNullOrWhiteSpace(r.Dosage)
+                || !string.IsNullOrWhiteSpace(r.Frequency)
+                || !string.IsNullOrWhiteSpace(r.Duration);
+        }
+
+        decimal CompliancePct(IEnumerable<IT_13FinalProject.Models.HealthRecord> records)
+        {
+            var list = records.ToList();
+            if (list.Count == 0) return 0;
+            var withMed = list.Count(HasAnyPrescription);
+            return Math.Round((decimal)withMed * 100m / list.Count, 2);
+        }
+
+        var complianceThisWeek = CompliancePct(weekHrs);
+        var compliancePrevWeek = CompliancePct(prevWeekHrs);
+
+        int CompliancePctForDay(DateTime d)
+        {
+            var end = d.AddDays(1).AddTicks(-1);
+            var hrs = weekHrs.Where(r => (r.RecordDate ?? r.ApprovalDate ?? today) >= d && (r.RecordDate ?? r.ApprovalDate ?? today) <= end).ToList();
+            if (hrs.Count == 0) return 0;
+            var withMed = hrs.Count(HasAnyPrescription);
+            var pct = Math.Round((decimal)withMed * 100m / hrs.Count, 0);
+            return (int)pct;
+        }
+
+        var complianceByDay = days.Select(CompliancePctForDay).ToList();
+
+        var activePatientsToday = await ctx.Set<Patient>().AsNoTracking()
+            .Where(p => (p.IsArchived == false || p.IsArchived == null))
+            .CountAsync();
+
+        decimal TaskPct(int vCount, int patientCount)
+        {
+            if (patientCount <= 0) return 0;
+            var pct = Math.Round(Math.Min(100m, (decimal)vCount * 100m / patientCount), 2);
+            return pct;
+        }
+
+        var taskPctToday = TaskPct(vitalsToday, activePatientsToday);
+        var taskPctYesterday = TaskPct(vitalsYesterday, activePatientsToday);
+
+        var vitalsByDay = new List<int>();
+        foreach (var d in days)
+        {
+            var end = d.AddDays(1).AddTicks(-1);
+            var c = await vitalsBase.CountAsync(v => v.RecordedDate >= d && v.RecordedDate <= end);
+            vitalsByDay.Add(c);
+        }
+
+        var taskCompletionByDay = vitalsByDay.Select(v =>
+        {
+            if (activePatientsToday <= 0) return 0;
+            var pct = Math.Round(Math.Min(100m, (decimal)v * 100m / activePatientsToday), 0);
+            return (int)pct;
+        }).ToList();
+
+        var vitalsTodayList = await vitalsBase
+            .Where(v => v.RecordedDate >= startOfDay && v.RecordedDate <= endOfDay)
+            .Select(v => new { v.Temperature, v.OxygenSaturation, v.HeartRate })
+            .ToListAsync();
+
+        var criticalCount = vitalsTodayList.Count(v =>
+            (v.Temperature.HasValue && v.Temperature.Value >= 38.0m)
+            || (v.OxygenSaturation.HasValue && v.OxygenSaturation.Value < 92.0m)
+            || (v.HeartRate.HasValue && (v.HeartRate.Value < 50 || v.HeartRate.Value > 120))
+        );
+        var stableCount = Math.Max(0, vitalsTodayList.Count - criticalCount);
+        var vitalsStatusSlices = new List<(string Label, int Value)>
+        {
+            ("Stable", stableCount),
+            ("Critical", criticalCount)
+        };
+
+        var recentVitals = await vitalsBase
+            .OrderByDescending(v => v.RecordedDate)
+            .Take(5)
+            .Select(v => new { v.PatientId, v.RecordedDate, v.NurseName })
+            .ToListAsync();
+
+        var recentNotes = await ctx.Set<NurseNote>().AsNoTracking()
+            .Where(n => n.IsArchived == false)
+            .OrderByDescending(n => n.CreatedAt)
+            .Take(5)
+            .Select(n => new { n.PatientId, n.CreatedAt, n.NurseName, n.Category })
+            .ToListAsync();
+
+        var activity = new List<ActivityItem>();
+
+        foreach (var v in recentVitals)
+        {
+            activity.Add(new ActivityItem(
+                $"Updated vital signs for Patient #{v.PatientId}",
+                string.IsNullOrWhiteSpace(v.NurseName) ? "Nurse" : v.NurseName,
+                v.RecordedDate
+            ));
+        }
+
+        foreach (var n in recentNotes)
+        {
+            var cat = string.IsNullOrWhiteSpace(n.Category) ? "Nurse note" : n.Category;
+            activity.Add(new ActivityItem(
+                $"Added nurse note ({cat}) for Patient #{n.PatientId}",
+                string.IsNullOrWhiteSpace(n.NurseName) ? "Nurse" : n.NurseName,
+                n.CreatedAt
+            ));
+        }
+
+        activity = activity
+            .OrderByDescending(a => a.Timestamp)
+            .Take(10)
+            .ToList();
+
+        return new DashboardData(
+            admissionsThisWeek,
+            admissionsPrevWeek,
+            vitalsToday,
+            vitalsYesterday,
+            complianceThisWeek,
+            compliancePrevWeek,
+            taskPctToday,
+            taskPctYesterday,
+            admissionsByDay,
+            complianceByDay,
+            taskCompletionByDay,
+            vitalsStatusSlices,
+            activity
+        );
+    }
+
+    private void ApplyDashboardData(DashboardData data)
+    {
+        NewAdmissionsThisWeek = data.AdmissionsThisWeek;
+        AdmissionsChangePct = SafePctChange(data.AdmissionsThisWeek, data.AdmissionsPrevWeek);
+
+        VitalsRecordedToday = data.VitalsToday;
+        VitalsChangePct = SafePctChange(data.VitalsToday, data.VitalsYesterday);
+
+        MedicationCompliancePct = data.CompliancePctThisWeek;
+        MedicationComplianceChangePct = data.CompliancePctThisWeek - data.CompliancePctPrevWeek;
+
+        TaskCompletionPct = data.TaskPctToday;
+        TaskCompletionChangePct = data.TaskPctToday - data.TaskPctYesterday;
+
+        AdmissionsByDay = data.AdmissionsByDay;
+        ComplianceByDay = data.ComplianceByDay;
+        TaskCompletionByDay = data.TaskCompletionByDay;
+        VitalsStatusSlices = data.VitalsStatusSlices;
+
+        Activities = data.Activities;
+    }
+
+    private static string RenderBars(List<int> values)
+    {
+        values ??= new();
+        if (values.Count == 0) values = new List<int> { 0, 0, 0, 0, 0, 0, 0 };
+        var max = Math.Max(1, values.Max());
+
+        var w = 140;
+        var h = 44;
+        var gap = 4;
+        var barW = (w - gap * (values.Count - 1)) / values.Count;
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"<svg viewBox='0 0 {w} {h}' width='100%' height='{h}' preserveAspectRatio='none'>");
+        sb.Append("<defs>");
+        sb.Append("<linearGradient id='g' x1='0' y1='0' x2='0' y2='1'>");
+        sb.Append("<stop offset='0%' stop-color='#0FA4A4' stop-opacity='0.95' />");
+        sb.Append("<stop offset='100%' stop-color='#0EA5E9' stop-opacity='0.55' />");
+        sb.Append("</linearGradient>");
+        sb.Append("<filter id='s' x='-10%' y='-20%' width='120%' height='140%'>");
+        sb.Append("<feDropShadow dx='0' dy='1.2' stdDeviation='1.2' flood-color='#0f172a' flood-opacity='0.18' />");
+        sb.Append("</filter>");
+        sb.Append("</defs>");
+
+        // subtle baseline
+        sb.Append($"<rect x='0' y='{h - 2}' width='{w}' height='2' fill='rgba(148,163,184,0.25)' />");
+
+        for (var i = 0; i < values.Count; i++)
+        {
+            var v = values[i];
+            var bh = (int)Math.Round((double)v / max * (h - 8));
+            var x = i * (barW + gap);
+            var y = h - 2 - bh;
+            var rx = Math.Min(10, barW / 2);
+
+            // track
+            sb.Append($"<rect x='{x:F1}' y='2' width='{barW:F1}' height='{h - 4}' rx='{rx:F1}' fill='rgba(148,163,184,0.12)' />");
+            // fill
+            sb.Append($"<rect x='{x:F1}' y='{y:F1}' width='{barW:F1}' height='{bh:F1}' rx='{rx:F1}' fill='url(#g)' filter='url(#s)' />");
+        }
+
+        sb.Append("</svg>");
+        return sb.ToString();
+    }
+
+    private static string RenderSparkline(List<int> values)
+    {
+        values ??= new();
+        if (values.Count == 0) values = new List<int> { 0, 0, 0, 0, 0, 0, 0 };
+        var max = Math.Max(1, values.Max());
+
+        var w = 120;
+        var h = 36;
+
+        var pts = new List<string>();
+        for (var i = 0; i < values.Count; i++)
+        {
+            var x = (double)i / (values.Count - 1) * (w - 2) + 1;
+            var y = h - ((double)values[i] / max * (h - 6) + 3);
+            pts.Add($"{x:F1},{y:F1}");
+        }
+
+        var poly = string.Join(" ", pts);
+        return $"<svg viewBox='0 0 {w} {h}' width='100%' height='{h}' preserveAspectRatio='none'>" +
+               $"<polyline points='{poly}' fill='none' stroke='rgba(15,164,164,0.85)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' />" +
+               $"</svg>";
+    }
+
+    private static string RenderDonut(List<(string Label, int Value)> slices)
+    {
+        slices ??= new();
+        if (slices.Count == 0) slices = new() { ("None", 1) };
+        var total = Math.Max(1, slices.Sum(s => Math.Max(0, s.Value)));
+
+        var colors = new[] { "#0FA4A4", "#f97316", "#60a5fa" };
+        var r = 15;
+        var cx = 18;
+        var cy = 18;
+        var circ = 2 * Math.PI * r;
+
+        // center label: show % of first slice (usually Stable)
+        var first = Math.Max(0, slices[0].Value);
+        var pct = (int)Math.Round((double)first / total * 100);
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append("<svg viewBox='0 0 36 36' width='100%' height='44'>");
+        sb.Append("<defs><filter id='ds' x='-20%' y='-20%' width='140%' height='140%'><feDropShadow dx='0' dy='1.2' stdDeviation='1.0' flood-color='#0f172a' flood-opacity='0.15' /></filter></defs>");
+        sb.Append("<circle cx='18' cy='18' r='15' fill='none' stroke='rgba(148,163,184,0.22)' stroke-width='6.5' />");
+
+        double offset = 0;
+        for (var i = 0; i < slices.Count; i++)
+        {
+            var v = Math.Max(0, slices[i].Value);
+            var frac = (double)v / total;
+            var dash = frac * circ;
+            var col = colors[Math.Min(i, colors.Length - 1)];
+            sb.Append($"<circle cx='{cx}' cy='{cy}' r='{r}' fill='none' stroke='{col}' stroke-width='6.5' stroke-dasharray='{dash:F1} {circ:F1}' stroke-dashoffset='{(-offset):F1}' stroke-linecap='round' filter='url(#ds)' />");
+            offset += dash;
+        }
+
+        sb.Append($"<text x='18' y='19.5' text-anchor='middle' font-size='9' font-weight='700' fill='#0f172a'>{pct}%</text>");
+        sb.Append("<text x='18' y='27.5' text-anchor='middle' font-size='6.5' font-weight='600' fill='#64748b'>stable</text>");
+        sb.Append("</svg>");
+        return sb.ToString();
+    }
+
+    private static decimal SafePctChange(int current, int previous)
+    {
+        if (previous == 0)
+        {
+            if (current == 0) return 0;
+            return 100;
+        }
+        return Math.Round(((decimal)(current - previous) * 100m) / previous, 2);
+    }
+
+    private static string GetChangeCss(decimal pct, bool neutralIfZero = false)
+    {
+        if (pct > 0) return "positive";
+        if (pct < 0) return "negative";
+        return neutralIfZero ? "neutral" : "neutral";
+    }
+
+    private static string FormatPct(decimal pct)
+    {
+        var sign = pct > 0 ? "+" : string.Empty;
+        return $"{sign}{pct:0.##}%";
+    }
+
+    private sealed record ActivityItem(string Activity, string User, DateTime Timestamp);
 
     private void HideNotification()
     {

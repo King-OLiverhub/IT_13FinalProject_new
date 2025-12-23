@@ -1,6 +1,15 @@
 @page "/admin-dashboard"
 @layout Layout.DashboardLayout
 
+@using IT_13FinalProject.Data
+@using IT_13FinalProject.Models
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.Data.SqlClient
+@using PharmacyInventoryModel = IT_13FinalProject.Models.PharmacyInventory
+
+@inject ApplicationDbContext DbContext
+@inject LocalDbContext LocalDbContext
+
 <div class="dashboard-page @(IsNotificationDismissed ? "dashboard-no-notification" : string.Empty)">
     <header class="dashboard-header">
         <div>
@@ -45,8 +54,8 @@
                 <div class="notification-body">
                     <div class="notification-icon">!</div>
                     <div class="notification-text">
-                        <div>Low stock detected: Paracetamol 500mg &mdash; only 15 units left.</div>
-                        <button class="notification-button" @onclick="GoToNotification">Go to notification</button>
+                        <div>@LowStockMessage</div>
+                        <button class="notification-button" @onclick="GoToNotification" disabled="@(!HasLowStockAlert)">Go to notification</button>
                     </div>
                 </div>
             }
@@ -57,8 +66,8 @@
         <div class="dashboard-card">
             <h3>Monthly Revenue</h3>
             <div class="card-content">
-                <div class="card-kpi-value">$45,280</div>
-                <div class="card-kpi-change positive">+12%</div>
+                <div class="card-kpi-value">@FormatCurrency(MonthlyRevenue)</div>
+                <div class="card-kpi-change @MonthlyRevenueChangeClass">@MonthlyRevenueChangeText</div>
                 <div class="card-kpi-subtitle">Total paid receipts this month</div>
             </div>
             <div class="card-sparkline">
@@ -76,8 +85,8 @@
         <div class="dashboard-card">
             <h3>Total Patients</h3>
             <div class="card-content">
-                <div class="card-kpi-value">1,247</div>
-                <div class="card-kpi-change neutral">0%</div>
+                <div class="card-kpi-value">@TotalPatients</div>
+                <div class="card-kpi-change @TotalPatientsChangeClass">@TotalPatientsChangeText</div>
                 <div class="card-kpi-subtitle">Active patients in MedFlow</div>
             </div>
             <div class="card-sparkline">
@@ -95,8 +104,8 @@
         <div class="dashboard-card">
             <h3>Occupancy Rate</h3>
             <div class="card-content">
-                <div class="card-kpi-value">87%</div>
-                <div class="card-kpi-change negative">-8%</div>
+                <div class="card-kpi-value">@OccupancyRateText</div>
+                <div class="card-kpi-change @OccupancyRateChangeClass">@OccupancyRateChangeText</div>
                 <div class="card-kpi-subtitle">Bed occupancy vs available</div>
             </div>
             <div class="card-sparkline">
@@ -114,9 +123,9 @@
         <div class="dashboard-card">
             <h3>Department Revenue</h3>
             <div class="card-content">
-                <div class="card-kpi-value">$128,450</div>
-                <div class="card-kpi-change positive">+5%</div>
-                <div class="card-kpi-subtitle">Top department: Outpatient</div>
+                <div class="card-kpi-value">@FormatCurrency(DepartmentRevenue)</div>
+                <div class="card-kpi-change @DepartmentRevenueChangeClass">@DepartmentRevenueChangeText</div>
+                <div class="card-kpi-subtitle">Top department: @TopDepartmentName</div>
             </div>
             <div class="card-sparkline">
                 <div class="spark-chart">
@@ -150,85 +159,50 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td>
-                            <div class="patient-info">
-                                <div class="patient-avatar">JD</div>
-                                <span>Juan Dela Cruz</span>
-                            </div>
-                        </td>
-                        <td><span class="status-badge confirmed">Confirmed</span></td>
-                        <td>Dec 11, 2025</td>
-                        <td>9:00 AM</td>
-                        <td>Regular Checkup</td>
-                        <td><button class="action-btn">View Details</button></td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <div class="patient-info">
-                                <div class="patient-avatar">AS</div>
-                                <span>Ana Santos</span>
-                            </div>
-                        </td>
-                        <td><span class="status-badge pending">Pending</span></td>
-                        <td>Dec 11, 2025</td>
-                        <td>10:30 AM</td>
-                        <td>Follow-up</td>
-                        <td><button class="action-btn">View Details</button></td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <div class="patient-info">
-                                <div class="patient-avatar">MR</div>
-                                <span>Maria Reyes</span>
-                            </div>
-                        </td>
-                        <td><span class="status-badge confirmed">Confirmed</span></td>
-                        <td>Dec 11, 2025</td>
-                        <td>2:00 PM</td>
-                        <td>Consultation</td>
-                        <td><button class="action-btn">View Details</button></td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <div class="patient-info">
-                                <div class="patient-avatar">CL</div>
-                                <span>Carlos Lim</span>
-                            </div>
-                        </td>
-                        <td><span class="status-badge cancelled">Cancelled</span></td>
-                        <td>Dec 11, 2025</td>
-                        <td>3:30 PM</td>
-                        <td>Emergency</td>
-                        <td><button class="action-btn">View Details</button></td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <div class="patient-info">
-                                <div class="patient-avatar">ST</div>
-                                <span>Sofia Tan</span>
-                            </div>
-                        </td>
-                        <td><span class="status-badge confirmed">Confirmed</span></td>
-                        <td>Dec 11, 2025</td>
-                        <td>4:00 PM</td>
-                        <td>Regular Checkup</td>
-                        <td><button class="action-btn">View Details</button></td>
-                    </tr>
+                    @if (IsLoadingAppointments)
+                    {
+                        <tr>
+                            <td colspan="6">Loading...</td>
+                        </tr>
+                    }
+                    else if (TodayAppointmentsPage.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="6">No appointments today.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var a in TodayAppointmentsPage)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="patient-info">
+                                        <div class="patient-avatar">@GetInitials(a.PatientName)</div>
+                                        <span>@a.PatientName</span>
+                                    </div>
+                                </td>
+                                <td><span class="status-badge @GetStatusCss(a)">@GetStatusText(a)</span></td>
+                                <td>@a.StartDateTime.ToString("MMM dd, yyyy")</td>
+                                <td>@a.StartDateTime.ToString("h:mm tt")</td>
+                                <td>@(string.IsNullOrWhiteSpace(a.Reason) ? a.Type : a.Reason)</td>
+                                <td><button class="action-btn" @onclick="(() => ViewAppointmentDetails(a))">View Details</button></td>
+                            </tr>
+                        }
+                    }
                 </tbody>
             </table>
         </div>
 
         <div class="pagination">
-            <button class="pagination-btn" disabled>Previous</button>
+            <button class="pagination-btn" @onclick="PrevPage" disabled="@(CurrentPage <= 1)">Previous</button>
             <div class="pagination-numbers">
-                <span class="page-number active">1</span>
-                <span class="page-number">2</span>
-                <span class="page-number">3</span>
-                <span class="page-number">4</span>
-                <span class="page-number">5</span>
+                @for (var i = 1; i <= TotalPages; i++)
+                {
+                    <span class="page-number @(i == CurrentPage ? "active" : string.Empty)" @onclick="(() => GoToPage(i))">@i</span>
+                }
             </div>
-            <button class="pagination-btn">Next</button>
+            <button class="pagination-btn" @onclick="NextPage" disabled="@(CurrentPage >= TotalPages)">Next</button>
         </div>
     </section>
 </div>
@@ -236,6 +210,351 @@
 @code {
     [Inject]
     private NavigationManager Navigation { get; set; } = default!;
+
+    private bool IsLoadingDashboard { get; set; }
+    private bool IsLoadingAppointments { get; set; }
+
+    private string LowStockMessage { get; set; } = "No low stock alerts.";
+    private bool HasLowStockAlert { get; set; }
+
+    private decimal MonthlyRevenue { get; set; }
+    private string MonthlyRevenueChangeText { get; set; } = "0%";
+    private string MonthlyRevenueChangeClass { get; set; } = "neutral";
+
+    private int TotalPatients { get; set; }
+    private string TotalPatientsChangeText { get; set; } = "0%";
+    private string TotalPatientsChangeClass { get; set; } = "neutral";
+
+    private int OccupancyRate { get; set; }
+    private string OccupancyRateText => $"{OccupancyRate}%";
+    private string OccupancyRateChangeText { get; set; } = "0%";
+    private string OccupancyRateChangeClass { get; set; } = "neutral";
+
+    private decimal DepartmentRevenue { get; set; }
+    private string DepartmentRevenueChangeText { get; set; } = "0%";
+    private string DepartmentRevenueChangeClass { get; set; } = "neutral";
+    private string TopDepartmentName { get; set; } = "-";
+
+    private List<Appointment> TodayAppointmentsAll { get; set; } = new();
+    private int PageSize { get; set; } = 5;
+    private int CurrentPage { get; set; } = 1;
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling(TodayAppointmentsAll.Count / (double)PageSize));
+    private List<Appointment> TodayAppointmentsPage => TodayAppointmentsAll
+        .OrderBy(a => a.StartDateTime)
+        .Skip((CurrentPage - 1) * PageSize)
+        .Take(PageSize)
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        IsLoadingDashboard = true;
+        IsLoadingAppointments = true;
+        try
+        {
+            await LoadDashboardAsync();
+            await LoadTodayAppointmentsAsync();
+        }
+        finally
+        {
+            IsLoadingDashboard = false;
+            IsLoadingAppointments = false;
+        }
+    }
+
+    private static bool IsCloudConnectionFailure(Exception ex)
+    {
+        if (ex is SqlException)
+            return true;
+
+        if (ex is DbUpdateException dbu && dbu.InnerException is SqlException)
+            return true;
+
+        if (ex is DbUpdateException dbu2 && dbu2.GetBaseException() is SqlException)
+            return true;
+
+        return false;
+    }
+
+    private async Task LoadDashboardAsync()
+    {
+        var now = DateTime.Today;
+        var monthStart = new DateTime(now.Year, now.Month, 1);
+        var monthEnd = monthStart.AddMonths(1).AddTicks(-1);
+        var prevMonthStart = monthStart.AddMonths(-1);
+        var prevMonthEnd = monthStart.AddTicks(-1);
+
+        List<PatientBill> billsThis;
+        List<PatientBill> billsPrev;
+
+        try
+        {
+            billsThis = await DbContext.PatientBills.AsNoTracking()
+                .Where(b => b.IsArchived == false)
+                .Where(b => b.PaymentStatus == "Paid")
+                .Where(b => (b.DateOfVisit >= monthStart && b.DateOfVisit <= monthEnd) || (b.CreatedAt >= monthStart && b.CreatedAt <= monthEnd))
+                .ToListAsync();
+
+            billsPrev = await DbContext.PatientBills.AsNoTracking()
+                .Where(b => b.IsArchived == false)
+                .Where(b => b.PaymentStatus == "Paid")
+                .Where(b => (b.DateOfVisit >= prevMonthStart && b.DateOfVisit <= prevMonthEnd) || (b.CreatedAt >= prevMonthStart && b.CreatedAt <= prevMonthEnd))
+                .ToListAsync();
+        }
+        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+        {
+            billsThis = await LocalDbContext.PatientBills.AsNoTracking()
+                .Where(b => b.IsArchived == false)
+                .Where(b => b.PaymentStatus == "Paid")
+                .Where(b => (b.DateOfVisit >= monthStart && b.DateOfVisit <= monthEnd) || (b.CreatedAt >= monthStart && b.CreatedAt <= monthEnd))
+                .ToListAsync();
+
+            billsPrev = await LocalDbContext.PatientBills.AsNoTracking()
+                .Where(b => b.IsArchived == false)
+                .Where(b => b.PaymentStatus == "Paid")
+                .Where(b => (b.DateOfVisit >= prevMonthStart && b.DateOfVisit <= prevMonthEnd) || (b.CreatedAt >= prevMonthStart && b.CreatedAt <= prevMonthEnd))
+                .ToListAsync();
+        }
+
+        MonthlyRevenue = billsThis.Sum(b => b.TotalAmount);
+        var prevRevenue = billsPrev.Sum(b => b.TotalAmount);
+        (MonthlyRevenueChangeText, MonthlyRevenueChangeClass) = FormatChange(prevRevenue, MonthlyRevenue);
+
+        List<Patient> patientsThis;
+        List<Patient> patientsPrev;
+        try
+        {
+            patientsThis = await DbContext.Patients.AsNoTracking()
+                .Where(p => p.IsArchived != true)
+                .Where(p => p.CreatedAt.HasValue && p.CreatedAt.Value >= monthStart && p.CreatedAt.Value <= monthEnd)
+                .ToListAsync();
+
+            patientsPrev = await DbContext.Patients.AsNoTracking()
+                .Where(p => p.IsArchived != true)
+                .Where(p => p.CreatedAt.HasValue && p.CreatedAt.Value >= prevMonthStart && p.CreatedAt.Value <= prevMonthEnd)
+                .ToListAsync();
+
+            TotalPatients = await DbContext.Patients.AsNoTracking().CountAsync(p => p.IsArchived != true);
+        }
+        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+        {
+            patientsThis = await LocalDbContext.Patients.AsNoTracking()
+                .Where(p => p.IsArchived != true)
+                .Where(p => p.CreatedAt.HasValue && p.CreatedAt.Value >= monthStart && p.CreatedAt.Value <= monthEnd)
+                .ToListAsync();
+
+            patientsPrev = await LocalDbContext.Patients.AsNoTracking()
+                .Where(p => p.IsArchived != true)
+                .Where(p => p.CreatedAt.HasValue && p.CreatedAt.Value >= prevMonthStart && p.CreatedAt.Value <= prevMonthEnd)
+                .ToListAsync();
+
+            TotalPatients = await LocalDbContext.Patients.AsNoTracking().CountAsync(p => p.IsArchived != true);
+        }
+
+        (TotalPatientsChangeText, TotalPatientsChangeClass) = FormatChange(patientsPrev.Count, patientsThis.Count);
+
+        // Occupancy: derived from today's appointment volume vs an assumed capacity.
+        // Since there is no Bed/Room model in the current schema, we keep this deterministic and data-driven.
+        var today = DateTime.Today;
+        var tomorrow = today.AddDays(1);
+        int todayApptCount;
+        int yesterdayApptCount;
+        try
+        {
+            todayApptCount = await DbContext.Appointments.AsNoTracking().CountAsync(a => a.StartDateTime >= today && a.StartDateTime < tomorrow);
+            yesterdayApptCount = await DbContext.Appointments.AsNoTracking().CountAsync(a => a.StartDateTime >= today.AddDays(-1) && a.StartDateTime < today);
+        }
+        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+        {
+            todayApptCount = await LocalDbContext.Appointments.AsNoTracking().CountAsync(a => a.StartDateTime >= today && a.StartDateTime < tomorrow);
+            yesterdayApptCount = await LocalDbContext.Appointments.AsNoTracking().CountAsync(a => a.StartDateTime >= today.AddDays(-1) && a.StartDateTime < today);
+        }
+
+        const int assumedCapacity = 20;
+        OccupancyRate = (int)Math.Clamp(Math.Round((todayApptCount / (double)Math.Max(1, assumedCapacity)) * 100), 0, 100);
+        (OccupancyRateChangeText, OccupancyRateChangeClass) = FormatChange(yesterdayApptCount, todayApptCount);
+
+        // Department revenue: no explicit department billing table; use total paid receipts this month.
+        DepartmentRevenue = MonthlyRevenue;
+        (DepartmentRevenueChangeText, DepartmentRevenueChangeClass) = (MonthlyRevenueChangeText, MonthlyRevenueChangeClass);
+
+        // Top department from HealthRecords.Department (most common this month)
+        try
+        {
+            var topDept = await DbContext.HealthRecords.AsNoTracking()
+                .Where(r => r.IsArchived == false)
+                .Where(r => r.RecordDate.HasValue && r.RecordDate.Value >= monthStart && r.RecordDate.Value <= monthEnd)
+                .Where(r => r.Department != null && r.Department != "")
+                .GroupBy(r => r.Department!)
+                .OrderByDescending(g => g.Count())
+                .Select(g => g.Key)
+                .FirstOrDefaultAsync();
+            TopDepartmentName = string.IsNullOrWhiteSpace(topDept) ? "-" : topDept;
+        }
+        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+        {
+            var topDept = await LocalDbContext.HealthRecords.AsNoTracking()
+                .Where(r => r.IsArchived == false)
+                .Where(r => r.RecordDate.HasValue && r.RecordDate.Value >= monthStart && r.RecordDate.Value <= monthEnd)
+                .Where(r => r.Department != null && r.Department != "")
+                .GroupBy(r => r.Department!)
+                .OrderByDescending(g => g.Count())
+                .Select(g => g.Key)
+                .FirstOrDefaultAsync();
+            TopDepartmentName = string.IsNullOrWhiteSpace(topDept) ? "-" : topDept;
+        }
+
+        // Low stock alert (top item)
+        List<PharmacyInventoryModel> lowStock;
+        try
+        {
+            lowStock = await DbContext.PharmacyInventory.AsNoTracking()
+                .Where(i => i.IsArchived == false)
+                .Where(i => i.StockQuantity <= i.ReorderLevel)
+                .OrderBy(i => i.StockQuantity)
+                .Take(1)
+                .ToListAsync();
+        }
+        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+        {
+            lowStock = await LocalDbContext.PharmacyInventory.AsNoTracking()
+                .Where(i => i.IsArchived == false)
+                .Where(i => i.StockQuantity <= i.ReorderLevel)
+                .OrderBy(i => i.StockQuantity)
+                .Take(1)
+                .ToListAsync();
+        }
+
+        if (lowStock.Count > 0)
+        {
+            HasLowStockAlert = true;
+            LowStockMessage = $"Low stock detected: {lowStock[0].ItemName} — only {lowStock[0].StockQuantity} units left.";
+        }
+        else
+        {
+            HasLowStockAlert = false;
+            LowStockMessage = "No low stock alerts.";
+        }
+    }
+
+    private async Task LoadTodayAppointmentsAsync()
+    {
+        var today = DateTime.Today;
+        var tomorrow = today.AddDays(1);
+        try
+        {
+            TodayAppointmentsAll = await DbContext.Appointments.AsNoTracking()
+                .Where(a => a.StartDateTime >= today && a.StartDateTime < tomorrow)
+                .OrderBy(a => a.StartDateTime)
+                .ToListAsync();
+        }
+        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+        {
+            TodayAppointmentsAll = await LocalDbContext.Appointments.AsNoTracking()
+                .Where(a => a.StartDateTime >= today && a.StartDateTime < tomorrow)
+                .OrderBy(a => a.StartDateTime)
+                .ToListAsync();
+        }
+
+        CurrentPage = 1;
+    }
+
+    private void PrevPage()
+    {
+        if (CurrentPage > 1)
+            CurrentPage--;
+    }
+
+    private void NextPage()
+    {
+        if (CurrentPage < TotalPages)
+            CurrentPage++;
+    }
+
+    private void GoToPage(int page)
+    {
+        CurrentPage = Math.Clamp(page, 1, TotalPages);
+    }
+
+    private void ViewAppointmentDetails(Appointment a)
+    {
+        // No admin-specific appointment detail route exists yet. Redirect to the appointments module.
+        Navigation.NavigateTo("/doctor-appointments");
+    }
+
+    private static (string Text, string Css) FormatChange(decimal prev, decimal current)
+    {
+        if (prev == 0m && current == 0m)
+            return ("0%", "neutral");
+
+        if (prev == 0m)
+            return ("+100%", "positive");
+
+        var pct = (current - prev) / Math.Abs(prev) * 100m;
+        var sign = pct >= 0 ? "+" : string.Empty;
+        var css = pct > 0 ? "positive" : pct < 0 ? "negative" : "neutral";
+        return ($"{sign}{Math.Round(pct)}%", css);
+    }
+
+    private static (string Text, string Css) FormatChange(int prev, int current)
+    {
+        if (prev == 0 && current == 0)
+            return ("0%", "neutral");
+
+        if (prev == 0)
+            return ("+100%", "positive");
+
+        var pct = (current - prev) / (double)Math.Abs(prev) * 100.0;
+        var sign = pct >= 0 ? "+" : string.Empty;
+        var css = pct > 0 ? "positive" : pct < 0 ? "negative" : "neutral";
+        return ($"{sign}{Math.Round(pct)}%", css);
+    }
+
+    private static string FormatCurrency(decimal amount)
+    {
+        return $"₱{amount:N2}";
+    }
+
+    private static string GetInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return "?";
+
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1)
+            return parts[0].Length >= 2 ? parts[0].Substring(0, 2).ToUpperInvariant() : parts[0].Substring(0, 1).ToUpperInvariant();
+
+        var first = parts[0][0];
+        var last = parts[^1][0];
+        return $"{char.ToUpperInvariant(first)}{char.ToUpperInvariant(last)}";
+    }
+
+    private static string GetStatusCss(Appointment a)
+    {
+        if (a.IsCancelled || string.Equals(a.Status, "CANCELLED", StringComparison.OrdinalIgnoreCase))
+            return "cancelled";
+
+        if (string.Equals(a.Status, "SCHEDULED", StringComparison.OrdinalIgnoreCase) || string.Equals(a.Status, "CONFIRMED", StringComparison.OrdinalIgnoreCase))
+            return "confirmed";
+
+        return "pending";
+    }
+
+    private static string GetStatusText(Appointment a)
+    {
+        if (a.IsCancelled || string.Equals(a.Status, "CANCELLED", StringComparison.OrdinalIgnoreCase))
+            return "Cancelled";
+
+        if (string.Equals(a.Status, "CONFIRMED", StringComparison.OrdinalIgnoreCase))
+            return "Confirmed";
+
+        if (string.Equals(a.Status, "SCHEDULED", StringComparison.OrdinalIgnoreCase))
+            return "Scheduled";
+
+        if (string.Equals(a.Status, "COMPLETED", StringComparison.OrdinalIgnoreCase))
+            return "Completed";
+
+        return string.IsNullOrWhiteSpace(a.Status) ? "Pending" : a.Status;
+    }
 
     private bool IsNotificationCollapsed { get; set; }
     private bool IsNotificationDismissed { get; set; }

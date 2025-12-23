@@ -42,6 +42,11 @@ namespace IT_13FinalProject
             builder.Services.AddScoped<IHealthRecordService, DatabaseHealthRecordService>();
             builder.Services.AddScoped<IVitalSignService, VitalSignService>();
             builder.Services.AddScoped<IPatientBillService, DatabasePatientBillService>();
+            builder.Services.AddScoped<IPrescriptionService, DatabasePrescriptionService>();
+            builder.Services.AddScoped<ILabResultService, DatabaseLabResultService>();
+            builder.Services.AddScoped<IInventoryStockService, DatabaseInventoryStockService>();
+            builder.Services.AddSingleton<InMemoryNotificationReadState>();
+            builder.Services.AddScoped<INotificationService, DatabaseNotificationService>();
             builder.Services.AddSingleton<IClaimDocumentStore, InMemoryClaimDocumentStore>();
             builder.Services.AddScoped<SyncService>();
             

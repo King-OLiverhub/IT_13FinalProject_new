@@ -4,6 +4,7 @@
 @using IT_13FinalProject.Data
 @using Microsoft.EntityFrameworkCore
 @using System.Linq
+@using System.Threading
 
 @inject ApplicationDbContext DbContext
 @inject LocalDbContext LocalDbContext
@@ -132,19 +133,19 @@
                                             <div class="pm-action-buttons">
                                                 @if (ShowArchived)
                                                 {
-                                                    <button class="pm-restore-btn" @onclick="() => RestoreHealthRecord(healthRecord?.RecordId ?? 0)" title="Restore Health Record">
+                                                    <button class="pm-restore-btn" @onclick="() => RestoreHealthRecord(healthRecord?.RecordId ?? 0)" title="Restore Health Record" disabled="@(IsBusy(healthRecord?.RecordId ?? 0))">
                                                         <span class="pm-restore-icon"></span>
                                                     </button>
-                                                    <button class="pm-delete-btn" @onclick="() => DeleteHealthRecord(healthRecord?.RecordId ?? 0)" title="Delete Permanently">
+                                                    <button class="pm-delete-btn" @onclick="() => DeleteHealthRecord(healthRecord?.RecordId ?? 0)" title="Delete Permanently" disabled="@(IsBusy(healthRecord?.RecordId ?? 0))">
                                                         <span class="pm-delete-icon"></span>
                                                     </button>
                                                 }
                                                 else
                                                 {
-                                                    <button class="pm-edit-btn" @onclick="() => ShowEditHealthRecordModal(healthRecord)" title="Edit Health Record">
+                                                    <button class="pm-edit-btn" @onclick="() => ShowEditHealthRecordModal(healthRecord)" title="Edit Health Record" disabled="@(IsBusy(healthRecord?.RecordId ?? 0))">
                                                         <span class="pm-edit-icon"></span>
                                                     </button>
-                                                    <button class="pm-archive-btn" @onclick="() => ArchiveHealthRecord(healthRecord?.RecordId ?? 0)" title="Archive Health Record">
+                                                    <button class="pm-archive-btn" @onclick="() => ArchiveHealthRecord(healthRecord?.RecordId ?? 0)" title="Archive Health Record" disabled="@(IsBusy(healthRecord?.RecordId ?? 0))">
                                                         <span class="pm-archive-icon"></span>
                                                     </button>
                                                 }
@@ -349,6 +350,10 @@
     private bool IsLoading = true;
     private string ErrorMessage = "";
     private bool ShowPagination = true;
+
+    private HashSet<int> BusyRecordIds { get; set; } = new();
+
+    private readonly SemaphoreSlim _dbLock = new(1, 1);
         
     // Pagination
     private int CurrentPage { get; set; } = 1;
@@ -388,6 +393,7 @@
     
     private async Task LoadHealthRecords()
     {
+        await _dbLock.WaitAsync();
         try
         {
             IsLoading = true;
@@ -395,6 +401,7 @@
             StateHasChanged();
             
             HealthRecords = await DbContext.HealthRecords
+                .AsNoTracking()
                 .Include(hr => hr.Patient)
                 .Where(hr => hr.IsArchived == ShowArchived)
                 .OrderByDescending(hr => hr.RecordDate)
@@ -405,32 +412,49 @@
             Console.WriteLine($"Error loading health records: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             ErrorMessage = $"Error loading health records: {ex.Message}";
-            
-            // Try to load health records without ordering to isolate the issue
-            try
-            {
-                HealthRecords = await DbContext.HealthRecords
-                    .Include(c => c.Patient)
-                    .ToListAsync();
-                Console.WriteLine($"Loaded {HealthRecords.Count} health records without ordering");
-            }
-            catch (Exception innerEx)
-            {
-                Console.WriteLine($"Error loading without ordering: {innerEx.Message}");
-            }
         }
         finally
         {
             IsLoading = false;
             StateHasChanged();
+            _dbLock.Release();
         }
+    }
+
+    private bool IsBusy(int recordId) => recordId > 0 && BusyRecordIds.Contains(recordId);
+
+    private void BeginBusy(int recordId)
+    {
+        if (recordId <= 0) return;
+        BusyRecordIds.Add(recordId);
+        StateHasChanged();
+    }
+
+    private void EndBusy(int recordId)
+    {
+        if (recordId <= 0) return;
+        BusyRecordIds.Remove(recordId);
+        StateHasChanged();
+    }
+
+    private void RemoveFromCurrentList(int recordId)
+    {
+        if (recordId <= 0) return;
+        var removed = HealthRecords.RemoveAll(r => r.RecordId == recordId);
+        if (removed > 0 && CurrentPage > TotalPages)
+        {
+            CurrentPage = Math.Max(1, TotalPages);
+        }
+        StateHasChanged();
     }
     
     private async Task ViewHealthRecord(int recordId)
     {
+        await _dbLock.WaitAsync();
         try
         {
             ViewingHealthRecord = await DbContext.HealthRecords
+                .AsNoTracking()
                 .Include(hr => hr.Patient)
                 .FirstOrDefaultAsync(hr => hr.RecordId == recordId);
 
@@ -442,6 +466,10 @@
         catch (Exception ex)
         {
             await JsRuntime.InvokeVoidAsync("alert", $"Error loading health record: {ex.Message}");
+        }
+        finally
+        {
+            _dbLock.Release();
         }
     }
     
@@ -479,17 +507,24 @@
     private void NextPage() => GoToPage(CurrentPage + 1);
     
     // Modal methods
-    private void ShowEditHealthRecordModal(Models.HealthRecord healthRecord)
+    private async Task ShowEditHealthRecordModal(Models.HealthRecord healthRecord)
     {
-        // Load the health record with patient data
-        var recordWithPatient = DbContext.HealthRecords
-            .Include(hr => hr.Patient)
-            .FirstOrDefault(hr => hr.RecordId == healthRecord.RecordId);
-            
-        if (recordWithPatient != null)
+        await _dbLock.WaitAsync();
+        try
         {
-            EditingHealthRecord = recordWithPatient;
-            ShowEditModal = true;
+            var recordWithPatient = await DbContext.HealthRecords
+                .Include(hr => hr.Patient)
+                .FirstOrDefaultAsync(hr => hr.RecordId == healthRecord.RecordId);
+
+            if (recordWithPatient != null)
+            {
+                EditingHealthRecord = recordWithPatient;
+                ShowEditModal = true;
+            }
+        }
+        finally
+        {
+            _dbLock.Release();
         }
     }
     
@@ -508,6 +543,7 @@
     // CRUD operations
     private async Task UpdateHealthRecord()
     {
+        await _dbLock.WaitAsync();
         try
         {
             if (string.IsNullOrWhiteSpace(EditingHealthRecord.AssessmentDiagnosis))
@@ -529,6 +565,10 @@
             ErrorMessage = $"Error updating health record: {ex.Message}";
             await JsRuntime.InvokeVoidAsync("alert", ErrorMessage);
         }
+        finally
+        {
+            _dbLock.Release();
+        }
     }
     
     private async Task ArchiveHealthRecord(int recordId)
@@ -540,6 +580,9 @@
             return;
         }
         
+        BeginBusy(recordId);
+        RemoveFromCurrentList(recordId);
+        await _dbLock.WaitAsync();
         try
         {
             var healthRecord = await DbContext.HealthRecords.FindAsync(recordId);
@@ -567,14 +610,26 @@
 
                 // Simple audit trail
                 Console.WriteLine($"[AUDIT] Health record {recordId} archived at {DateTime.UtcNow:O}.");
-                
-                await LoadHealthRecords();
+
+                _ = LoadHealthRecords();
                 await JsRuntime.InvokeVoidAsync("alert", "Health record archived successfully!");
             }
         }
         catch (Exception ex)
         {
+            await InvokeAsync(() =>
+            {
+                if (!ShowArchived)
+                {
+                    _ = LoadHealthRecords();
+                }
+            });
             await JsRuntime.InvokeVoidAsync("alert", $"Error archiving health record: {ex.Message}");
+        }
+        finally
+        {
+            _dbLock.Release();
+            EndBusy(recordId);
         }
     }
     
@@ -592,7 +647,10 @@
         {
             return;
         }
-        
+
+        BeginBusy(recordId);
+        RemoveFromCurrentList(recordId);
+        await _dbLock.WaitAsync();
         try
         {
             var healthRecord = await DbContext.HealthRecords.FindAsync(recordId);
@@ -620,14 +678,26 @@
 
                 // Simple audit trail
                 Console.WriteLine($"[AUDIT] Health record {recordId} restored at {DateTime.UtcNow:O}.");
-                
-                await LoadHealthRecords();
+
+                _ = LoadHealthRecords();
                 await JsRuntime.InvokeVoidAsync("alert", "Health record restored successfully!");
             }
         }
         catch (Exception ex)
         {
+            await InvokeAsync(() =>
+            {
+                if (ShowArchived)
+                {
+                    _ = LoadHealthRecords();
+                }
+            });
             await JsRuntime.InvokeVoidAsync("alert", $"Error restoring health record: {ex.Message}");
+        }
+        finally
+        {
+            _dbLock.Release();
+            EndBusy(recordId);
         }
     }
     
@@ -640,6 +710,9 @@
             return;
         }
 
+        BeginBusy(recordId);
+        RemoveFromCurrentList(recordId);
+        await _dbLock.WaitAsync();
         try
         {
             var healthRecord = await DbContext.HealthRecords.FindAsync(recordId);
@@ -648,6 +721,7 @@
                 // Enforce ERP rule: only archived records can be permanently deleted
                 if (!healthRecord.IsArchived)
                 {
+                    _ = LoadHealthRecords();
                     await JsRuntime.InvokeVoidAsync("alert", "Only archived records can be permanently deleted.");
                     return;
                 }
@@ -673,14 +747,26 @@
                 // Simple audit trail
                 Console.WriteLine($"[AUDIT] Health record {recordId} permanently deleted at {DateTime.UtcNow:O}.");
 
-                await LoadHealthRecords();
+                _ = LoadHealthRecords();
                 await JsRuntime.InvokeVoidAsync("alert", "Health record deleted permanently!");
             }
         }
         catch (Exception ex)
         {
+            await InvokeAsync(() =>
+            {
+                if (ShowArchived)
+                {
+                    _ = LoadHealthRecords();
+                }
+            });
             ErrorMessage = $"Error deleting health record: {ex.Message}";
             await JsRuntime.InvokeVoidAsync("alert", ErrorMessage);
+        }
+        finally
+        {
+            _dbLock.Release();
+            EndBusy(recordId);
         }
     }
 }

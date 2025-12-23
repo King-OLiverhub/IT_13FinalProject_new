@@ -1,5 +1,7 @@
 @page "/inventory-prescriptions"
 @layout Layout.DashboardLayout
+@using IT_13FinalProject.Services
+@using IT_13FinalProject.Models
 
 <div class="dashboard-page">
     <header class="dashboard-header">
@@ -20,10 +22,10 @@
             <h2 class="ip-section-title">Prescription Overview</h2>
             <div class="ip-show-entries">
                 <span>Show</span>
-                <select>
-                    <option>5</option>
-                    <option>10</option>
-                    <option>25</option>
+                <select @bind="PageSize" @bind:after="OnPageSizeChanged">
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="25">25</option>
                 </select>
                 <span>entries</span>
             </div>
@@ -52,7 +54,7 @@
             <div class="ip-search-row">
                 <div class="ip-search-box">
                     <span class="ip-search-icon"></span>
-                    <input class="ip-search-input" placeholder="Search Patient" />
+                    <input class="ip-search-input" placeholder="Search Patient" value="@SearchTerm" @oninput="OnSearchInput" />
                 </div>
 
                 <div class="ip-actions">
@@ -76,7 +78,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var p in FilteredPrescriptions)
+                        @foreach (var p in PagedPrescriptions)
                         {
                             <tr>
                                 <td>@p.Patient</td>
@@ -96,13 +98,13 @@
                                         </button>
                                         @if (ShowArchived)
                                         {
-                                            <button type="button" class="ip-restore-btn" aria-label="Restore prescription" @onclick="() => RestorePrescription(p)">
+                                            <button type="button" class="ip-restore-btn" aria-label="Restore prescription" @onclick="() => RestorePrescriptionAsync(p)">
                                                 <span class="ip-restore-icon"></span>
                                             </button>
                                         }
                                         else
                                         {
-                                            <button type="button" class="ip-archive-btn" aria-label="Archive prescription" @onclick="() => ArchivePrescription(p)">
+                                            <button type="button" class="ip-archive-btn" aria-label="Archive prescription" @onclick="() => ArchivePrescriptionAsync(p)">
                                                 <span class="ip-archive-icon"></span>
                                             </button>
                                         }
@@ -116,13 +118,9 @@
         </div>
 
         <div class="ip-pagination">
-            <button class="ip-page-btn">Previous</button>
-            <button class="ip-page-number active">1</button>
-            <button class="ip-page-number">2</button>
-            <button class="ip-page-number">3</button>
-            <span class="ip-page-dots">...</span>
-            <button class="ip-page-number">8</button>
-            <button class="ip-page-btn">Next</button>
+            <button class="ip-page-btn" @onclick="PrevPage" disabled="@(CurrentPage <= 1)">Previous</button>
+            <button class="ip-page-number active">@CurrentPage</button>
+            <button class="ip-page-btn" @onclick="NextPage" disabled="@(CurrentPage >= TotalPages)">Next</button>
         </div>
     </section>
 
@@ -136,12 +134,12 @@
                     <div class="ip-prescription-section">
                         <h3 class="ip-prescription-section-title">Patient Information</h3>
                         <div class="ip-prescription-field"><span>Name:</span><span>@SelectedPrescription.Patient</span></div>
-                        <div class="ip-prescription-field"><span>Patient ID:</span><span></span></div>
+                        <div class="ip-prescription-field"><span>Patient ID:</span><span>@(SelectedDetails?.PatientId?.ToString() ?? string.Empty)</span></div>
                         <div class="ip-prescription-field"><span>Contact Number:</span><span></span></div>
                         <div class="ip-prescription-field"><span>Date of Birth:</span><span></span></div>
                         <div class="ip-prescription-field"><span>Age:</span><span></span></div>
                         <div class="ip-prescription-field"><span>Address:</span><span></span></div>
-                        <div class="ip-prescription-field"><span>Diagnosis:</span><span></span></div>
+                        <div class="ip-prescription-field"><span>Diagnosis:</span><span>@(SelectedDetails?.Diagnosis ?? SelectedDetails?.AssessmentDiagnosis ?? string.Empty)</span></div>
                     </div>
 
                     <div class="ip-prescription-section">
@@ -175,9 +173,9 @@
                             <tbody>
                                 <tr>
                                     <td>@SelectedPrescription.Items</td>
-                                    <td>500 mg</td>
-                                    <td>3 times a day</td>
-                                    <td>5 days</td>
+                                    <td>@(SelectedDetails?.Dosage ?? string.Empty)</td>
+                                    <td>@(SelectedDetails?.Frequency ?? string.Empty)</td>
+                                    <td>@(SelectedDetails?.Duration ?? string.Empty)</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -193,43 +191,70 @@
 </div>
 
 @code {
+    [Inject]
+    private IPrescriptionService PrescriptionService { get; set; } = default!;
+
     private bool ShowPrescriptionPanel { get; set; }
     private bool ShowLetters { get; set; } = false;
     private bool ShowArchived { get; set; }
-    private PrescriptionRow? SelectedPrescription { get; set; }
+    private PrescriptionListItem? SelectedPrescription { get; set; }
+    private IT_13FinalProject.Models.HealthRecord? SelectedDetails { get; set; }
+
+    private string SearchTerm { get; set; } = string.Empty;
+    private int PageSize { get; set; } = 5;
+    private int CurrentPage { get; set; } = 1;
+    private int TotalCount { get; set; }
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling((double)TotalCount / PageSize));
+
+    private IReadOnlyList<PrescriptionListItem> PagedPrescriptions { get; set; } = Array.Empty<PrescriptionListItem>();
     
     private readonly char[] Alphabet =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
 
-    public record PrescriptionRow(
-        string Patient,
-        string Doctor,
-        string Medication,
-        string Items,
-        string StatusKey,
-        string StatusLabel,
-        string Time,
-        bool IsArchived
-    );
-
-    private readonly PrescriptionRow[] Prescriptions = new[]
+    protected override async Task OnInitializedAsync()
     {
-        new PrescriptionRow("Juan Dela Cruz", "Dr. Lee", "Amoxicillin", "Amoxicillin 500mg", "active", "Active", "2:30 PM", false),
-        new PrescriptionRow("Maria Santos", "Dr. Smith", "Amoxicillin", "Amoxicillin 250mg", "pending", "Pending", "2:15 PM", false),
-        new PrescriptionRow("Pedro Reyes", "Dr. Smith", "Paracetamol", "Paracetamol 500mg", "pending", "Pending", "3:00 PM", true),
-    };
+        await LoadPageAsync();
+    }
 
-    private IEnumerable<PrescriptionRow> FilteredPrescriptions =>
-        Prescriptions.Where(p => p.IsArchived == ShowArchived);
+    protected override async Task OnParametersSetAsync()
+    {
+        // keep list fresh when navigation reuses component
+        await LoadPageAsync();
+    }
+
+    private async Task LoadPageAsync()
+    {
+        // clamp current page to bounds based on latest count
+        var (items, totalCount) = await PrescriptionService.GetPageAsync(ShowArchived, SearchTerm, CurrentPage, PageSize);
+        TotalCount = totalCount;
+        CurrentPage = Math.Min(CurrentPage, TotalPages);
+        if (CurrentPage < 1) CurrentPage = 1;
+
+        // reload after clamping
+        (items, totalCount) = await PrescriptionService.GetPageAsync(ShowArchived, SearchTerm, CurrentPage, PageSize);
+        TotalCount = totalCount;
+        PagedPrescriptions = items;
+
+        // Close panel if selection no longer in the current dataset
+        if (SelectedPrescription != null && !PagedPrescriptions.Any(p => p.RecordId == SelectedPrescription.RecordId))
+        {
+            SelectedPrescription = null;
+            SelectedDetails = null;
+            ShowPrescriptionPanel = false;
+        }
+    }
 
     private void SetArchiveView(bool showArchived)
     {
         ShowArchived = showArchived;
+        CurrentPage = 1;
+        _ = LoadPageAsync();
     }
 
-    private void OpenPrescriptionPanel(PrescriptionRow row)
+    private async Task OpenPrescriptionPanel(PrescriptionListItem row)
     {
         SelectedPrescription = row;
+        SelectedDetails = await PrescriptionService.GetByRecordIdAsync(row.RecordId);
         ShowPrescriptionPanel = true;
     }
 
@@ -237,16 +262,46 @@
     {
         ShowPrescriptionPanel = false;
         SelectedPrescription = null;
+        SelectedDetails = null;
     }
 
-    private void ArchivePrescription(PrescriptionRow row)
+    private async Task OnSearchInput(ChangeEventArgs e)
     {
-        Console.WriteLine($"Archive clicked for prescription: {row.Patient} - {row.Items}");
+        SearchTerm = e?.Value?.ToString() ?? string.Empty;
+        CurrentPage = 1;
+        await LoadPageAsync();
     }
 
-    private void RestorePrescription(PrescriptionRow row)
+    private async Task ArchivePrescriptionAsync(PrescriptionListItem row)
     {
-        Console.WriteLine($"Restore clicked for prescription: {row.Patient} - {row.Items}");
+        await PrescriptionService.ArchiveAsync(row.RecordId);
+        await LoadPageAsync();
+    }
+
+    private async Task RestorePrescriptionAsync(PrescriptionListItem row)
+    {
+        await PrescriptionService.RestoreAsync(row.RecordId);
+        await LoadPageAsync();
+    }
+
+    private async Task OnPageSizeChanged()
+    {
+        CurrentPage = 1;
+        await LoadPageAsync();
+    }
+
+    private async Task PrevPage()
+    {
+        if (CurrentPage <= 1) return;
+        CurrentPage--;
+        await LoadPageAsync();
+    }
+
+    private async Task NextPage()
+    {
+        if (CurrentPage >= TotalPages) return;
+        CurrentPage++;
+        await LoadPageAsync();
     }
 }
 

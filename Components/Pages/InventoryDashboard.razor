@@ -1,5 +1,11 @@
 @page "/inventory-dashboard"
 @layout Layout.DashboardLayout
+@using IT_13FinalProject.Data
+@using PharmacyInventoryModel = IT_13FinalProject.Models.PharmacyInventory
+@using Microsoft.EntityFrameworkCore
+
+@inject ApplicationDbContext DbContext
+@inject NavigationManager Navigation
 
 <div class="dashboard-page">
     <!-- HEADER -->
@@ -48,7 +54,7 @@
                 <div class="notification-body">
                     <div class="notification-icon">!</div>
                     <div class="notification-text">
-                        <div>Low stock alert: Paracetamol 500mg is below reorder level.</div>
+                        <div>@NotificationMessage</div>
                         <button class="notification-button" @onclick="GoToNotification">Go to notification</button>
                     </div>
                 </div>
@@ -61,9 +67,9 @@
         <div class="stat-card">
             <div class="stat-header">
                 <h3>Revenue</h3>
-                <span class="stat-trend positive">+12%</span>
+                <span class="stat-trend neutral">0%</span>
             </div>
-            <div class="stat-value">$45,280</div>
+            <div class="stat-value">₱0.00</div>
             <div class="stat-chart">[Chart placeholder]</div>
         </div>
 
@@ -72,25 +78,25 @@
                 <h3>Total Stock on Hand</h3>
                 <span class="stat-trend neutral">0%</span>
             </div>
-            <div class="stat-value">1,247</div>
+            <div class="stat-value">@TotalStockOnHand.ToString("N0")</div>
             <div class="stat-chart">[Chart placeholder]</div>
         </div>
 
         <div class="stat-card">
             <div class="stat-header">
                 <h3>Stock Level vs Low Stock</h3>
-                <span class="stat-trend negative">-8%</span>
+                <span class="stat-trend neutral">0%</span>
             </div>
-            <div class="stat-value">87%</div>
+            <div class="stat-value">@LowStockRatioPercent.ToString("N0")%</div>
             <div class="stat-chart">[Chart placeholder]</div>
         </div>
 
         <div class="stat-card">
             <div class="stat-header">
                 <h3>Inventory Level Value</h3>
-                <span class="stat-trend positive">+5%</span>
+                <span class="stat-trend neutral">0%</span>
             </div>
-            <div class="stat-value">$128,450</div>
+            <div class="stat-value">₱@InventoryValue.ToString("N2")</div>
             <div class="stat-chart">[Chart placeholder]</div>
         </div>
     </section>
@@ -99,38 +105,60 @@
     <div class="bottom-sections-container">
         <!-- LOW STOCK ALERTS -->
         <div class="alert-cards-container">
-            <section class="alert-card">
-                <div class="alert-content">
-                    <div class="alert-icon"></div>
-                    <div class="alert-text">
-                        <h4>Low Stock Alert</h4>
-                        <p>Paracetamol 500mg — only 15 units left. 3 other items need restocking.</p>
+            @if (IsLoading)
+            {
+                <section class="alert-card">
+                    <div class="alert-content">
+                        <div class="alert-icon"></div>
+                        <div class="alert-text">
+                            <h4>Loading...</h4>
+                            <p>Fetching inventory alerts.</p>
+                        </div>
                     </div>
-                    <button class="alert-action">View Details</button>
-                </div>
-            </section>
-
-            <section class="alert-card">
-                <div class="alert-content">
-                    <div class="alert-icon"></div>
-                    <div class="alert-text">
-                        <h4>Critical Stock Alert</h4>
-                        <p>Amoxicillin 250mg — only 8 units left. Critical level reached.</p>
+                </section>
+            }
+            else if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <section class="alert-card">
+                    <div class="alert-content">
+                        <div class="alert-icon"></div>
+                        <div class="alert-text">
+                            <h4>Error</h4>
+                            <p>@ErrorMessage</p>
+                        </div>
+                        <button class="alert-action" @onclick="LoadDashboard">Retry</button>
                     </div>
-                    <button class="alert-action">Order Now</button>
-                </div>
-            </section>
-
-            <section class="alert-card">
-                <div class="alert-content">
-                    <div class="alert-icon"></div>
-                    <div class="alert-text">
-                        <h4>Reorder Point Alert</h4>
-                        <p>Ibuprofen 400mg — only 22 units left. Below reorder point.</p>
+                </section>
+            }
+            else if (LowStockItems.Count == 0)
+            {
+                <section class="alert-card">
+                    <div class="alert-content">
+                        <div class="alert-icon"></div>
+                        <div class="alert-text">
+                            <h4>No Alerts</h4>
+                            <p>All inventory levels look good.</p>
+                        </div>
+                        <button class="alert-action" @onclick="GoToInventory">Open Inventory</button>
                     </div>
-                    <button class="alert-action">Reorder</button>
-                </div>
-            </section>
+                </section>
+            }
+            else
+            {
+                @foreach (var alert in AlertCards)
+                {
+                    <section class="alert-card">
+                        <div class="alert-content">
+                            <div class="alert-icon"></div>
+                            <div class="alert-text">
+                                <h4>@alert.Title</h4>
+                                <p>@alert.Description</p>
+                            </div>
+                            <button class="alert-action" @onclick="GoToInventory">@alert.ActionText</button>
+                        </div>
+                    </section>
+                }
+            }
         </div>
 
         <!-- BOTTOM LIST -->
@@ -139,46 +167,51 @@
                 <h3>Recent Activity</h3>
             </div>
 
-                <div class="activity-list">
-                <div class="activity-card">
-                    <div class="activity-icon"><i class="fas fa-pills"></i></div>
-                    <div class="activity-content">
-                        <h4>Dispensed Paracetamol 500mg</h4>
-                        <p>10 tabs for Patient #101</p>
-                        <span class="activity-time">10:24 AM</span>
+            <div class="activity-list">
+                @if (IsLoading)
+                {
+                    <div class="activity-card">
+                        <div class="activity-content">
+                            <h4>Loading...</h4>
+                            <p>Fetching recent activity.</p>
+                        </div>
+                        <div class="activity-user">System</div>
                     </div>
-                    <div class="activity-user">Pharmacist</div>
-                </div>
-
-                <div class="activity-card">
-                    <div class="activity-icon"><i class="fas fa-box"></i></div>
-                    <div class="activity-content">
-                        <h4>Received New Stock</h4>
-                        <p>Amoxicillin 500mg (50 boxes)</p>
-                        <span class="activity-time">10:15 AM</span>
+                }
+                else if (!string.IsNullOrEmpty(ErrorMessage))
+                {
+                    <div class="activity-card">
+                        <div class="activity-content">
+                            <h4>Error</h4>
+                            <p>@ErrorMessage</p>
+                        </div>
+                        <div class="activity-user">System</div>
                     </div>
-                    <div class="activity-user">Pharmacist</div>
-                </div>
-
-                <div class="activity-card">
-                    <div class="activity-icon"><i class="fas fa-exclamation-triangle"></i></div>
-                    <div class="activity-content">
-                        <h4>Low Stock Alert</h4>
-                        <p>Ibuprofen 400mg below reorder point</p>
-                        <span class="activity-time">9:45 AM</span>
+                }
+                else if (RecentActivity.Count == 0)
+                {
+                    <div class="activity-card">
+                        <div class="activity-content">
+                            <h4>No recent activity</h4>
+                            <p>No inventory changes found.</p>
+                        </div>
+                        <div class="activity-user">System</div>
                     </div>
-                    <div class="activity-user">System</div>
-                </div>
-
-                <div class="activity-card">
-                    <div class="activity-icon"><i class="fas fa-check-circle"></i></div>
-                    <div class="activity-content">
-                        <h4>Inventory Check Completed</h4>
-                        <p>Section A - All items accounted for</p>
-                        <span class="activity-time">9:30 AM</span>
-                    </div>
-                    <div class="activity-user">Pharmacist</div>
-                </div>
+                }
+                else
+                {
+                    @foreach (var activity in RecentActivity)
+                    {
+                        <div class="activity-card">
+                            <div class="activity-content">
+                                <h4>@activity.Title</h4>
+                                <p>@activity.Description</p>
+                                <span class="activity-time">@activity.TimeLabel</span>
+                            </div>
+                            <div class="activity-user">@activity.Actor</div>
+                        </div>
+                    }
+                }
             </div>
         </section>
     </div>
@@ -186,10 +219,69 @@
 </div>
 
 @code {
-    [Inject]
-    private NavigationManager Navigation { get; set; } = default!;
+    private bool IsLoading { get; set; } = true;
+    private string ErrorMessage { get; set; } = string.Empty;
+
     private bool IsNotificationCollapsed { get; set; }
     private bool IsNotificationDismissed { get; set; }
+
+    private int TotalStockOnHand { get; set; }
+    private decimal InventoryValue { get; set; }
+    private decimal LowStockRatioPercent { get; set; }
+    private string NotificationMessage { get; set; } = "No notifications.";
+
+    private List<PharmacyInventoryModel> LowStockItems { get; set; } = new();
+    private List<DashboardAlertCard> AlertCards { get; set; } = new();
+    private List<DashboardActivityItem> RecentActivity { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboard();
+    }
+
+    private async Task LoadDashboard()
+    {
+        try
+        {
+            IsLoading = true;
+            ErrorMessage = string.Empty;
+            StateHasChanged();
+
+            var inventory = await DbContext.PharmacyInventory
+                .AsNoTracking()
+                .Where(i => !i.IsArchived)
+                .ToListAsync();
+
+            TotalStockOnHand = inventory.Sum(i => i.StockQuantity);
+            InventoryValue = inventory.Sum(i => i.StockQuantity * i.UnitPrice);
+
+            LowStockItems = inventory
+                .Where(i => i.StockQuantity <= i.ReorderLevel)
+                .OrderBy(i => i.StockQuantity)
+                .ThenBy(i => i.ItemName)
+                .ToList();
+
+            LowStockRatioPercent = inventory.Count == 0
+                ? 0
+                : (decimal)LowStockItems.Count / inventory.Count * 100m;
+
+            NotificationMessage = LowStockItems.Count == 0
+                ? "No low stock alerts."
+                : $"Low stock alert: {LowStockItems[0].ItemName} is below reorder level.";
+
+            AlertCards = BuildAlertCards(LowStockItems);
+            RecentActivity = BuildRecentActivity(inventory);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error loading dashboard: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
 
     private void HideNotification()
     {
@@ -217,4 +309,62 @@
     {
         Navigation.NavigateTo("/notification?role=inventory");
     }
+
+    private void GoToInventory()
+    {
+        Navigation.NavigateTo("/pharmacy-inventory");
+    }
+
+    private static List<DashboardAlertCard> BuildAlertCards(List<PharmacyInventoryModel> lowStockItems)
+    {
+        var cards = new List<DashboardAlertCard>();
+
+        if (lowStockItems.Count == 0)
+        {
+            return cards;
+        }
+
+        var critical = lowStockItems.Where(i => i.StockQuantity == 0).Take(1).ToList();
+        var low = lowStockItems.Where(i => i.StockQuantity > 0).Take(2).ToList();
+
+        if (critical.Count > 0)
+        {
+            var item = critical[0];
+            cards.Add(new DashboardAlertCard(
+                "Critical Stock Alert",
+                $"{item.ItemName} — out of stock. Immediate reorder needed.",
+                "Order Now"));
+        }
+
+        foreach (var item in low)
+        {
+            var title = item.StockQuantity <= item.ReorderLevel ? "Low Stock Alert" : "Reorder Point Alert";
+            cards.Add(new DashboardAlertCard(
+                title,
+                $"{item.ItemName} — only {item.StockQuantity} unit(s) left. Reorder level: {item.ReorderLevel}.",
+                "View Details"));
+        }
+
+        return cards;
+    }
+
+    private static List<DashboardActivityItem> BuildRecentActivity(List<PharmacyInventoryModel> inventory)
+    {
+        return inventory
+            .OrderByDescending(i => i.UpdatedAt ?? i.CreatedAt)
+            .Take(5)
+            .Select(i =>
+            {
+                var when = i.UpdatedAt ?? i.CreatedAt;
+                var title = i.UpdatedAt.HasValue ? "Inventory Item Updated" : "Inventory Item Added";
+                var description = i.UpdatedAt.HasValue
+                    ? $"{i.ItemName} updated. Stock: {i.StockQuantity}"
+                    : $"{i.ItemName} added. Stock: {i.StockQuantity}";
+                return new DashboardActivityItem(title, description, when.ToString("h:mm tt"), "Pharmacist");
+            })
+            .ToList();
+    }
+
+    private sealed record DashboardAlertCard(string Title, string Description, string ActionText);
+    private sealed record DashboardActivityItem(string Title, string Description, string TimeLabel, string Actor);
 }

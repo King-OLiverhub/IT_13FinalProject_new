@@ -159,7 +159,7 @@
                                     <td class="pm-col-vitals">
                                         @if (ActiveTab == PatientTab.New)
                                         {
-                                            <button class="pm-add-btn" @onclick="() => GoToHealthRecords(patient.PatientId.ToString())">+ Add</button>
+                                            <button type="button" class="pm-add-btn" @onclick="() => GoToHealthRecords(patient.PatientId.ToString())">+ Add</button>
                                         }
                                     </td>
                                 </tr>

@@ -71,12 +71,14 @@ namespace IT_13FinalProject.Services
     public class DatabaseUserAccountService : IUserAccountService
     {
         private readonly ApplicationDbContext _context;
+        private readonly LocalDbContext _localContext;
         private readonly ILogger<DatabaseUserAccountService> _logger;
         private readonly SemaphoreSlim _dbLock = new(1, 1);
 
-        public DatabaseUserAccountService(ApplicationDbContext context, ILogger<DatabaseUserAccountService> logger)
+        public DatabaseUserAccountService(ApplicationDbContext context, LocalDbContext localContext, ILogger<DatabaseUserAccountService> logger)
         {
             _context = context; // Now using cloud database
+            _localContext = localContext;
             _logger = logger;
         }
 
@@ -109,25 +111,53 @@ namespace IT_13FinalProject.Services
         public async Task<bool> UserExistsAsync(string username)
         {
             return await WithDbLock(async () =>
-                await _context.Users.AnyAsync(u => u.Username.ToLower() == username.ToLower()));
+            {
+                var normalized = username.ToLower();
+
+                var existsInCloud = await _context.Users.AnyAsync(u => u.Username.ToLower() == normalized);
+                if (existsInCloud) return true;
+
+                return await _localContext.Users.AnyAsync(u => u.Username.ToLower() == normalized);
+            });
         }
 
         public async Task<bool> EmailExistsAsync(string email)
         {
             return await WithDbLock(async () =>
-                await _context.Users.AnyAsync(u => u.Email != null && u.Email.ToLower() == email.ToLower()));
+            {
+                var normalized = email.ToLower();
+
+                var existsInCloud = await _context.Users.AnyAsync(u => u.Email != null && u.Email.ToLower() == normalized);
+                if (existsInCloud) return true;
+
+                return await _localContext.Users.AnyAsync(u => u.Email != null && u.Email.ToLower() == normalized);
+            });
         }
 
         public async Task<User?> GetUserByUsernameAsync(string username)
         {
             return await WithDbLock(async () =>
-                await _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower()));
+            {
+                var normalized = username.ToLower();
+
+                var cloudUser = await _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == normalized);
+                if (cloudUser != null) return cloudUser;
+
+                return await _localContext.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == normalized);
+            });
         }
 
         public async Task<User?> GetUserByEmailAsync(string email)
         {
             return await WithDbLock(async () =>
-                await _context.Users.FirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == email.ToLower()));
+            {
+                var normalized = email.ToLower();
+
+                var cloudUser = await _context.Users.FirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == normalized);
+                if (cloudUser != null) return cloudUser;
+
+                return await _localContext.Users.FirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == normalized);
+            });
         }
 
         public async Task<User> CreateUserAsync(User user)
@@ -136,31 +166,80 @@ namespace IT_13FinalProject.Services
             {
                 if (user == null) throw new ArgumentNullException(nameof(user));
 
+                var normalizedUsername = user.Username.ToLower();
+                var normalizedEmail = user.Email?.ToLower();
+
                 // Check if username already exists
-                if (await _context.Users.AnyAsync(u => u.Username.ToLower() == user.Username.ToLower()))
+                if (await _context.Users.AnyAsync(u => u.Username.ToLower() == normalizedUsername) ||
+                    await _localContext.Users.AnyAsync(u => u.Username.ToLower() == normalizedUsername))
                 {
                     throw new InvalidOperationException("Username already exists.");
                 }
 
                 // Check if email already exists
-                if (!string.IsNullOrEmpty(user.Email) && await _context.Users.AnyAsync(u => u.Email != null && u.Email.ToLower() == user.Email.ToLower()))
+                if (!string.IsNullOrEmpty(user.Email) &&
+                    (await _context.Users.AnyAsync(u => u.Email != null && u.Email.ToLower() == normalizedEmail) ||
+                     await _localContext.Users.AnyAsync(u => u.Email != null && u.Email.ToLower() == normalizedEmail)))
                 {
                     throw new InvalidOperationException("Email already exists.");
                 }
 
                 // Hash the password
-                user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
+                var hashedPassword = BCrypt.Net.BCrypt.HashPassword(user.Password);
 
                 // Set defaults
-                user.CreatedAt = DateTime.UtcNow;
-                user.IsActive = true;
+                var createdAt = DateTime.UtcNow;
 
-                // Save to cloud database
-                _context.Users.Add(user);
+                var cloudUser = new User
+                {
+                    Username = user.Username,
+                    Email = user.Email,
+                    Password = hashedPassword,
+                    Role = user.Role,
+                    FullName = user.FullName,
+                    CreatedAt = createdAt,
+                    IsActive = true
+                };
+
+                var localUser = new User
+                {
+                    Username = user.Username,
+                    Email = user.Email,
+                    Password = hashedPassword,
+                    Role = user.Role,
+                    FullName = user.FullName,
+                    CreatedAt = createdAt,
+                    IsActive = true
+                };
+
+                // Save to cloud database first, then local.
+                _context.Users.Add(cloudUser);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Created new user in cloud: {Username}", user.Username);
-                return user;
+                try
+                {
+                    _localContext.Users.Add(localUser);
+                    await _localContext.SaveChangesAsync();
+                }
+                catch (Exception localEx)
+                {
+                    // Best-effort compensation to avoid partial writes.
+                    try
+                    {
+                        _context.Users.Remove(cloudUser);
+                        await _context.SaveChangesAsync();
+                    }
+                    catch (Exception rollbackEx)
+                    {
+                        _logger.LogError(rollbackEx, "Failed to rollback cloud user after local save failed. Username: {Username}", cloudUser.Username);
+                    }
+
+                    _logger.LogError(localEx, "Failed to create user in local database. Username: {Username}", cloudUser.Username);
+                    throw;
+                }
+
+                _logger.LogInformation("Created new user in cloud and local: {Username}", cloudUser.Username);
+                return cloudUser;
             });
         }
 
@@ -168,7 +247,13 @@ namespace IT_13FinalProject.Services
         {
             return await WithDbLock(async () =>
             {
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower());
+                var normalized = username.ToLower();
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == normalized);
+
+                if (user == null)
+                {
+                    user = await _localContext.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == normalized);
+                }
 
                 if (user != null && BCrypt.Net.BCrypt.Verify(password, user.Password))
                 {
@@ -255,13 +340,23 @@ namespace IT_13FinalProject.Services
         {
             return await WithDbLock(async () =>
             {
-                var user = await _context.Users.FindAsync(userId);
-                if (user == null) return false;
+                // Delete from cloud (primary)
+                var cloudUser = await _context.Users.FindAsync(userId);
+                if (cloudUser == null) return false;
 
-                _context.Users.Remove(user);
+                _context.Users.Remove(cloudUser);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Deleted user: {Username}", user.Username);
+                // Best-effort delete from local by username to avoid needing matching IDs.
+                var normalized = cloudUser.Username.ToLower();
+                var localUser = await _localContext.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == normalized);
+                if (localUser != null)
+                {
+                    _localContext.Users.Remove(localUser);
+                    await _localContext.SaveChangesAsync();
+                }
+
+                _logger.LogInformation("Deleted user: {Username}", cloudUser.Username);
                 return true;
             });
         }

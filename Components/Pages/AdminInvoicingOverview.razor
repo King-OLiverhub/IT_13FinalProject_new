@@ -1,5 +1,8 @@
 @page "/admin-invoicing-overview"
 @layout Layout.DashboardLayout
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Services
+@inject IPatientBillService BillService
 
 <div class="inv-page">
     <!-- Header same layout as other dashboard pages -->
@@ -32,7 +35,7 @@
             <div class="inv-search-row">
                 <div class="inv-search-box">
                     <span class="inv-search-icon"></span>
-                    <input class="inv-search-input" placeholder="Search Patient" />
+                    <input class="inv-search-input" placeholder="Search Patient" @bind-value="SearchTerm" @bind-value:event="oninput" @bind-value:after="SearchBillsAsync" />
                 </div>
 
                 <div class="inv-actions">
@@ -43,35 +46,69 @@
         </div>
 
         <div class="inv-list">
-            @foreach (var invoice in Invoices)
+            @if (isLoading)
             {
                 <div class="inv-row">
                     <div class="inv-row-main">
                         <div class="inv-row-name">
-                            <span class="inv-row-label">Name</span>
-                            <span class="inv-row-value">@invoice.Name</span>
-                        </div>
-                    </div>
-                    <div class="inv-row-columns">
-                        <div class="inv-row-col">
-                            <span class="inv-row-label">Amount</span>
-                            <span class="inv-row-value">@invoice.Amount</span>
-                        </div>
-                        <div class="inv-row-col">
-                            <span class="inv-row-label">Date</span>
-                            <span class="inv-row-value">@invoice.Date</span>
-                        </div>
-                        <div class="inv-row-col">
-                            <span class="inv-row-label">Status</span>
-                            <span class="inv-row-value">@invoice.Status</span>
-                        </div>
-                        <div class="inv-row-col inv-row-col-action">
-                            <button class="inv-view-btn" @onclick="() => ViewInvoice(invoice)">
-                                <span class="inv-view-icon"></span>
-                            </button>
+                            <span class="inv-row-value">Loading bills...</span>
                         </div>
                     </div>
                 </div>
+            }
+            else if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <div class="inv-row">
+                    <div class="inv-row-main">
+                        <div class="inv-row-name">
+                            <span class="inv-row-value">@errorMessage</span>
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (!FilteredBills.Any())
+            {
+                <div class="inv-row">
+                    <div class="inv-row-main">
+                        <div class="inv-row-name">
+                            <span class="inv-row-value">No bills found.</span>
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                @foreach (var bill in FilteredBills)
+                {
+                    var b = bill;
+                    <div class="inv-row">
+                        <div class="inv-row-main">
+                            <div class="inv-row-name">
+                                <span class="inv-row-label">Name</span>
+                                <span class="inv-row-value">@b.PatientName</span>
+                            </div>
+                        </div>
+                        <div class="inv-row-columns">
+                            <div class="inv-row-col">
+                                <span class="inv-row-label">Amount</span>
+                                <span class="inv-row-value">₱@b.TotalAmount.ToString("N2")</span>
+                            </div>
+                            <div class="inv-row-col">
+                                <span class="inv-row-label">Date</span>
+                                <span class="inv-row-value">@b.DateOfVisit.ToString("MM/dd/yy")</span>
+                            </div>
+                            <div class="inv-row-col">
+                                <span class="inv-row-label">Status</span>
+                                <span class="inv-row-value">@b.PaymentStatus</span>
+                            </div>
+                            <div class="inv-row-col inv-row-col-action">
+                                <button class="inv-view-btn" @onclick="() => ViewBillInvoice(b.BillId)">
+                                    <span class="inv-view-icon"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
             }
         </div>
 
@@ -91,18 +128,18 @@
     [Inject]
     private NavigationManager Navigation { get; set; } = default!;
 
-    private record InvoiceRow(string Name, string Amount, string Date, string Status);
-
-    private readonly InvoiceRow[] Invoices = new InvoiceRow[]
-    {
-        new("Himeko Murata", "15,000 php", "03/09/24", "Unpaid"),
-        new("Yae Miko", "25,000 php", "03/03/24", "Unpaid"),
-        new("Black Swan", "29,000 php", "03/06/24", "Paid"),
-        new("Ruan Mei", "18,000 php", "03/07/24", "Paid"),
-        new("Bronya Rand", "60,000 php", "03/01/24", "Paid"),
-    };
+    private List<PatientBill> Bills { get; set; } = new();
+    private List<PatientBill> FilteredBills { get; set; } = new();
+    private bool isLoading { get; set; } = true;
+    private string? errorMessage { get; set; }
+    private string SearchTerm { get; set; } = string.Empty;
 
     private bool ShowPagination { get; set; } = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBillsAsync();
+    }
 
     private void GoToBills()
     {
@@ -114,10 +151,65 @@
         Navigation.NavigateTo("/admin-receipts-overview");
     }
 
-    private void ViewInvoice(InvoiceRow invoice)
+    private void ViewBillInvoice(int billId)
     {
-        // For now, simply navigate to the invoice PDF preview page
-        Navigation.NavigateTo("/admin-invoice-pdf");
+        Navigation.NavigateTo($"/admin-invoice-pdf?billId={billId}");
+    }
+
+    private static bool IsInvoiceBill(PatientBill b)
+    {
+        var status = (b.PaymentStatus ?? string.Empty).Trim();
+        return !status.Equals("Paid", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task LoadBillsAsync()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+            Bills = (await BillService.GetAllAsync(includeArchived: false)).ToList();
+            FilteredBills = Bills.Where(IsInvoiceBill).ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading bills: {ex.GetBaseException().Message}";
+            Bills = new();
+            FilteredBills = new();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SearchBillsAsync()
+    {
+        try
+        {
+            errorMessage = null;
+
+            IReadOnlyList<PatientBill> results;
+            if (string.IsNullOrWhiteSpace(SearchTerm))
+            {
+                results = Bills;
+            }
+            else
+            {
+                results = await BillService.SearchAsync(SearchTerm);
+            }
+
+            FilteredBills = results.Where(IsInvoiceBill).ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error searching bills: {ex.GetBaseException().Message}";
+        }
+        finally
+        {
+            StateHasChanged();
+        }
     }
 
     private void TogglePagination()

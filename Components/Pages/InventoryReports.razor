@@ -1,6 +1,11 @@
 ﻿@page "/inventory-reports"
 @layout DashboardLayout
-@using IT_13FinalProject.Services
+@using IT_13FinalProject.Data
+@using PharmacyInventoryModel = IT_13FinalProject.Models.PharmacyInventory
+@using Microsoft.EntityFrameworkCore
+
+@inject ApplicationDbContext DbContext
+@inject IJSRuntime JsRuntime
 
 <PageTitle>Reports</PageTitle>
 
@@ -58,19 +63,24 @@
                 </div>
 
                 <div class="action-buttons">
-                    <button class="btn-action generate" @onclick="GenerateReport">
+                    <button class="btn-action generate" @onclick="GenerateReport" disabled="@IsGenerating">
                         <i class="fas fa-file-alt"></i>
                         Generate Report
                     </button>
-                    <button class="btn-action preview" @onclick="ShowPreview">
+                    <button class="btn-action preview" @onclick="ShowPreview" disabled="@(GeneratedReport == null)">
                         <i class="fas fa-eye"></i>
                         Preview
                     </button>
-                    <button class="btn-action export">
+                    <button class="btn-action export" @onclick="ExportCsv" disabled="@(GeneratedReport == null)">
                         <i class="fas fa-file-pdf"></i>
                         Export PDF
                     </button>
                 </div>
+
+                @if (!string.IsNullOrWhiteSpace(ReportError))
+                {
+                    <div style="color: #b91c1c; margin-top: 10px; font-size: 13px;">@ReportError</div>
+                }
             </div>
         </div>
 
@@ -170,30 +180,47 @@
         <div class="modal-overlay" @onclick="HidePreview">
             <div class="modal-panel" @onclick:stopPropagation="true">
                 <div class="modal-header">
-                    <h2>STOCK LEVEL REPORT <span class="report-date">- Nov 15, 2024</span></h2>
+                    <h2>@(GeneratedReport?.Title ?? "REPORT") <span class="report-date">- @FormatRange()</span></h2>
                     <button class="modal-close" @onclick="HidePreview">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
 
                 <div class="modal-body">
-                    <div class="report-section">
-                        <h3>CRITICAL ITEMS:</h3>
-                        <ul class="report-list-items">
-                            <li>Paracetamol 500mg - 15 units</li>
-                            <li>Amoxicillin 500mg - 25 units</li>
-                            <li>Bandages - 30 units</li>
-                        </ul>
-                    </div>
-
-                    <div class="report-section">
-                        <h3>CRITICAL ITEMS:</h3>
-                        <div class="report-stats">
-                            <p>Dispensed Today: <strong>45 prescriptions</strong></p>
-                            <p>Total value Dispensed: <strong>?3,200</strong></p>
-                            <p>Top Medication: <strong>Paracetamol (18 prescriptions)</strong></p>
+                    @if (GeneratedReport == null)
+                    {
+                        <div class="report-section">
+                            <p>No report generated.</p>
                         </div>
-                    </div>
+                    }
+                    else
+                    {
+                        <div class="report-section">
+                            <div style="overflow:auto; max-height: 55vh;">
+                                <table style="width:100%; border-collapse: collapse; font-size: 13px;">
+                                    <thead>
+                                        <tr>
+                                            @foreach (var c in GeneratedReport.Columns)
+                                            {
+                                                <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px; white-space:nowrap;">@c</th>
+                                            }
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var r in GeneratedReport.Rows)
+                                        {
+                                            <tr>
+                                                @foreach (var cell in r)
+                                                {
+                                                    <td style="border-bottom:1px solid #f1f5f9; padding:8px;">@cell</td>
+                                                }
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    }
                 </div>
 
                 <div class="modal-footer">
@@ -210,14 +237,67 @@
     private string selectedReportType = "";
     private bool showPreviewModal = false;
 
-    private void GenerateReport()
+    private bool IsGenerating { get; set; }
+    private ReportResult? GeneratedReport { get; set; }
+    private string? ReportError { get; set; }
+
+    private static DateTime GetInventoryReportDate(PharmacyInventoryModel i)
     {
-        // Implement report generation logic
-        Console.WriteLine($"Generating report: {selectedReportType}");
+        return i.UpdatedAt ?? i.CreatedAt;
+    }
+
+    private async Task GenerateReport()
+    {
+        ReportError = null;
+        GeneratedReport = null;
+
+        if (string.IsNullOrWhiteSpace(selectedReportType))
+        {
+            ReportError = "Please select a report type.";
+            return;
+        }
+
+        if (endDate.Date < startDate.Date)
+        {
+            ReportError = "End Date must be greater than or equal to Start Date.";
+            return;
+        }
+
+        IsGenerating = true;
+        try
+        {
+            var from = startDate.Date;
+            var toInclusive = endDate.Date.AddDays(1).AddTicks(-1);
+
+            var inventory = await DbContext.PharmacyInventory
+                .AsNoTracking()
+                .ToListAsync();
+
+            var filtered = inventory
+                .Where(i => GetInventoryReportDate(i) >= from && GetInventoryReportDate(i) <= toInclusive)
+                .ToList();
+
+            GeneratedReport = BuildReport(selectedReportType, filtered, from, endDate.Date);
+
+            if (GeneratedReport == null)
+            {
+                ReportError = "Unable to generate report.";
+            }
+        }
+        catch (Exception ex)
+        {
+            ReportError = $"Failed to generate report: {ex.Message}";
+        }
+        finally
+        {
+            IsGenerating = false;
+        }
     }
 
     private void ShowPreview()
     {
+        if (GeneratedReport == null)
+            return;
         showPreviewModal = true;
     }
 
@@ -229,6 +309,165 @@
     private void QuickGenerate(string reportType)
     {
         selectedReportType = reportType;
-        GenerateReport();
+        _ = GenerateReport();
+    }
+
+    private string FormatRange()
+    {
+        var s = startDate.ToString("MMM dd, yyyy");
+        var e = endDate.ToString("MMM dd, yyyy");
+        return s == e ? s : $"{s} to {e}";
+    }
+
+    private async Task ExportCsv()
+    {
+        if (GeneratedReport == null)
+            return;
+
+        var csv = GeneratedReport.ToCsv();
+        var bytes = System.Text.Encoding.UTF8.GetBytes(csv);
+        var base64 = Convert.ToBase64String(bytes);
+        var fileName = $"{GeneratedReport.ExportBaseName}_{startDate:yyyyMMdd}_{endDate:yyyyMMdd}.csv";
+
+        await JsRuntime.InvokeVoidAsync("medflow.downloadBase64File", "text/csv", base64, fileName);
+    }
+
+    private ReportResult? BuildReport(string type, List<PharmacyInventoryModel> items, DateTime from, DateTime to)
+    {
+        switch (type)
+        {
+            case "stock":
+                return BuildStockLevelReport(items);
+            case "expiry":
+                return BuildExpiryTrackingReport(items);
+            case "lowstock":
+                return BuildLowStockSummary(items);
+            case "movement":
+                return BuildMovementHistory(items);
+            default:
+                return null;
+        }
+    }
+
+    private static ReportResult BuildStockLevelReport(List<PharmacyInventoryModel> items)
+    {
+        var r = new ReportResult("Stock Level Report", "inventory_stock_level");
+        r.Columns.AddRange(new[] { "Item Name", "Category", "Stock", "Reorder Level", "Status", "Unit Price" });
+
+        foreach (var i in items.OrderBy(i => i.ItemName))
+        {
+            r.Rows.Add(new[]
+            {
+                i.ItemName,
+                i.Category ?? "",
+                i.StockQuantity.ToString(),
+                i.ReorderLevel.ToString(),
+                i.Status,
+                i.UnitPrice.ToString("N2")
+            });
+        }
+
+        return r;
+    }
+
+    private static ReportResult BuildExpiryTrackingReport(List<PharmacyInventoryModel> items)
+    {
+        var r = new ReportResult("Expiry Date Tracking Report", "inventory_expiry_tracking");
+        r.Columns.AddRange(new[] { "Item Name", "Stock", "Expiry Date", "Days To Expire", "Status" });
+
+        foreach (var i in items
+            .Where(i => i.ExpiryDate.HasValue)
+            .OrderBy(i => i.ExpiryDate))
+        {
+            var days = (i.ExpiryDate!.Value.Date - DateTime.Today).Days;
+            r.Rows.Add(new[]
+            {
+                i.ItemName,
+                i.StockQuantity.ToString(),
+                i.ExpiryDate.Value.ToString("yyyy-MM-dd"),
+                days.ToString(),
+                i.Status
+            });
+        }
+
+        return r;
+    }
+
+    private static ReportResult BuildLowStockSummary(List<PharmacyInventoryModel> items)
+    {
+        var low = items.Where(i => !i.IsArchived && i.StockQuantity <= i.ReorderLevel).OrderBy(i => i.StockQuantity).ToList();
+        var r = new ReportResult("Low Stock Alerts Summary", "inventory_low_stock");
+        r.Columns.AddRange(new[] { "Item Name", "Stock", "Reorder Level", "Shortage", "Status" });
+
+        foreach (var i in low)
+        {
+            var shortage = Math.Max(0, i.ReorderLevel - i.StockQuantity);
+            r.Rows.Add(new[]
+            {
+                i.ItemName,
+                i.StockQuantity.ToString(),
+                i.ReorderLevel.ToString(),
+                shortage.ToString(),
+                i.Status
+            });
+        }
+
+        return r;
+    }
+
+    private static ReportResult BuildMovementHistory(List<PharmacyInventoryModel> items)
+    {
+        var r = new ReportResult("Inventory Movement History", "inventory_movement");
+        r.Columns.AddRange(new[] { "Item Name", "Created At", "Updated At", "Last Restocked", "Stock" });
+
+        foreach (var i in items.OrderByDescending(i => i.UpdatedAt ?? i.CreatedAt))
+        {
+            r.Rows.Add(new[]
+            {
+                i.ItemName,
+                i.CreatedAt.ToString("yyyy-MM-dd HH:mm"),
+                i.UpdatedAt?.ToString("yyyy-MM-dd HH:mm") ?? "",
+                i.LastRestocked?.ToString("yyyy-MM-dd HH:mm") ?? "",
+                i.StockQuantity.ToString()
+            });
+        }
+
+        return r;
+    }
+
+    private sealed class ReportResult
+    {
+        public ReportResult(string title, string exportBaseName)
+        {
+            Title = title;
+            ExportBaseName = exportBaseName;
+        }
+
+        public string Title { get; }
+        public string ExportBaseName { get; }
+        public List<string> Columns { get; } = new();
+        public List<string[]> Rows { get; } = new();
+
+        public string ToCsv()
+        {
+            static string Esc(string s)
+            {
+                if (s.Contains('"') || s.Contains(',') || s.Contains('\n') || s.Contains('\r'))
+                    return '"' + s.Replace("\"", "\"\"") + '"';
+                return s;
+            }
+
+            var lines = new List<string>
+            {
+                string.Join(",", Columns.Select(Esc))
+            };
+
+            foreach (var row in Rows)
+            {
+                lines.Add(string.Join(",", row.Select(Esc)));
+            }
+
+            return string.Join("\r\n", lines);
+        }
     }
 }

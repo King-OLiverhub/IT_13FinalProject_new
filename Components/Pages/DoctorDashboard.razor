@@ -1,6 +1,16 @@
 @page "/doctor-dashboard"
 @layout Layout.DashboardLayout
 
+@using IT_13FinalProject.Data
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Services
+@using Microsoft.Data.SqlClient
+@using Microsoft.EntityFrameworkCore
+
+@inject ApplicationDbContext DbContext
+@inject LocalDbContext LocalDbContext
+@inject INotificationService NotificationService
+
 <div class="dashboard-page @(IsNotificationDismissed ? "dashboard-no-notification" : string.Empty)">
     <header class="dashboard-header">
         <div>
@@ -45,7 +55,16 @@
                 <div class="notification-body">
                     <div class="notification-icon">!</div>
                     <div class="notification-text">
-                        <div>New patient added to consultation queue: Juan Dela Cruz.</div>
+                        <div>
+                            @if (LatestNotification != null)
+                            {
+                                @LatestNotification.Description
+                            }
+                            else
+                            {
+                                <span>No new notifications.</span>
+                            }
+                        </div>
                         <button class="notification-button" @onclick="GoToNotification">Go to notification</button>
                     </div>
                 </div>
@@ -57,37 +76,37 @@
         <div class="dashboard-card">
             <h3>Prescription Frequency</h3>
             <div class="card-placeholder">
-                <div class="card-kpi-value">142</div>
-                <div class="card-kpi-change positive">+15%</div>
+                <div class="card-kpi-value">@PrescriptionThisWeek</div>
+                <div class="card-kpi-change @(GetChangeCss(PrescriptionChangePct))">@FormatPct(PrescriptionChangePct)</div>
                 <div class="card-kpi-subtitle">Prescriptions written this week</div>
-                <div class="card-chart-placeholder">[Bar chart placeholder]</div>
+                <div class="card-chart-placeholder mini-chart">@((MarkupString)RenderBars(PrescriptionsByDay))</div>
             </div>
         </div>
         <div class="dashboard-card">
             <h3>Daily / Weekly Consultation</h3>
             <div class="card-placeholder">
-                <div class="card-kpi-value">38</div>
-                <div class="card-kpi-change positive">+12%</div>
+                <div class="card-kpi-value">@ConsultationsToday</div>
+                <div class="card-kpi-change @(GetChangeCss(ConsultationChangePct))">@FormatPct(ConsultationChangePct)</div>
                 <div class="card-kpi-subtitle">Consultations today</div>
-                <div class="card-chart-placeholder">[Line chart placeholder]</div>
+                <div class="card-chart-placeholder mini-chart">@((MarkupString)RenderSparkline(ConsultationsByDay))</div>
             </div>
         </div>
         <div class="dashboard-card">
             <h3>Patient Diagnoses Distribution</h3>
             <div class="card-placeholder">
-                <div class="card-kpi-value">5</div>
-                <div class="card-kpi-change neutral">0%</div>
+                <div class="card-kpi-value">@TopDiagnosesCount</div>
+                <div class="card-kpi-change @(GetChangeCss(DiagnosisChangePct, neutralIfZero: true))">@FormatPct(DiagnosisChangePct)</div>
                 <div class="card-kpi-subtitle">Common diagnoses this week</div>
-                <div class="card-chart-placeholder">[Pie chart placeholder]</div>
+                <div class="card-chart-placeholder mini-chart">@((MarkupString)RenderDonut(TopDiagnosisSlices))</div>
             </div>
         </div>
         <div class="dashboard-card">
             <h3>Pending Lab Results</h3>
             <div class="card-placeholder">
-                <div class="card-kpi-value">23</div>
-                <div class="card-kpi-change negative">-8%</div>
+                <div class="card-kpi-value">@PendingLabResults</div>
+                <div class="card-kpi-change @(GetChangeCss(PendingLabsChangePct, neutralIfZero: true))">@FormatPct(PendingLabsChangePct)</div>
                 <div class="card-kpi-subtitle">Results awaiting review</div>
-                <div class="card-chart-placeholder">[Bar chart placeholder]</div>
+                <div class="card-chart-placeholder mini-chart">@((MarkupString)RenderBars(PendingLabsByDay))</div>
             </div>
         </div>
     </section>
@@ -96,7 +115,7 @@
         <div class="activity-header">
             <h3>Recent Activity</h3>
             <div class="activity-search-area">
-                <input class="activity-search" placeholder="Search activity..." />
+                <input class="activity-search" placeholder="Search activity..." @bind="ActivitySearch" />
                 <div class="activity-actions">
                     <button class="activity-action-btn">Sort</button>
                     <button class="activity-action-btn">Filters</button>
@@ -114,16 +133,14 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td>Reviewed lab results for Patient #201</td>
-                        <td>Doctor</td>
-                        <td>10:24 AM</td>
-                    </tr>
-                    <tr>
-                        <td>Updated diagnosis for Patient #88</td>
-                        <td>Doctor</td>
-                        <td>10:15 AM</td>
-                    </tr>
+                    @foreach (var a in FilteredActivities)
+                    {
+                        <tr>
+                            <td>@a.Activity</td>
+                            <td>@a.User</td>
+                            <td>@a.Timestamp.ToString("h:mm tt")</td>
+                        </tr>
+                    }
                 </tbody>
             </table>
         </div>
@@ -133,6 +150,387 @@
 @code {
     [Inject]
     private NavigationManager Navigation { get; set; } = default!;
+
+    private int PrescriptionThisWeek { get; set; }
+    private decimal PrescriptionChangePct { get; set; }
+
+    private int ConsultationsToday { get; set; }
+    private decimal ConsultationChangePct { get; set; }
+
+    private int TopDiagnosesCount { get; set; }
+    private decimal DiagnosisChangePct { get; set; }
+
+    private int PendingLabResults { get; set; }
+    private decimal PendingLabsChangePct { get; set; }
+
+    private List<int> PrescriptionsByDay { get; set; } = new();
+    private List<int> ConsultationsByDay { get; set; } = new();
+    private List<int> PendingLabsByDay { get; set; } = new();
+    private List<(string Label, int Value)> TopDiagnosisSlices { get; set; } = new();
+
+    private NotificationFeedItem? LatestNotification { get; set; }
+
+    private string ActivitySearch { get; set; } = string.Empty;
+    private List<ActivityItem> Activities { get; set; } = new();
+
+    private IEnumerable<ActivityItem> FilteredActivities =>
+        string.IsNullOrWhiteSpace(ActivitySearch)
+            ? Activities
+            : Activities.Where(a => a.Activity.Contains(ActivitySearch, StringComparison.OrdinalIgnoreCase)
+                                    || a.User.Contains(ActivitySearch, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardAsync();
+        await base.OnInitializedAsync();
+    }
+
+    private static bool IsCloudConnectionFailure(Exception ex)
+    {
+        if (ex is SqlException)
+            return true;
+
+        if (ex is DbUpdateException dbu && dbu.InnerException is SqlException)
+            return true;
+
+        if (ex is DbUpdateException dbu2 && dbu2.GetBaseException() is SqlException)
+            return true;
+
+        return false;
+    }
+
+    private async Task LoadDashboardAsync()
+    {
+        var today = DateTime.Today;
+        var startOfWeek = today.AddDays(-6);
+        var prevWeekStart = startOfWeek.AddDays(-7);
+        var prevWeekEnd = startOfWeek.AddTicks(-1);
+
+        var startOfDay = today;
+        var endOfDay = today.AddDays(1).AddTicks(-1);
+        var yStart = today.AddDays(-1);
+        var yEnd = today.AddTicks(-1);
+
+        try
+        {
+            var data = await TryLoadDashboardDataAsync(DbContext, today, startOfWeek, prevWeekStart, prevWeekEnd, startOfDay, endOfDay, yStart, yEnd);
+            ApplyDashboardData(data);
+            await LoadNotificationsAsync("doctor");
+        }
+        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+        {
+            var data = await TryLoadDashboardDataAsync(LocalDbContext, today, startOfWeek, prevWeekStart, prevWeekEnd, startOfDay, endOfDay, yStart, yEnd);
+            ApplyDashboardData(data);
+            await LoadNotificationsAsync("doctor");
+        }
+        catch
+        {
+            PrescriptionThisWeek = 0;
+            PrescriptionChangePct = 0;
+            ConsultationsToday = 0;
+            ConsultationChangePct = 0;
+            TopDiagnosesCount = 0;
+            DiagnosisChangePct = 0;
+            PendingLabResults = 0;
+            PendingLabsChangePct = 0;
+            Activities = new();
+            PrescriptionsByDay = new();
+            ConsultationsByDay = new();
+            PendingLabsByDay = new();
+            TopDiagnosisSlices = new();
+            LatestNotification = null;
+        }
+    }
+
+    private async Task LoadNotificationsAsync(string role)
+    {
+        try
+        {
+            var feed = await NotificationService.GetFeedAsync(role, 10);
+            LatestNotification = feed.FirstOrDefault(x => !x.IsRead) ?? feed.FirstOrDefault();
+        }
+        catch
+        {
+            LatestNotification = null;
+        }
+    }
+
+    private sealed record DashboardData(
+        int PrescriptionsThisWeek,
+        int PrescriptionsPrevWeek,
+        int ConsultationsToday,
+        int ConsultationsYesterday,
+        int TopDiagnosesThisWeek,
+        int TopDiagnosesPrevWeek,
+        int PendingLabsNow,
+        int PendingLabsPrevWeek,
+        List<int> PrescriptionsByDay,
+        List<int> ConsultationsByDay,
+        List<int> PendingLabsByDay,
+        List<(string Label, int Value)> DiagnosisSlices,
+        List<ActivityItem> Activities
+    );
+
+    private async Task<DashboardData> TryLoadDashboardDataAsync(DbContext ctx,
+        DateTime today,
+        DateTime startOfWeek,
+        DateTime prevWeekStart,
+        DateTime prevWeekEnd,
+        DateTime startOfDay,
+        DateTime endOfDay,
+        DateTime yStart,
+        DateTime yEnd)
+    {
+        static List<DateTime> Last7Days(DateTime t) => Enumerable.Range(0, 7).Select(i => t.Date.AddDays(-6 + i)).ToList();
+
+        var weekRangeStart = startOfWeek;
+        var weekRangeEnd = today.AddDays(1).AddTicks(-1);
+
+        var hrBase = ctx.Set<IT_13FinalProject.Models.HealthRecord>().AsNoTracking().Where(r => r.IsArchived == false);
+        var weekHrs = await hrBase
+            .Where(r => (r.RecordDate ?? r.ApprovalDate ?? today) >= weekRangeStart && (r.RecordDate ?? r.ApprovalDate ?? today) <= weekRangeEnd)
+            .ToListAsync();
+
+        var prevWeekHrs = await hrBase
+            .Where(r => (r.RecordDate ?? r.ApprovalDate ?? today) >= prevWeekStart && (r.RecordDate ?? r.ApprovalDate ?? today) <= prevWeekEnd)
+            .ToListAsync();
+
+        bool HasAnyPrescription(IT_13FinalProject.Models.HealthRecord r)
+        {
+            return !string.IsNullOrWhiteSpace(r.Prescription)
+                || !string.IsNullOrWhiteSpace(r.MedicineName)
+                || !string.IsNullOrWhiteSpace(r.Dosage)
+                || !string.IsNullOrWhiteSpace(r.Frequency)
+                || !string.IsNullOrWhiteSpace(r.Duration);
+        }
+
+        var prescriptionsThisWeek = weekHrs.Count(HasAnyPrescription);
+        var prescriptionsPrevWeek = prevWeekHrs.Count(HasAnyPrescription);
+
+        var consultToday = weekHrs.Count(r => (r.RecordDate ?? r.ApprovalDate ?? today).Date == today.Date);
+        var consultYesterday = await hrBase
+            .CountAsync(r => (r.RecordDate ?? r.ApprovalDate ?? today) >= yStart && (r.RecordDate ?? r.ApprovalDate ?? today) <= yEnd);
+
+        var topDiagThisWeek = weekHrs
+            .Select(r => (r.Diagnosis ?? r.AssessmentDiagnosis ?? string.Empty).Trim())
+            .Where(s => s.Length > 0)
+            .GroupBy(s => s, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Count())
+            .Select(g => g.Count())
+            .FirstOrDefault();
+
+        var topDiagPrevWeek = prevWeekHrs
+            .Select(r => (r.Diagnosis ?? r.AssessmentDiagnosis ?? string.Empty).Trim())
+            .Where(s => s.Length > 0)
+            .GroupBy(s => s, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Count())
+            .Select(g => g.Count())
+            .FirstOrDefault();
+
+        var labs = ctx.Set<LabResult>().AsNoTracking();
+        var pendingNow = await labs.CountAsync(r => r.IsReviewed == false);
+        var pendingPrevWeek = await labs.CountAsync(r => r.IsReviewed == false && r.ResultDate >= prevWeekStart && r.ResultDate <= prevWeekEnd);
+
+        var days = Last7Days(today);
+        var presByDay = days
+            .Select(d => weekHrs.Count(r => (r.RecordDate ?? r.ApprovalDate ?? today).Date == d && HasAnyPrescription(r)))
+            .ToList();
+
+        var consultsByDay = days
+            .Select(d => weekHrs.Count(r => (r.RecordDate ?? r.ApprovalDate ?? today).Date == d))
+            .ToList();
+
+        var pendingByDay = new List<int>();
+        foreach (var d in days)
+        {
+            var end = d.AddDays(1).AddTicks(-1);
+            var c = await labs.CountAsync(r => r.IsReviewed == false && r.ResultDate >= d && r.ResultDate <= end);
+            pendingByDay.Add(c);
+        }
+
+        var diagGroups = weekHrs
+            .Select(r => (r.Diagnosis ?? r.AssessmentDiagnosis ?? string.Empty).Trim())
+            .Where(s => s.Length > 0)
+            .GroupBy(s => s, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Count())
+            .Take(3)
+            .Select(g => (Label: g.Key, Value: g.Count()))
+            .ToList();
+
+        var recentReviewedLabs = await labs
+            .Where(r => r.IsReviewed && r.ReviewedAt != null)
+            .OrderByDescending(r => r.ReviewedAt)
+            .Take(5)
+            .Select(r => new { r.PatientId, r.PatientName, r.ReviewedAt })
+            .ToListAsync();
+
+        var recentHealthRecords = await hrBase
+            .OrderByDescending(r => (r.RecordDate ?? r.ApprovalDate ?? today))
+            .Take(5)
+            .Select(r => new { r.PatientId, r.RecordDate, r.ApprovalDate, r.AssessmentDiagnosis, r.Diagnosis })
+            .ToListAsync();
+
+        var act = new List<ActivityItem>();
+        foreach (var x in recentReviewedLabs)
+        {
+            act.Add(new ActivityItem(
+                x.PatientId.HasValue ? $"Reviewed lab results for Patient #{x.PatientId.Value}" : $"Reviewed lab results for {x.PatientName}",
+                "Doctor",
+                x.ReviewedAt ?? DateTime.Now));
+        }
+
+        foreach (var x in recentHealthRecords)
+        {
+            var diag = (x.Diagnosis ?? x.AssessmentDiagnosis ?? string.Empty).Trim();
+            if (diag.Length == 0) diag = "Updated health record";
+
+            var when = x.RecordDate ?? x.ApprovalDate ?? DateTime.Now;
+            var who = "Doctor";
+            var patientLabel = x.PatientId.HasValue ? $"Patient #{x.PatientId.Value}" : "patient";
+            act.Add(new ActivityItem($"{diag} for {patientLabel}", who, when));
+        }
+
+        act = act.OrderByDescending(a => a.Timestamp).Take(10).ToList();
+
+        return new DashboardData(
+            prescriptionsThisWeek,
+            prescriptionsPrevWeek,
+            consultToday,
+            consultYesterday,
+            topDiagThisWeek,
+            topDiagPrevWeek,
+            pendingNow,
+            pendingPrevWeek,
+            presByDay,
+            consultsByDay,
+            pendingByDay,
+            diagGroups,
+            act
+        );
+    }
+
+    private void ApplyDashboardData(DashboardData d)
+    {
+        PrescriptionThisWeek = d.PrescriptionsThisWeek;
+        PrescriptionChangePct = CalcPctChange(d.PrescriptionsPrevWeek, d.PrescriptionsThisWeek);
+
+        ConsultationsToday = d.ConsultationsToday;
+        ConsultationChangePct = CalcPctChange(d.ConsultationsYesterday, d.ConsultationsToday);
+
+        TopDiagnosesCount = d.TopDiagnosesThisWeek;
+        DiagnosisChangePct = CalcPctChange(d.TopDiagnosesPrevWeek, d.TopDiagnosesThisWeek);
+
+        PendingLabResults = d.PendingLabsNow;
+        PendingLabsChangePct = CalcPctChange(d.PendingLabsPrevWeek, d.PendingLabsNow);
+
+        PrescriptionsByDay = d.PrescriptionsByDay;
+        ConsultationsByDay = d.ConsultationsByDay;
+        PendingLabsByDay = d.PendingLabsByDay;
+        TopDiagnosisSlices = d.DiagnosisSlices;
+
+        Activities = d.Activities;
+    }
+
+    private static string RenderBars(List<int> values)
+    {
+        values ??= new();
+        if (values.Count == 0) values = new List<int> { 0, 0, 0, 0, 0, 0, 0 };
+        var max = Math.Max(1, values.Max());
+
+        var w = 120;
+        var h = 36;
+        var gap = 2;
+        var barW = (w - gap * (values.Count - 1)) / values.Count;
+
+        var rects = new System.Text.StringBuilder();
+        for (var i = 0; i < values.Count; i++)
+        {
+            var v = values[i];
+            var bh = (int)Math.Round((double)v / max * (h - 4));
+            var x = i * (barW + gap);
+            var y = h - bh;
+            rects.Append($"<rect x='{x}' y='{y}' width='{barW}' height='{bh}' rx='4' fill='rgba(15,164,164,0.65)' />");
+        }
+
+        return $"<svg viewBox='0 0 {w} {h}' width='100%' height='{h}' preserveAspectRatio='none'>{rects}</svg>";
+    }
+
+    private static string RenderSparkline(List<int> values)
+    {
+        values ??= new();
+        if (values.Count == 0) values = new List<int> { 0, 0, 0, 0, 0, 0, 0 };
+        var max = Math.Max(1, values.Max());
+
+        var w = 120;
+        var h = 36;
+
+        var pts = new List<string>();
+        for (var i = 0; i < values.Count; i++)
+        {
+            var x = (double)i / (values.Count - 1) * (w - 2) + 1;
+            var y = h - ((double)values[i] / max * (h - 6) + 3);
+            pts.Add($"{x:F1},{y:F1}");
+        }
+
+        var poly = string.Join(" ", pts);
+        return $"<svg viewBox='0 0 {w} {h}' width='100%' height='{h}' preserveAspectRatio='none'>" +
+               $"<polyline points='{poly}' fill='none' stroke='rgba(15,164,164,0.85)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' />" +
+               $"</svg>";
+    }
+
+    private static string RenderDonut(List<(string Label, int Value)> slices)
+    {
+        slices ??= new();
+        if (slices.Count == 0) slices = new() { ("None", 1) };
+        var total = Math.Max(1, slices.Sum(s => Math.Max(0, s.Value)));
+
+        var colors = new[] { "#0FA4A4", "#60a5fa", "#f59e0b" };
+        var r = 14;
+        var cx = 18;
+        var cy = 18;
+        var circ = 2 * Math.PI * r;
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"<svg viewBox='0 0 36 36' width='100%' height='36'>");
+        sb.Append("<circle cx='18' cy='18' r='14' fill='none' stroke='rgba(100,116,139,0.15)' stroke-width='6' />");
+
+        double offset = 0;
+        for (var i = 0; i < slices.Count; i++)
+        {
+            var v = Math.Max(0, slices[i].Value);
+            var frac = (double)v / total;
+            var dash = frac * circ;
+            var col = colors[Math.Min(i, colors.Length - 1)];
+            sb.Append($"<circle cx='{cx}' cy='{cy}' r='{r}' fill='none' stroke='{col}' stroke-width='6' stroke-dasharray='{dash:F1} {circ:F1}' stroke-dashoffset='{(-offset):F1}' stroke-linecap='round' />");
+            offset += dash;
+        }
+        sb.Append("</svg>");
+        return sb.ToString();
+    }
+
+    private static decimal CalcPctChange(int baseline, int current)
+    {
+        if (baseline <= 0)
+            return current > 0 ? 100 : 0;
+
+        return Math.Round(((decimal)current - baseline) / baseline * 100m, 0);
+    }
+
+    private static string FormatPct(decimal value)
+    {
+        if (value > 0) return $"+{value}%";
+        if (value < 0) return $"{value}%";
+        return "0%";
+    }
+
+    private static string GetChangeCss(decimal value, bool neutralIfZero = false)
+    {
+        if (neutralIfZero && value == 0) return "neutral";
+        if (value > 0) return "positive";
+        if (value < 0) return "negative";
+        return "neutral";
+    }
+
+    private sealed record ActivityItem(string Activity, string User, DateTime Timestamp);
 
     private bool IsNotificationCollapsed { get; set; }
     private bool IsNotificationDismissed { get; set; }

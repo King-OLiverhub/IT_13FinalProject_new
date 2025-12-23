@@ -3,6 +3,9 @@
 @layout Layout.DashboardLayout
 
 @using System.Globalization
+@using IT_13FinalProject.Services
+
+@inject INotificationService NotificationService
 
 <div class="dashboard-page notification-page">
     <header class="dashboard-header">
@@ -58,7 +61,7 @@
                     @n.Description
                 </div>
                 <div class="card-actions">
-                    <button class="details-btn">View Details</button>
+                    <button class="details-btn" @onclick="() => ViewDetails(n)">View Details</button>
                 </div>
             </div>
         }
@@ -77,9 +80,9 @@
     private enum FilterType { All, Unread, Priority }
     private FilterType CurrentFilter { get; set; } = FilterType.All;
 
-    private List<NotificationItem> Notifications { get; set; } = new();
+    private List<NotificationRow> Notifications { get; set; } = new();
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
         // Determine role
         var resolvedRole = string.Empty;
@@ -135,59 +138,22 @@
         }
 
         SetUserEmail();
-        LoadSampleData();
+        await LoadFeedAsync();
     }
 
-    private void LoadSampleData()
+    private async Task LoadFeedAsync()
     {
-        Notifications.Clear();
-        switch (CurrentRole.ToLower())
+        try
         {
-            case "doctor":
-                Notifications.AddRange(new[]
-                {
-                    new NotificationItem("2 mins ago", "Consultation", "New patient added to consultation queue: Juan Dela Cruz.", false, false),
-                    new NotificationItem("10 mins ago", "Lab Result", "Lab result ready for review: Patient #201 (CBC).", false, true),
-                    new NotificationItem("Today", "Appointment", "Upcoming appointment: Patient #88 at 2:30 PM.", false, false),
-                    new NotificationItem("Yesterday", "Prescription", "Prescription needs renewal: Patient #45 (Amoxicillin).", true, false),
-                });
-                break;
-            case "nurse":
-                Notifications.AddRange(new[]
-                {
-                    new NotificationItem("5 mins ago", "Medication", "Medication order: Amoxicillin 500mg for Patient #88.", false, true),
-                    new NotificationItem("Today", "Vitals", "Vitals due now: Patient #102 (BP, Temp, Pulse).", false, false),
-                    new NotificationItem("Today", "Ward", "New admission assigned: Patient #117 (Room 203).", false, false),
-                    new NotificationItem("Yesterday", "Shift", "Shift handover note updated by Nurse Staff #3.", true, false),
-                });
-                break;
-            case "billing":
-                Notifications.AddRange(new[]
-                {
-                    new NotificationItem("Just now", "Overdue Invoice", "Invoice INV-2045 is overdue by 7 days (Patient #122).", false, true),
-                    new NotificationItem("Today", "Payment", "Payment received: Invoice INV-1980 (₱1,850.00).", false, false),
-                    new NotificationItem("Today", "Insurance Claim", "Claim pending approval: Patient #45 (PhilHealth).", false, false),
-                    new NotificationItem("2 days ago", "Statement", "Monthly statement generated for Patient #88.", true, false),
-                });
-                break;
-            case "inventory":
-                Notifications.AddRange(new[]
-                {
-                    new NotificationItem("Today", "Low Stock", "Low stock: Paracetamol 500mg — 15 units remaining.", false, true),
-                    new NotificationItem("Today", "Reorder", "Reorder needed: Cetirizine 10mg reached reorder point.", false, false),
-                    new NotificationItem("Today", "Delivery", "Delivery received: Amoxicillin 500mg (+100 units).", true, false),
-                    new NotificationItem("Yesterday", "Expiry", "Expiring soon: Ibuprofen 200mg (expires in 30 days).", false, false),
-                });
-                break;
-            default:
-                Notifications.AddRange(new[]
-                {
-                    new NotificationItem("Today", "System", "System maintenance scheduled tonight at 11:00 PM.", false, true),
-                    new NotificationItem("Today", "Users", "New user account created: Nurse Staff #12.", false, false),
-                    new NotificationItem("Yesterday", "Audit", "Audit log exported successfully (Admin-Audit-2025-12-14).", true, false),
-                    new NotificationItem("2 days ago", "Permissions", "Role permissions updated: Billing Staff (added Reports access).", true, false),
-                });
-                break;
+            var roleKey = CurrentRole.ToLowerInvariant();
+            var feed = await NotificationService.GetFeedAsync(roleKey, 100);
+            Notifications = feed
+                .Select(x => new NotificationRow(x.Id, x.Type, x.Description, x.Timestamp, x.IsRead, x.IsPriority))
+                .ToList();
+        }
+        catch
+        {
+            Notifications = new();
         }
     }
 
@@ -207,9 +173,9 @@
     {
         return CurrentFilter switch
         {
-            FilterType.Unread => Notifications.Where(n => !n.IsRead),
-            FilterType.Priority => Notifications.Where(n => n.IsPriority),
-            _ => Notifications
+            FilterType.Unread => Notifications.Where(n => !n.IsRead).Select(NotificationItem.FromRow),
+            FilterType.Priority => Notifications.Where(n => n.IsPriority).Select(NotificationItem.FromRow),
+            _ => Notifications.Select(NotificationItem.FromRow)
         };
     }
 
@@ -218,17 +184,24 @@
         CurrentFilter = filter;
     }
 
-    private void MarkAllRead()
+    private async Task MarkAllRead()
     {
-        foreach (var n in Notifications)
-        {
-            n.IsRead = true;
-        }
+        await NotificationService.MarkAllReadAsync(CurrentRole.ToLowerInvariant());
+        await LoadFeedAsync();
     }
 
-    private void ToggleRead(NotificationItem n)
+    private async Task ToggleRead(NotificationItem n)
     {
-        n.IsRead = !n.IsRead;
+        var roleKey = CurrentRole.ToLowerInvariant();
+        if (n.IsRead)
+        {
+            await NotificationService.MarkUnreadAsync(roleKey, n.Id);
+        }
+        else
+        {
+            await NotificationService.MarkReadAsync(roleKey, n.Id);
+        }
+        await LoadFeedAsync();
     }
 
     private void GoBack()
@@ -243,10 +216,25 @@
         });
     }
 
+    private void ViewDetails(NotificationItem n)
+    {
+        Navigation.NavigateTo(CurrentRole switch
+        {
+            "Inventory" => "/pharmacy-inventory",
+            "Billing" => "/billing-dashboard",
+            "Doctor" => "/doctor-dashboard",
+            "Nurse" => "/nurse-dashboard",
+            _ => "/admin-dashboard"
+        });
+    }
+
+    private sealed record NotificationRow(Guid Id, string Type, string Description, DateTime Timestamp, bool IsRead, bool IsPriority);
+
     private class NotificationItem
     {
-        public NotificationItem(string timeAgo, string type, string description, bool isRead, bool isPriority)
+        public NotificationItem(Guid id, string timeAgo, string type, string description, bool isRead, bool isPriority)
         {
+            Id = id;
             TimeAgo = timeAgo;
             Type = type;
             Description = description;
@@ -254,11 +242,30 @@
             IsPriority = isPriority;
         }
 
+        public Guid Id { get; }
+
         public string TimeAgo { get; }
         public string Type { get; }
         public string Description { get; }
         public bool IsPriority { get; }
         public bool IsRead { get; set; }
+
+        public static NotificationItem FromRow(NotificationRow r)
+        {
+            var timeAgo = FormatTimeAgo(r.Timestamp);
+            return new NotificationItem(r.Id, timeAgo, r.Type, r.Description, r.IsRead, r.IsPriority);
+        }
+    }
+
+    private static string FormatTimeAgo(DateTime ts)
+    {
+        var now = DateTime.Now;
+        var delta = now - ts;
+        if (delta.TotalSeconds < 60) return "Just now";
+        if (delta.TotalMinutes < 60) return $"{(int)delta.TotalMinutes} mins ago";
+        if (delta.TotalHours < 24) return $"{(int)delta.TotalHours} hours ago";
+        if (delta.TotalDays < 7) return $"{(int)delta.TotalDays} days ago";
+        return ts.ToString("MMM dd, yyyy");
     }
 
     [Inject] private NavigationManager Navigation { get; set; } = default!;

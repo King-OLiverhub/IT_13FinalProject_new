@@ -1,5 +1,8 @@
 @page "/admin-insurance-claims"
 @layout DashboardLayout
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Services
+@inject IPatientBillService BillService
 
 <div class="inv-page">
     <header class="dashboard-header">
@@ -33,7 +36,7 @@
                 <div class="inv-search-row">
                     <div class="inv-search-box">
                         <span class="inv-search-icon"></span>
-                        <input class="inv-search-input" placeholder="Search Request" @bind="RequestSearchTerm" />
+                        <input class="inv-search-input" placeholder="Search Request" @bind-value="RequestSearchTerm" @bind-value:event="oninput" @bind-value:after="ApplyRequestFilters" />
                     </div>
 
                     <div class="inv-actions">
@@ -47,7 +50,7 @@
                 <div class="inv-search-row">
                     <div class="inv-search-box">
                         <span class="inv-search-icon"></span>
-                        <input class="inv-search-input" placeholder="Search Request" @bind="ClaimsSearchTerm" />
+                        <input class="inv-search-input" placeholder="Search Request" @bind-value="ClaimsSearchTerm" @bind-value:event="oninput" @bind-value:after="ApplyClaimsFilters" />
                     </div>
 
                     <div class="inv-actions">
@@ -61,93 +64,104 @@
         @if (CurrentTab == "request")
         {
             <div class="inv-list">
-                @foreach (var item in Requests)
+                @if (isLoading)
                 {
                     <div class="inv-row">
                         <div class="inv-row-main">
                             <div class="inv-row-name">
-                                <span class="inv-row-label">Billing Staff name</span>
-                                <span class="inv-row-value">@item.BillingStaff</span>
-                            </div>
-                        </div>
-                        <div class="inv-row-columns inv-row-columns-admin">
-                            <div class="inv-row-col">
-                                <span class="inv-row-label">Date</span>
-                                <span class="inv-row-value">@item.Date</span>
-                            </div>
-                            <div class="inv-row-col">
-                                <span class="inv-row-label">Status</span>
-                                <span class="inv-row-value">@item.Status</span>
-                            </div>
-                            <div class="inv-row-col inv-row-col-action">
-                                <div class="inv-decision-buttons">
-                                    <div class="inv-decision-group">
-                                        <span class="inv-decision-label">Reject</span>
-                                        <button class="inv-decision-btn inv-decision-reject" type="button" aria-label="Reject request" @onclick="() => OpenRejectionPanel(item)">
-                                            X
-                                        </button>
-                                    </div>
-
-                                    <div class="inv-decision-group">
-                                        <span class="inv-decision-label">Accept</span>
-                                        <button class="inv-decision-btn inv-decision-accept" type="button" aria-label="Accept request" @onclick="() => OpenAcceptConfirm(item)">
-                                            ✓
-                                        </button>
-                                    </div>
-
-                                    <div class="inv-decision-group">
-                                        <span class="inv-decision-label">View</span>
-                                        <button class="inv-view-btn" type="button" aria-label="View details" @onclick="() => OpenViewPanel(item)">
-                                            <span class="inv-view-icon"></span>
-                                        </button>
-                                    </div>
-                                </div>
+                                <span class="inv-row-value">Loading requests...</span>
                             </div>
                         </div>
                     </div>
-
+                }
+                else if (!string.IsNullOrWhiteSpace(errorMessage))
+                {
                     <div class="inv-row">
                         <div class="inv-row-main">
                             <div class="inv-row-name">
-                                <span class="inv-row-label">Name</span>
-                                <span class="inv-row-value">@item.ClientName</span>
+                                <span class="inv-row-value">@errorMessage</span>
                             </div>
                         </div>
-                        <div class="inv-row-columns inv-row-columns-admin">
-                            <div class="inv-row-col">
-                                <span class="inv-row-label">Date</span>
-                                <span class="inv-row-value">@item.Date</span>
+                    </div>
+                }
+                else if (!FilteredRequestBills.Any())
+                {
+                    <div class="inv-row">
+                        <div class="inv-row-main">
+                            <div class="inv-row-name">
+                                <span class="inv-row-value">No requests found.</span>
                             </div>
-                            <div class="inv-row-col">
-                                <span class="inv-row-label">Status</span>
-                                <span class="inv-row-value">@item.Status</span>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var bill in FilteredRequestBills)
+                    {
+                        var b = bill;
+                        <div class="inv-row">
+                            <div class="inv-row-main">
+                                <div class="inv-row-name">
+                                    <span class="inv-row-label">Billing Staff name</span>
+                                    <span class="inv-row-value">Billing staff</span>
+                                </div>
                             </div>
-                            <div class="inv-row-col inv-row-col-action">
-                                <div class="inv-decision-buttons">
-                                    <div class="inv-decision-group">
-                                        <span class="inv-decision-label">Reject</span>
-                                        <button class="inv-decision-btn inv-decision-reject" type="button" aria-label="Reject request" @onclick="() => OpenRejectionPanel(item)">
-                                            X
-                                        </button>
-                                    </div>
+                            <div class="inv-row-columns inv-row-columns-admin">
+                                <div class="inv-row-col">
+                                    <span class="inv-row-label">Date</span>
+                                    <span class="inv-row-value">@b.DateOfVisit.ToString("MM/dd/yy")</span>
+                                </div>
+                                <div class="inv-row-col">
+                                    <span class="inv-row-label">Status</span>
+                                    <span class="inv-row-value">@GetAdminStatus(b)</span>
+                                </div>
+                                <div class="inv-row-col inv-row-col-action">
+                                    <div class="inv-decision-buttons">
+                                        <div class="inv-decision-group">
+                                            <span class="inv-decision-label">Reject</span>
+                                            <button class="inv-decision-btn inv-decision-reject" type="button" aria-label="Reject request" @onclick="() => OpenRejectionPanel(b)">
+                                                X
+                                            </button>
+                                        </div>
 
-                                    <div class="inv-decision-group">
-                                        <span class="inv-decision-label">Accept</span>
-                                        <button class="inv-decision-btn inv-decision-accept" type="button" aria-label="Accept request" @onclick="() => OpenAcceptConfirm(item)">
-                                            ✓
-                                        </button>
-                                    </div>
+                                        <div class="inv-decision-group">
+                                            <span class="inv-decision-label">Accept</span>
+                                            <button class="inv-decision-btn inv-decision-accept" type="button" aria-label="Accept request" @onclick="() => OpenAcceptConfirm(b)">
+                                                ✓
+                                            </button>
+                                        </div>
 
-                                    <div class="inv-decision-group">
-                                        <span class="inv-decision-label">View</span>
-                                        <button class="inv-view-btn" type="button" aria-label="View details" @onclick="() => OpenViewPanel(item)">
-                                            <span class="inv-view-icon"></span>
-                                        </button>
+                                        <div class="inv-decision-group">
+                                            <span class="inv-decision-label">View</span>
+                                            <button class="inv-view-btn" type="button" aria-label="View details" @onclick="() => OpenViewPanel(b)">
+                                                <span class="inv-view-icon"></span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+
+                        <div class="inv-row">
+                            <div class="inv-row-main">
+                                <div class="inv-row-name">
+                                    <span class="inv-row-label">Name</span>
+                                    <span class="inv-row-value">@b.PatientName</span>
+                                </div>
+                            </div>
+                            <div class="inv-row-columns inv-row-columns-admin">
+                                <div class="inv-row-col">
+                                    <span class="inv-row-label">Date</span>
+                                    <span class="inv-row-value">@b.DateOfVisit.ToString("MM/dd/yy")</span>
+                                </div>
+                                <div class="inv-row-col">
+                                    <span class="inv-row-label">Status</span>
+                                    <span class="inv-row-value">@GetAdminStatus(b)</span>
+                                </div>
+                                <div class="inv-row-col inv-row-col-action"></div>
+                            </div>
+                        </div>
+                    }
                 }
             </div>
         }
@@ -158,11 +172,11 @@
                     <h3 class="admin-company-heading">Insurance Application</h3>
                     <div class="admin-company-search">
                         <span class="admin-company-search-icon"></span>
-                        <input class="admin-company-search-input" placeholder="" @bind="CompanySearchTerm" />
+                        <input class="admin-company-search-input" placeholder="" @bind-value="CompanySearchTerm" @bind-value:event="oninput" @bind-value:after="ApplyCompanyFilters" />
                     </div>
 
                     <div class="admin-app-list">
-                        @foreach (var name in InsuranceApplicants)
+                        @foreach (var name in FilteredApplicants)
                         {
                             <div class="admin-app-row">
                                 <div class="admin-app-name">
@@ -179,11 +193,11 @@
                     <h3 class="admin-company-heading">Insurance Company</h3>
                     <div class="admin-company-search">
                         <span class="admin-company-search-icon"></span>
-                        <input class="admin-company-search-input" placeholder="" @bind="CompanySearchTerm" />
+                        <input class="admin-company-search-input" placeholder="" @bind-value="CompanySearchTerm" @bind-value:event="oninput" @bind-value:after="ApplyCompanyFilters" />
                     </div>
 
                     <div class="admin-company-list">
-                        @foreach (var company in InsuranceCompanies)
+                        @foreach (var company in FilteredCompanies)
                         {
                             <div class="admin-company-row">
                                 <div class="admin-company-name">@company</div>
@@ -199,35 +213,69 @@
         else if (CurrentTab == "claims")
         {
             <div class="inv-list">
-                @foreach (var claim in ClaimRows)
+                @if (isLoading)
                 {
                     <div class="inv-row">
                         <div class="inv-row-main">
                             <div class="inv-row-name">
-                                <span class="inv-row-label">Application name</span>
-                                <span class="inv-row-value">@claim.ApplicationName</span>
-                            </div>
-                        </div>
-                        <div class="inv-row-columns inv-row-columns-admin">
-                            <div class="inv-row-col">
-                                <span class="inv-row-label">Insurance name</span>
-                                <span class="inv-row-value">@claim.InsuranceName</span>
-                            </div>
-                            <div class="inv-row-col">
-                                <span class="inv-row-label">Date</span>
-                                <span class="inv-row-value">@claim.Date</span>
-                            </div>
-                            <div class="inv-row-col">
-                                <span class="inv-row-label">Status</span>
-                                <span class="inv-row-value">@claim.Status</span>
+                                <span class="inv-row-value">Loading claims...</span>
                             </div>
                         </div>
                     </div>
                 }
+                else if (!string.IsNullOrWhiteSpace(errorMessage))
+                {
+                    <div class="inv-row">
+                        <div class="inv-row-main">
+                            <div class="inv-row-name">
+                                <span class="inv-row-value">@errorMessage</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else if (!FilteredClaimBills.Any())
+                {
+                    <div class="inv-row">
+                        <div class="inv-row-main">
+                            <div class="inv-row-name">
+                                <span class="inv-row-value">No claims found.</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var bill in FilteredClaimBills)
+                    {
+                        var b = bill;
+                        <div class="inv-row">
+                            <div class="inv-row-main">
+                                <div class="inv-row-name">
+                                    <span class="inv-row-label">Application name</span>
+                                    <span class="inv-row-value">@b.PatientName</span>
+                                </div>
+                            </div>
+                            <div class="inv-row-columns inv-row-columns-admin">
+                                <div class="inv-row-col">
+                                    <span class="inv-row-label">Insurance name</span>
+                                    <span class="inv-row-value">@b.InsuranceProvider</span>
+                                </div>
+                                <div class="inv-row-col">
+                                    <span class="inv-row-label">Date</span>
+                                    <span class="inv-row-value">@b.DateOfVisit.ToString("MM/dd/yy")</span>
+                                </div>
+                                <div class="inv-row-col">
+                                    <span class="inv-row-label">Status</span>
+                                    <span class="inv-row-value">@GetAdminStatus(b)</span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
             </div>
         }
 
-        @if (IsViewPanelOpen && SelectedRequest is not null)
+        @if (IsViewPanelOpen && SelectedBill is not null)
         {
             <div class="inv-view-overlay">
                 <div class="inv-view-panel">
@@ -238,19 +286,19 @@
                         <div class="inv-view-grid">
                             <div>
                                 <div class="inv-view-label">Name:</div>
-                                <div class="inv-view-value">@SelectedRequest.ClientName</div>
+                                <div class="inv-view-value">@SelectedBill.PatientName</div>
                             </div>
                             <div>
                                 <div class="inv-view-label">Patient ID:</div>
-                                <div class="inv-view-value">#001234</div>
+                                <div class="inv-view-value">@GetPatientId(SelectedBill.PatientId)</div>
                             </div>
                             <div>
                                 <div class="inv-view-label">Insurance:</div>
-                                <div class="inv-view-value">PhilHealth</div>
+                                <div class="inv-view-value">@SelectedBill.InsuranceProvider</div>
                             </div>
                             <div>
                                 <div class="inv-view-label">Date:</div>
-                                <div class="inv-view-value">@SelectedRequest.Date</div>
+                                <div class="inv-view-value">@SelectedBill.DateOfVisit.ToString("MM/dd/yy")</div>
                             </div>
                         </div>
                     </div>
@@ -267,25 +315,20 @@
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td>Consultation</td>
-                                    <td>₱500</td>
-                                    <td>₱250 (50%)</td>
+                                    <td>Total Bill Amount</td>
+                                    <td>₱@SelectedBill.TotalAmount.ToString("F2")</td>
+                                    <td>₱@SelectedBill.InsuranceCoverage.ToString("F2")</td>
                                 </tr>
                                 <tr>
-                                    <td>Blood Test</td>
-                                    <td>₱300</td>
-                                    <td>₱150 (50%)</td>
-                                </tr>
-                                <tr>
-                                    <td>Urinalysis</td>
-                                    <td>₱250</td>
-                                    <td>₱125 (50%)</td>
+                                    <td>Patient Responsibility</td>
+                                    <td>₱@SelectedBill.PatientResponsibility.ToString("F2")</td>
+                                    <td>-</td>
                                 </tr>
                             </tbody>
                         </table>
                         <div class="inv-view-total-row">
                             <span class="inv-view-label">Total Coverable:</span>
-                            <span class="inv-view-value">₱525</span>
+                            <span class="inv-view-value">₱@SelectedBill.InsuranceCoverage.ToString("F2")</span>
                         </div>
                     </div>
 
@@ -409,27 +452,15 @@
 </div>
 
 @code {
-    private record AdminClaimRow(string BillingStaff, string ClientName, string Date, string Status);
-
-    private record AdminClaimListRow(string ApplicationName, string InsuranceName, string Date, string Status);
-
-    private readonly AdminClaimRow[] Requests = new AdminClaimRow[]
-    {
-        new("Himeko Murata", "Yae Miko", "03/09/24", "Under Review"),
-        new("Yae Miko", "Black Swan", "03/03/24", "Under Review"),
-        new("Black Swan", "Ruan Mei", "03/06/24", "Under Review"),
-        new("Ruan Mei", "Bronya Rand", "03/07/24", "Under Review"),
-        new("Bronya Rand", "Kafka", "03/01/24", "Under Review"),
-    };
-
-    private readonly AdminClaimListRow[] ClaimRows = new AdminClaimListRow[]
-    {
-        new("Himiko Murata", "OWWA / POEA Health Plan", "03/09/24", "Pending"),
-        new("Yae Miko", "PhilHealth", "03/03/24", "Complete"),
-        new("Black Swan", "Charity / Social Assistance", "03/06/24", "Pending"),
-        new("Ruan Mei", "GSIS / SSS Health Benefit", "03/07/24", "Pending"),
-        new("Bronya Rand", "PhilCare", "03/01/24", "Pending"),
-    };
+    private List<PatientBill> InsuranceBills { get; set; } = new();
+    private List<PatientBill> FilteredRequestBills { get; set; } = new();
+    private List<PatientBill> FilteredClaimBills { get; set; } = new();
+    private List<string> Applicants { get; set; } = new();
+    private List<string> Companies { get; set; } = new();
+    private List<string> FilteredApplicants { get; set; } = new();
+    private List<string> FilteredCompanies { get; set; } = new();
+    private bool isLoading { get; set; } = true;
+    private string? errorMessage { get; set; }
 
     private string CurrentTab { get; set; } = "request";
 
@@ -439,7 +470,7 @@
 
     private bool IsAcceptSuccessVisible { get; set; }
 
-    private AdminClaimRow? SelectedRequest { get; set; }
+    private PatientBill? SelectedBill { get; set; }
 
     private bool IsViewPanelOpen { get; set; }
 
@@ -451,30 +482,10 @@
 
     private string CompanySearchTerm { get; set; } = string.Empty;
 
-    private readonly string[] InsuranceApplicants = new[]
+    protected override async Task OnInitializedAsync()
     {
-        "Bronya Rand",
-        "Ruan Mei",
-        "Yae Miko",
-        "Ruan Mei",
-        "Black Swan",
-        "Yae Miko",
-        "Himeko Murata",
-    };
-
-    private readonly string[] InsuranceCompanies = new[]
-    {
-        "PhilHealth",
-        "OWWA / POEA Health Plan",
-        "GSIS / SSS Health Benefit",
-        "Maxicare",
-        "Medicard",
-        "Intellicare",
-        "Kaiser Health",
-        "PhilCare",
-        "Company Health Plan",
-        "Charity / Social Assistance",
-    };
+        await LoadInsuranceBillsAsync();
+    }
 
     private void SetRequestTab() => SetTab("request");
 
@@ -485,11 +496,12 @@
     private void SetTab(string tab)
     {
         CurrentTab = tab;
+        ApplyAllFilters();
     }
 
-    private void OpenRejectionPanel(AdminClaimRow row)
+    private void OpenRejectionPanel(PatientBill row)
     {
-        SelectedRequest = row;
+        SelectedBill = row;
         IsRejectionPanelOpen = true;
     }
 
@@ -498,16 +510,31 @@
         IsRejectionPanelOpen = false;
     }
 
-    private void ConfirmRejection()
+    private async Task ConfirmRejection()
     {
-        // Placeholder: here you could send RejectionNotes to backend in the future.
-        IsRejectionPanelOpen = false;
-        RejectionNotes = string.Empty;
+        if (SelectedBill is null)
+            return;
+
+        try
+        {
+            SelectedBill.AssessmentStatus = "Rejected";
+            await BillService.UpdateAsync(SelectedBill);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Reject failed: {ex.GetBaseException().Message}";
+        }
+        finally
+        {
+            IsRejectionPanelOpen = false;
+            RejectionNotes = string.Empty;
+            await LoadInsuranceBillsAsync();
+        }
     }
 
-    private void OpenAcceptConfirm(AdminClaimRow row)
+    private void OpenAcceptConfirm(PatientBill row)
     {
-        SelectedRequest = row;
+        SelectedBill = row;
         IsAcceptConfirmOpen = true;
     }
 
@@ -516,9 +543,9 @@
         IsAcceptConfirmOpen = false;
     }
 
-    private void OpenViewPanel(AdminClaimRow row)
+    private void OpenViewPanel(PatientBill row)
     {
-        SelectedRequest = row;
+        SelectedBill = row;
         IsViewPanelOpen = true;
     }
 
@@ -529,14 +556,30 @@
 
     private async Task ConfirmAcceptAsync()
     {
-        IsAcceptConfirmOpen = false;
-        IsAcceptSuccessVisible = true;
-        StateHasChanged();
+        if (SelectedBill is null)
+            return;
 
-        await Task.Delay(800);
+        try
+        {
+            IsAcceptConfirmOpen = false;
+            SelectedBill.AssessmentStatus = "Approved";
+            await BillService.UpdateAsync(SelectedBill);
 
-        IsAcceptSuccessVisible = false;
-        StateHasChanged();
+            IsAcceptSuccessVisible = true;
+            StateHasChanged();
+
+            await Task.Delay(800);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Accept failed: {ex.GetBaseException().Message}";
+        }
+        finally
+        {
+            IsAcceptSuccessVisible = false;
+            await LoadInsuranceBillsAsync();
+            StateHasChanged();
+        }
     }
 
     private void SelectApplication(string applicantName)
@@ -557,6 +600,137 @@
     private void HandleFilters()
     {
         // Placeholder for filter functionality
+    }
+
+    private async Task LoadInsuranceBillsAsync()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+
+            var allBills = await BillService.GetActiveAsync();
+            InsuranceBills = allBills
+                .Where(b => !string.IsNullOrWhiteSpace(b.InsuranceProvider))
+                .OrderByDescending(b => b.DateOfVisit)
+                .ToList();
+
+            Applicants = InsuranceBills
+                .Select(b => b.PatientName)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(n => n)
+                .ToList();
+
+            Companies = InsuranceBills
+                .Select(b => b.InsuranceProvider ?? string.Empty)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(n => n)
+                .ToList();
+
+            ApplyAllFilters();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading insurance data: {ex.GetBaseException().Message}";
+            InsuranceBills = new();
+            FilteredRequestBills = new();
+            FilteredClaimBills = new();
+            Applicants = new();
+            Companies = new();
+            FilteredApplicants = new();
+            FilteredCompanies = new();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ApplyAllFilters()
+    {
+        ApplyRequestFilters();
+        ApplyClaimsFilters();
+        ApplyCompanyFilters();
+    }
+
+    private Task ApplyRequestFilters()
+    {
+        var filtered = InsuranceBills.AsEnumerable();
+
+        // Requests = Pending review
+        filtered = filtered.Where(b => (b.AssessmentStatus ?? string.Empty).Equals("Pending", StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrWhiteSpace(RequestSearchTerm))
+        {
+            filtered = filtered.Where(b =>
+                (b.PatientName ?? string.Empty).Contains(RequestSearchTerm, StringComparison.OrdinalIgnoreCase)
+                || (b.InsuranceProvider ?? string.Empty).Contains(RequestSearchTerm, StringComparison.OrdinalIgnoreCase));
+        }
+
+        FilteredRequestBills = filtered.ToList();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task ApplyClaimsFilters()
+    {
+        var filtered = InsuranceBills.AsEnumerable();
+
+        // Claims = anything that has been submitted for review or already decided
+        filtered = filtered.Where(b =>
+            (b.AssessmentStatus ?? string.Empty).Equals("Pending", StringComparison.OrdinalIgnoreCase)
+            || (b.AssessmentStatus ?? string.Empty).Equals("Approved", StringComparison.OrdinalIgnoreCase)
+            || (b.AssessmentStatus ?? string.Empty).Equals("Rejected", StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrWhiteSpace(ClaimsSearchTerm))
+        {
+            filtered = filtered.Where(b =>
+                (b.PatientName ?? string.Empty).Contains(ClaimsSearchTerm, StringComparison.OrdinalIgnoreCase)
+                || (b.InsuranceProvider ?? string.Empty).Contains(ClaimsSearchTerm, StringComparison.OrdinalIgnoreCase));
+        }
+
+        FilteredClaimBills = filtered.ToList();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task ApplyCompanyFilters()
+    {
+        if (string.IsNullOrWhiteSpace(CompanySearchTerm))
+        {
+            FilteredApplicants = Applicants;
+            FilteredCompanies = Companies;
+        }
+        else
+        {
+            FilteredApplicants = Applicants
+                .Where(a => a.Contains(CompanySearchTerm, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            FilteredCompanies = Companies
+                .Where(c => c.Contains(CompanySearchTerm, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private static string GetAdminStatus(PatientBill bill)
+    {
+        var status = (bill.AssessmentStatus ?? string.Empty).Trim();
+        if (status.Equals("Approved", StringComparison.OrdinalIgnoreCase)) return "Complete";
+        if (status.Equals("Rejected", StringComparison.OrdinalIgnoreCase)) return "Rejected";
+        if (status.Equals("Pending", StringComparison.OrdinalIgnoreCase)) return "Under Review";
+        return status;
+    }
+
+    private static string GetPatientId(int? patientId)
+    {
+        return patientId.HasValue ? $"#{patientId.Value:D6}" : $"#{Math.Abs(DateTime.Now.GetHashCode()) % 1000000:D6}";
     }
 }
 

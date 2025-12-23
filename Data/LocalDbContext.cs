@@ -15,6 +15,9 @@ namespace IT_13FinalProject.Data
         public DbSet<VitalSign> VitalSigns { get; set; } = null!;
         public DbSet<PharmacyInventory> PharmacyInventory { get; set; } = null!;
         public DbSet<PatientBill> PatientBills { get; set; } = null!;
+        public DbSet<NurseNote> NurseNotes { get; set; } = null!;
+        public DbSet<Appointment> Appointments { get; set; } = null!;
+        public DbSet<LabResult> LabResults { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -79,6 +82,31 @@ namespace IT_13FinalProject.Data
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
                 entity.Property(e => e.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
                 entity.Property(e => e.IsArchived).HasDefaultValue(false);
+            });
+
+            modelBuilder.Entity<Appointment>(entity =>
+            {
+                entity.HasKey(e => e.AppointmentId);
+                entity.Property(e => e.PatientName).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.Status).HasMaxLength(50).HasDefaultValue("SCHEDULED");
+                entity.Property(e => e.Type).HasMaxLength(100).HasDefaultValue("Consultation");
+
+                entity.HasOne(e => e.Patient)
+                    .WithMany()
+                    .HasForeignKey(e => e.PatientId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<LabResult>(entity =>
+            {
+                entity.HasKey(e => e.LabResultId);
+                entity.Property(e => e.PatientName).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.TestName).IsRequired().HasMaxLength(200);
+
+                entity.HasOne(e => e.Patient)
+                    .WithMany()
+                    .HasForeignKey(e => e.PatientId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
         }
     }

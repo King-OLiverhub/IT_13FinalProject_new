@@ -322,6 +322,20 @@ else if (path == "doctor-consultation")
         <DoctorConsultForm_PatientList />
     </DashboardLayout>
 }
+else if (path.StartsWith("doctor-consultation/"))
+{
+    var idString = path.Substring("doctor-consultation/".Length);
+    if (int.TryParse(idString, out int id))
+    {
+        <DashboardLayout>
+            <DoctorConsultForm_PatientList patientId="@id" />
+        </DashboardLayout>
+    }
+    else
+    {
+        <Login />
+    }
+}
 else if (path == "doctor-consultation-edit")
 {
     <DashboardLayout>

@@ -1,4 +1,15 @@
 @layout Layout.DashboardLayout
+@using IT_13FinalProject.Data
+@using IT_13FinalProject.Models
+@using PharmacyInventoryModel = IT_13FinalProject.Models.PharmacyInventory
+@using Microsoft.AspNetCore.Components
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.Data.SqlClient
+@using Microsoft.JSInterop
+
+@inject ApplicationDbContext DbContext
+@inject LocalDbContext LocalDbContext
+@inject IJSRuntime JsRuntime
 
 <div class="ara-page">
     <header class="dashboard-header">
@@ -36,41 +47,46 @@
                 <div class="ara-config-field">
                     <label>Start Date</label>
                     <div class="ara-input-with-icon">
-                        <input type="date" />
+                        <input type="date" @bind="StartDate" />
                     </div>
                 </div>
                 <div class="ara-config-field">
                     <label>End Date</label>
                     <div class="ara-input-with-icon">
-                        <input type="date" />
+                        <input type="date" @bind="EndDate" />
                     </div>
                 </div>
                 <div class="ara-config-field">
                     <label>Report type</label>
                     <div class="ara-input-with-icon">
-                        <select class="ara-select">
+                        <select class="ara-select" @bind="SelectedReportType">
                             <option value="" selected disabled>Select report</option>
-                            <option>Monthly Revenue</option>
-                            <option>Patient Visit summary</option>
-                            <option>Low Stock Alert</option>
-                            <option>Billing Collection</option>
-                            <option>Staff Activity summary</option>
+                            <option value="monthly_revenue">Monthly Revenue</option>
+                            <option value="patient_visit_summary">Patient Visit summary</option>
+                            <option value="low_stock_alert">Low Stock Alert</option>
+                            <option value="billing_collection">Billing Collection</option>
+                            <option value="staff_activity_summary">Staff Activity summary</option>
                         </select>
                         <span class="ara-input-icon ara-icon-dropdown"></span>
                     </div>
                 </div>
             </div>
 
+            @if (!string.IsNullOrWhiteSpace(ReportError))
+            {
+                <div style="margin-top: 8px; color: #b42318; font-weight: 600;">@ReportError</div>
+            }
+
             <div class="ara-config-actions">
-                <button class="ara-btn-primary">
+                <button class="ara-btn-primary" @onclick="GenerateReport" disabled="@IsGenerating">
                     <span class="ara-btn-icon ara-icon-generate"></span>
-                    <span>Generate Report</span>
+                    <span>@(IsGenerating ? "Generating..." : "Generate Report")</span>
                 </button>
-                <button class="ara-btn-outline">
+                <button class="ara-btn-outline" @onclick="ShowPreview" disabled="@(GeneratedReport == null)">
                     <span class="ara-btn-icon ara-icon-preview"></span>
                     <span>Preview</span>
                 </button>
-                <button class="ara-btn-secondary">
+                <button class="ara-btn-secondary" @onclick="ExportCsv" disabled="@(GeneratedReport == null)">
                     <span class="ara-btn-icon ara-icon-export"></span>
                     <span>Export PDF</span>
                 </button>
@@ -92,135 +108,127 @@
                 <div class="ara-stat-card">
                     <div class="ara-stat-icon ara-icon-revenue"></div>
                     <div class="ara-stat-label">Total Revenue</div>
-                    <div class="ara-stat-value">₱147,000</div>
+                    <div class="ara-stat-value">@FormatCurrency(QuickTotalRevenue)</div>
                     <div class="ara-stat-caption">This month</div>
                 </div>
                 <div class="ara-stat-card">
                     <div class="ara-stat-icon ara-icon-visits"></div>
                     <div class="ara-stat-label">Monthly Visits</div>
-                    <div class="ara-stat-value">170</div>
+                    <div class="ara-stat-value">@QuickMonthlyVisits</div>
                     <div class="ara-stat-caption">Unique patients</div>
                 </div>
                 <div class="ara-stat-card">
                     <div class="ara-stat-icon ara-icon-patients"></div>
                     <div class="ara-stat-label">Active Patients</div>
-                    <div class="ara-stat-value">280</div>
-                    <div class="ara-stat-caption">57% female / 43% male</div>
+                    <div class="ara-stat-value">@QuickActivePatients</div>
+                    <div class="ara-stat-caption">@QuickGenderCaption</div>
                 </div>
                 <div class="ara-stat-card">
                     <div class="ara-stat-icon ara-icon-alert"></div>
                     <div class="ara-stat-label">Low Stock Items</div>
-                    <div class="ara-stat-value">5</div>
+                    <div class="ara-stat-value">@QuickLowStockItems</div>
                     <div class="ara-stat-caption">Inventory alerts</div>
                 </div>
-            </div>
-        </div>
-
-        <div class="ara-quick-reports">
-            <div class="ara-card-header">
-                <div class="ara-card-title-row">
-                    <span class="ara-card-icon ara-icon-quickreports"></span>
-                    <div class="ara-card-title">Quick Reports</div>
-                </div>
-                <button class="ara-link-button">View All</button>
-            </div>
-
-            <div class="ara-quickreports-list">
-                @foreach (var qr in QuickReports)
-                {
-                    <div class="ara-quickreports-row">
-                        <div class="ara-quickreports-name">@qr.Name</div>
-                        <div class="ara-quickreports-preview">
-                            <span class="ara-quickreports-icon"></span>
-                            <span class="ara-quickreports-label">[Chart Preview]</span>
-                        </div>
-                    </div>
-                }
-            </div>
-        </div>
-
-        <div class="ara-dept-analytics">
-            <div class="ara-card-header">
-                <div class="ara-card-title-row">
-                    <span class="ara-card-icon ara-icon-deptgrid"></span>
-                    <div class="ara-card-title">Department Analytics</div>
-                </div>
-            </div>
-
-            <div class="ara-dept-grid">
-                @foreach (var d in DepartmentRevenue)
-                {
-                    <div class="ara-dept-card">
-                        <div class="ara-dept-name">@d.Name</div>
-                        <div class="ara-dept-value">@d.Amount</div>
-                        <div class="ara-dept-percent">@d.Percent%</div>
-                        <div class="ara-dept-bar">
-                            <div class="ara-dept-bar-fill" style="width:@d.Percent%"></div>
-                        </div>
-                    </div>
-                }
-            </div>
-        </div>
-
-        <div class="ara-dept-categories">
-            <div class="ara-card-header">
-                <div class="ara-card-title-row">
-                    <span class="ara-card-icon ara-icon-deptgrid"></span>
-                    <div class="ara-card-title">Department Analytics</div>
-                </div>
-            </div>
-            <div class="ara-deptcat-grid">
-                <div class="ara-deptcat-card">
-                    <div class="ara-deptcat-icon ara-icon-financial"></div>
-                    <div class="ara-deptcat-title">Financial</div>
-                    <div class="ara-deptcat-line">Revenue Reports</div>
-                    <div class="ara-deptcat-line">Billing Analytics</div>
-                    <div class="ara-deptcat-line">Expense Tracking</div>
-                    <div class="ara-deptcat-view">View</div>
-                </div>
-                <div class="ara-deptcat-card">
-                    <div class="ara-deptcat-icon ara-icon-operational"></div>
-                    <div class="ara-deptcat-title">Operational</div>
-                    <div class="ara-deptcat-line">Patient Reports</div>
-                    <div class="ara-deptcat-line">Visit Analytics</div>
-                    <div class="ara-deptcat-line">Staff Performance</div>
-                    <div class="ara-deptcat-view">View</div>
-                </div>
-                <div class="ara-deptcat-card">
-                    <div class="ara-deptcat-icon ara-icon-inventory"></div>
-                    <div class="ara-deptcat-title">Inventory</div>
-                    <div class="ara-deptcat-line">Stock Reports</div>
-                    <div class="ara-deptcat-line">Usage</div>
-                    <div class="ara-deptcat-line">Expiry</div>
-                    <div class="ara-deptcat-view">View</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="ara-recent-reports">
-            <div class="ara-card-header">
-                <div class="ara-card-title-row">
-                    <span class="ara-card-icon ara-icon-recent"></span>
-                    <div class="ara-card-title">Recently Generated</div>
-                </div>
-                <button class="ara-link-button">Generate new</button>
-            </div>
-
-            <div class="ara-recent-list">
-                @foreach (var r in RecentReports)
-                {
-                    <div class="ara-recent-row">
-                        <div class="ara-recent-name">@r.Name</div>
-                        <div class="ara-recent-time">@r.GeneratedAt</div>
-                    </div>
-                }
             </div>
         </div>
     </section>
 </div>
 
+@if (showPreviewModal)
+{
+    <div class="modal-overlay" @onclick="HidePreview">
+        <div class="modal-panel" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h2>@(GeneratedReport?.Title ?? "Report") <span class="report-date">- @FormatRange()</span></h2>
+                <button class="modal-close" @onclick="HidePreview">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                @if (GeneratedReport == null)
+                {
+                    <div class="report-section">
+                        <p>No report generated.</p>
+                    </div>
+                }
+                else
+                {
+                    @if (GeneratedReport.Summary.Count > 0)
+                    {
+                        <div class="report-section">
+                            <h3>SUMMARY:</h3>
+                            <div class="report-stats">
+                                @foreach (var kv in GeneratedReport.Summary)
+                                {
+                                    <p>@kv.Key: <strong>@kv.Value</strong></p>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <div class="report-section">
+                        <h3>DETAILS:</h3>
+                        @if (GeneratedReport.Rows.Count == 0)
+                        {
+                            <p>No data for the selected range.</p>
+                        }
+                        else
+                        {
+                            <div style="overflow:auto; max-height: 55vh;">
+                                <table class="pm-table" style="margin-top: 8px;">
+                                    <thead>
+                                        <tr>
+                                            @foreach (var col in GeneratedReport.Columns)
+                                            {
+                                                <th>@col</th>
+                                            }
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var row in GeneratedReport.Rows)
+                                        {
+                                            <tr>
+                                                @foreach (var col in GeneratedReport.Columns)
+                                                {
+                                                    row.TryGetValue(col, out var value);
+                                                    <td>@(value ?? string.Empty)</td>
+                                                }
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-modal-close" @onclick="HidePreview">Closed</button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private string ActiveTab { get; set; } = "analytical";
+
+    private DateTime StartDate { get; set; } = DateTime.Today.AddDays(-30);
+    private DateTime EndDate { get; set; } = DateTime.Today;
+    private string SelectedReportType { get; set; } = string.Empty;
+
+    private bool IsGenerating { get; set; }
+    private string? ReportError { get; set; }
+
+    private bool showPreviewModal { get; set; }
+    private ReportResult? GeneratedReport { get; set; }
+
+    private decimal QuickTotalRevenue { get; set; }
+    private int QuickMonthlyVisits { get; set; }
+    private int QuickActivePatients { get; set; }
+    private int QuickLowStockItems { get; set; }
+    private string QuickGenderCaption { get; set; } = "-";
 
     private string ReportSubtitle => ActiveTab switch
     {
@@ -229,33 +237,11 @@
         _ => "Select date range and report type to generate analytics"
     };
 
-    private record QuickReport(string Name);
-    private record DeptRevenue(string Name, string Amount, int Percent);
-    private record RecentReport(string Name, string GeneratedAt);
-
-    private readonly List<QuickReport> QuickReports = new()
+    protected override Task OnInitializedAsync()
     {
-        new("Revenue Trend (Monthly)"),
-        new("Patient Demographics"),
-        new("Department Performance"),
-        new("Inventory Status"),
-    };
-
-    private readonly List<DeptRevenue> DepartmentRevenue = new()
-    {
-        new("Inpatient", "₱65,000", 45),
-        new("Outpatient", "₱45,000", 31),
-        new("Pharmacy", "₱25,000", 17),
-        new("Laboratory", "₱25,000", 8),
-    };
-
-    private readonly List<RecentReport> RecentReports = new()
-    {
-        new("Monthly Revenue Report - Nov 2024", "[11/15 2:30 PM]"),
-        new("Patient Demographics - Q4 2024", "[11/14 10:15 AM]"),
-        new("Inventory Audit Report", "[11/13 3:45 PM]"),
-        new("Staff Performance - October", "[11/12 9:20 AM]"),
-    };
+        LoadQuickStats();
+        return Task.CompletedTask;
+    }
 
     private void SetTab(string key)
     {
@@ -267,4 +253,523 @@
     private void SetDescriptiveTab() => SetTab("descriptive");
 
     private void SetExceptionTab() => SetTab("exception");
+
+    private void ShowPreview()
+    {
+        if (GeneratedReport == null)
+            return;
+        showPreviewModal = true;
+    }
+
+    private void HidePreview()
+    {
+        showPreviewModal = false;
+    }
+
+    private static bool IsCloudConnectionFailure(Exception ex)
+    {
+        if (ex is SqlException)
+            return true;
+
+        if (ex is DbUpdateException dbu && dbu.InnerException is SqlException)
+            return true;
+
+        if (ex is DbUpdateException dbu2 && dbu2.GetBaseException() is SqlException)
+            return true;
+
+        return false;
+    }
+
+    private async void LoadQuickStats()
+    {
+        try
+        {
+            var now = DateTime.Today;
+            var monthStart = new DateTime(now.Year, now.Month, 1);
+            var monthEndInclusive = monthStart.AddMonths(1).AddTicks(-1);
+
+            List<PatientBill> bills;
+            try
+            {
+                bills = await DbContext.PatientBills
+                    .AsNoTracking()
+                    .Where(b => b.IsArchived == false)
+                    .Where(b => (b.DateOfVisit >= monthStart && b.DateOfVisit <= monthEndInclusive) || (b.CreatedAt >= monthStart && b.CreatedAt <= monthEndInclusive))
+                    .ToListAsync();
+            }
+            catch (Exception ex) when (IsCloudConnectionFailure(ex))
+            {
+                bills = await LocalDbContext.PatientBills
+                    .AsNoTracking()
+                    .Where(b => b.IsArchived == false)
+                    .Where(b => (b.DateOfVisit >= monthStart && b.DateOfVisit <= monthEndInclusive) || (b.CreatedAt >= monthStart && b.CreatedAt <= monthEndInclusive))
+                    .ToListAsync();
+            }
+
+            List<Appointment> appts;
+            try
+            {
+                appts = await DbContext.Appointments
+                    .AsNoTracking()
+                    .Where(a => a.StartDateTime >= monthStart && a.StartDateTime <= monthEndInclusive)
+                    .ToListAsync();
+            }
+            catch (Exception ex) when (IsCloudConnectionFailure(ex))
+            {
+                appts = await LocalDbContext.Appointments
+                    .AsNoTracking()
+                    .Where(a => a.StartDateTime >= monthStart && a.StartDateTime <= monthEndInclusive)
+                    .ToListAsync();
+            }
+
+            List<PharmacyInventoryModel> inventory;
+            try
+            {
+                inventory = await DbContext.PharmacyInventory
+                    .AsNoTracking()
+                    .Where(i => i.IsArchived == false)
+                    .ToListAsync();
+            }
+            catch (Exception ex) when (IsCloudConnectionFailure(ex))
+            {
+                inventory = await LocalDbContext.PharmacyInventory
+                    .AsNoTracking()
+                    .Where(i => i.IsArchived == false)
+                    .ToListAsync();
+            }
+
+            QuickTotalRevenue = bills.Sum(b => b.TotalAmount);
+            QuickMonthlyVisits = appts.Select(a => a.PatientId ?? 0).Distinct().Count();
+            QuickActivePatients = appts.Select(a => a.PatientId ?? 0).Distinct().Count();
+            QuickLowStockItems = inventory.Count(i => i.StockQuantity <= i.ReorderLevel);
+
+            var patientIds = appts.Select(a => a.PatientId).Where(x => x.HasValue).Select(x => x!.Value).Distinct().ToList();
+            if (patientIds.Count > 0)
+            {
+                List<Patient> patients;
+                try
+                {
+                    patients = await DbContext.Patients.AsNoTracking().Where(p => patientIds.Contains(p.PatientId)).ToListAsync();
+                }
+                catch (Exception ex) when (IsCloudConnectionFailure(ex))
+                {
+                    patients = await LocalDbContext.Patients.AsNoTracking().Where(p => patientIds.Contains(p.PatientId)).ToListAsync();
+                }
+
+                var female = patients.Count(p => string.Equals(p.Gender, "Female", StringComparison.OrdinalIgnoreCase));
+                var male = patients.Count(p => string.Equals(p.Gender, "Male", StringComparison.OrdinalIgnoreCase));
+                var total = Math.Max(1, female + male);
+                QuickGenderCaption = $"{(female * 100 / total)}% female / {(male * 100 / total)}% male";
+            }
+            else
+            {
+                QuickGenderCaption = "-";
+            }
+        }
+        catch
+        {
+            QuickTotalRevenue = 0m;
+            QuickMonthlyVisits = 0;
+            QuickActivePatients = 0;
+            QuickLowStockItems = 0;
+            QuickGenderCaption = "-";
+        }
+        finally
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task GenerateReport()
+    {
+        ReportError = null;
+        GeneratedReport = null;
+
+        if (string.IsNullOrWhiteSpace(SelectedReportType))
+        {
+            ReportError = "Please select a report type.";
+            return;
+        }
+
+        if (EndDate.Date < StartDate.Date)
+        {
+            ReportError = "End Date must be greater than or equal to Start Date.";
+            return;
+        }
+
+        IsGenerating = true;
+        try
+        {
+            var from = StartDate.Date;
+            var toInclusive = EndDate.Date.AddDays(1).AddTicks(-1);
+
+            switch (SelectedReportType)
+            {
+                case "monthly_revenue":
+                case "billing_collection":
+                    {
+                        List<PatientBill> bills;
+                        try
+                        {
+                            bills = await DbContext.PatientBills
+                                .AsNoTracking()
+                                .Where(b => b.IsArchived == false)
+                                .Where(b => (b.DateOfVisit >= from && b.DateOfVisit <= toInclusive) || (b.CreatedAt >= from && b.CreatedAt <= toInclusive))
+                                .ToListAsync();
+                        }
+                        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+                        {
+                            bills = await LocalDbContext.PatientBills
+                                .AsNoTracking()
+                                .Where(b => b.IsArchived == false)
+                                .Where(b => (b.DateOfVisit >= from && b.DateOfVisit <= toInclusive) || (b.CreatedAt >= from && b.CreatedAt <= toInclusive))
+                                .ToListAsync();
+                        }
+
+                        GeneratedReport = SelectedReportType == "monthly_revenue"
+                            ? BuildMonthlyRevenueReport(bills, from, EndDate.Date)
+                            : BuildBillingCollectionReport(bills, from, EndDate.Date);
+                        break;
+                    }
+
+                case "patient_visit_summary":
+                    {
+                        List<Appointment> appts;
+                        try
+                        {
+                            appts = await DbContext.Appointments
+                                .AsNoTracking()
+                                .Where(a => a.StartDateTime >= from && a.StartDateTime <= toInclusive)
+                                .ToListAsync();
+                        }
+                        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+                        {
+                            appts = await LocalDbContext.Appointments
+                                .AsNoTracking()
+                                .Where(a => a.StartDateTime >= from && a.StartDateTime <= toInclusive)
+                                .ToListAsync();
+                        }
+
+                        GeneratedReport = BuildPatientVisitSummaryReport(appts, from, EndDate.Date);
+                        break;
+                    }
+
+                case "low_stock_alert":
+                    {
+                        List<PharmacyInventoryModel> items;
+                        try
+                        {
+                            items = await DbContext.PharmacyInventory
+                                .AsNoTracking()
+                                .Where(i => i.IsArchived == false)
+                                .ToListAsync();
+                        }
+                        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+                        {
+                            items = await LocalDbContext.PharmacyInventory
+                                .AsNoTracking()
+                                .Where(i => i.IsArchived == false)
+                                .ToListAsync();
+                        }
+
+                        GeneratedReport = BuildLowStockAlertReport(items);
+                        break;
+                    }
+
+                case "staff_activity_summary":
+                    {
+                        List<IT_13FinalProject.Models.HealthRecord> records;
+                        List<VitalSign> vitals;
+                        List<NurseNote> notes;
+
+                        try
+                        {
+                            records = await DbContext.HealthRecords
+                                .AsNoTracking()
+                                .Where(r => r.IsArchived == false)
+                                .Where(r => (r.RecordDate ?? r.ApprovalDate ?? DateTime.Now) >= from && (r.RecordDate ?? r.ApprovalDate ?? DateTime.Now) <= toInclusive)
+                                .ToListAsync();
+
+                            vitals = await DbContext.VitalSigns
+                                .AsNoTracking()
+                                .Where(v => v.IsArchived == false)
+                                .Where(v => v.RecordedDate >= from && v.RecordedDate <= toInclusive)
+                                .ToListAsync();
+
+                            notes = await DbContext.NurseNotes
+                                .AsNoTracking()
+                                .Where(n => n.IsArchived == false)
+                                .Where(n => n.CreatedAt >= from && n.CreatedAt <= toInclusive)
+                                .ToListAsync();
+                        }
+                        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+                        {
+                            records = await LocalDbContext.HealthRecords
+                                .AsNoTracking()
+                                .Where(r => r.IsArchived == false)
+                                .Where(r => (r.RecordDate ?? r.ApprovalDate ?? DateTime.Now) >= from && (r.RecordDate ?? r.ApprovalDate ?? DateTime.Now) <= toInclusive)
+                                .ToListAsync();
+
+                            vitals = await LocalDbContext.VitalSigns
+                                .AsNoTracking()
+                                .Where(v => v.IsArchived == false)
+                                .Where(v => v.RecordedDate >= from && v.RecordedDate <= toInclusive)
+                                .ToListAsync();
+
+                            notes = await LocalDbContext.NurseNotes
+                                .AsNoTracking()
+                                .Where(n => n.IsArchived == false)
+                                .Where(n => n.CreatedAt >= from && n.CreatedAt <= toInclusive)
+                                .ToListAsync();
+                        }
+
+                        GeneratedReport = BuildStaffActivitySummaryReport(records, vitals, notes, from, EndDate.Date);
+                        break;
+                    }
+
+                default:
+                    ReportError = "Unknown report type.";
+                    break;
+            }
+
+            if (GeneratedReport == null)
+            {
+                ReportError = "No data found for the selected range.";
+            }
+        }
+        catch (Exception ex)
+        {
+            ReportError = $"Failed to generate report: {ex.GetBaseException().Message}";
+        }
+        finally
+        {
+            IsGenerating = false;
+        }
+    }
+
+    private async Task ExportCsv()
+    {
+        if (GeneratedReport == null)
+            return;
+
+        var csv = GeneratedReport.ToCsv();
+        var bytes = System.Text.Encoding.UTF8.GetBytes(csv);
+        var base64 = Convert.ToBase64String(bytes);
+        var fileName = $"{GeneratedReport.ExportBaseName}_{StartDate:yyyyMMdd}_{EndDate:yyyyMMdd}.csv";
+
+        await JsRuntime.InvokeVoidAsync("medflow.downloadBase64File", "text/csv", base64, fileName);
+    }
+
+    private static string FormatCurrency(decimal amount)
+    {
+        return $"₱{amount:N2}";
+    }
+
+    private string FormatRange()
+    {
+        var s = StartDate.ToString("MMM dd, yyyy");
+        var e = EndDate.ToString("MMM dd, yyyy");
+        return s == e ? s : $"{s} to {e}";
+    }
+
+    private sealed class ReportResult
+    {
+        public ReportResult(string title, string exportBaseName)
+        {
+            Title = title;
+            ExportBaseName = exportBaseName;
+        }
+
+        public string Title { get; }
+        public string ExportBaseName { get; }
+        public List<string> Columns { get; } = new();
+        public List<Dictionary<string, string>> Rows { get; } = new();
+        public Dictionary<string, string> Summary { get; } = new();
+
+        public string ToCsv()
+        {
+            static string Esc(string s)
+            {
+                s ??= string.Empty;
+                if (s.Contains('"') || s.Contains(',') || s.Contains('\n') || s.Contains('\r'))
+                {
+                    s = s.Replace("\"", "\"\"");
+                    return $"\"{s}\"";
+                }
+                return s;
+            }
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine(string.Join(",", Columns.Select(Esc)));
+            foreach (var row in Rows)
+            {
+                var values = Columns.Select(c => row.TryGetValue(c, out var v) ? v ?? string.Empty : string.Empty).Select(Esc);
+                sb.AppendLine(string.Join(",", values));
+            }
+            return sb.ToString();
+        }
+    }
+
+    private static DateTime GetBillDate(PatientBill b)
+    {
+        if (b.DateOfVisit > new DateTime(2000, 1, 1))
+            return b.DateOfVisit;
+
+        return b.CreatedAt;
+    }
+
+    private static ReportResult BuildMonthlyRevenueReport(List<PatientBill> bills, DateTime from, DateTime to)
+    {
+        var r = new ReportResult("Monthly Revenue", "admin_monthly_revenue");
+        r.Columns.AddRange(new[] { "Month", "Bills", "Total Amount", "Paid", "Unpaid" });
+
+        var groups = bills
+            .GroupBy(b => new DateTime(GetBillDate(b).Year, GetBillDate(b).Month, 1))
+            .OrderBy(g => g.Key)
+            .ToList();
+
+        foreach (var g in groups)
+        {
+            var total = g.Sum(x => x.TotalAmount);
+            var paid = g.Where(x => string.Equals(x.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase)).Sum(x => x.TotalAmount);
+            var unpaid = g.Where(x => !string.Equals(x.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase)).Sum(x => x.TotalAmount);
+            r.Rows.Add(new Dictionary<string, string>
+            {
+                ["Month"] = g.Key.ToString("yyyy-MM"),
+                ["Bills"] = g.Count().ToString(),
+                ["Total Amount"] = total.ToString("N2"),
+                ["Paid"] = paid.ToString("N2"),
+                ["Unpaid"] = unpaid.ToString("N2")
+            });
+        }
+
+        r.Summary["Bills"] = bills.Count.ToString();
+        r.Summary["Total Amount"] = bills.Sum(b => b.TotalAmount).ToString("N2");
+        r.Summary["Paid Bills"] = bills.Count(b => string.Equals(b.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase)).ToString();
+        r.Summary["Unpaid Bills"] = bills.Count(b => !string.Equals(b.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase)).ToString();
+        return r;
+    }
+
+    private static ReportResult BuildBillingCollectionReport(List<PatientBill> bills, DateTime from, DateTime to)
+    {
+        var r = new ReportResult("Billing Collection", "admin_billing_collection");
+        r.Columns.AddRange(new[] { "Payment Status", "Bills", "Total Amount", "Patient Responsibility", "Insurance Coverage" });
+
+        foreach (var g in bills
+            .GroupBy(b => (b.PaymentStatus ?? "Unknown").Trim(), StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Sum(x => x.TotalAmount)))
+        {
+            r.Rows.Add(new Dictionary<string, string>
+            {
+                ["Payment Status"] = g.Key,
+                ["Bills"] = g.Count().ToString(),
+                ["Total Amount"] = g.Sum(x => x.TotalAmount).ToString("N2"),
+                ["Patient Responsibility"] = g.Sum(x => x.PatientResponsibility).ToString("N2"),
+                ["Insurance Coverage"] = g.Sum(x => x.InsuranceCoverage).ToString("N2")
+            });
+        }
+
+        r.Summary["Bills"] = bills.Count.ToString();
+        r.Summary["Total Amount"] = bills.Sum(b => b.TotalAmount).ToString("N2");
+        r.Summary["Total Patient Responsibility"] = bills.Sum(b => b.PatientResponsibility).ToString("N2");
+        r.Summary["Total Insurance Coverage"] = bills.Sum(b => b.InsuranceCoverage).ToString("N2");
+        return r;
+    }
+
+    private static ReportResult BuildPatientVisitSummaryReport(List<Appointment> appts, DateTime from, DateTime to)
+    {
+        var r = new ReportResult("Patient Visit Summary", "admin_patient_visit_summary");
+        r.Columns.AddRange(new[] { "Date", "Appointments", "Patients", "Scheduled", "Completed", "Cancelled" });
+
+        var days = Enumerable.Range(0, (to.Date - from.Date).Days + 1)
+            .Select(i => from.Date.AddDays(i))
+            .ToList();
+
+        foreach (var d in days)
+        {
+            var dayAppts = appts.Where(a => a.StartDateTime.Date == d).ToList();
+            var patients = dayAppts.Select(a => a.PatientId ?? 0).Distinct().Count();
+            var scheduled = dayAppts.Count(a => string.Equals(a.Status, "SCHEDULED", StringComparison.OrdinalIgnoreCase));
+            var completed = dayAppts.Count(a => string.Equals(a.Status, "COMPLETED", StringComparison.OrdinalIgnoreCase));
+            var cancelled = dayAppts.Count(a => a.IsCancelled || string.Equals(a.Status, "CANCELLED", StringComparison.OrdinalIgnoreCase));
+
+            r.Rows.Add(new Dictionary<string, string>
+            {
+                ["Date"] = d.ToString("yyyy-MM-dd"),
+                ["Appointments"] = dayAppts.Count.ToString(),
+                ["Patients"] = patients.ToString(),
+                ["Scheduled"] = scheduled.ToString(),
+                ["Completed"] = completed.ToString(),
+                ["Cancelled"] = cancelled.ToString()
+            });
+        }
+
+        r.Summary["Appointments"] = appts.Count.ToString();
+        r.Summary["Unique Patients"] = appts.Select(a => a.PatientId).Where(x => x.HasValue).Select(x => x!.Value).Distinct().Count().ToString();
+        return r;
+    }
+
+    private static ReportResult BuildLowStockAlertReport(List<PharmacyInventoryModel> items)
+    {
+        var low = items
+            .Where(i => i.StockQuantity <= i.ReorderLevel)
+            .OrderBy(i => i.StockQuantity)
+            .ThenBy(i => i.ItemName)
+            .ToList();
+
+        var r = new ReportResult("Low Stock Alert", "admin_low_stock_alert");
+        r.Columns.AddRange(new[] { "Item", "Category", "Stock", "Reorder Level", "Shortage", "Status" });
+
+        foreach (var i in low)
+        {
+            var shortage = Math.Max(0, i.ReorderLevel - i.StockQuantity);
+            r.Rows.Add(new Dictionary<string, string>
+            {
+                ["Item"] = i.ItemName,
+                ["Category"] = i.Category ?? string.Empty,
+                ["Stock"] = i.StockQuantity.ToString(),
+                ["Reorder Level"] = i.ReorderLevel.ToString(),
+                ["Shortage"] = shortage.ToString(),
+                ["Status"] = i.Status
+            });
+        }
+
+        r.Summary["Low Stock Items"] = low.Count.ToString();
+        r.Summary["Total Inventory Items"] = items.Count.ToString();
+        return r;
+    }
+
+    private static DateTime GetRecordDate(IT_13FinalProject.Models.HealthRecord r)
+    {
+        return r.RecordDate ?? r.ApprovalDate ?? DateTime.Now;
+    }
+
+    private static ReportResult BuildStaffActivitySummaryReport(List<IT_13FinalProject.Models.HealthRecord> records, List<VitalSign> vitals, List<NurseNote> notes, DateTime from, DateTime to)
+    {
+        var r = new ReportResult("Staff Activity Summary", "admin_staff_activity_summary");
+        r.Columns.AddRange(new[] { "Date", "Consultations", "Vitals Recorded", "Nurse Notes" });
+
+        var days = Enumerable.Range(0, (to.Date - from.Date).Days + 1)
+            .Select(i => from.Date.AddDays(i))
+            .ToList();
+
+        foreach (var d in days)
+        {
+            var consult = records.Count(x => GetRecordDate(x).Date == d);
+            var vCount = vitals.Count(v => v.RecordedDate.Date == d);
+            var nCount = notes.Count(n => n.CreatedAt.Date == d);
+            r.Rows.Add(new Dictionary<string, string>
+            {
+                ["Date"] = d.ToString("yyyy-MM-dd"),
+                ["Consultations"] = consult.ToString(),
+                ["Vitals Recorded"] = vCount.ToString(),
+                ["Nurse Notes"] = nCount.ToString()
+            });
+        }
+
+        r.Summary["Consultations"] = records.Count.ToString();
+        r.Summary["Vitals Recorded"] = vitals.Count.ToString();
+        r.Summary["Nurse Notes"] = notes.Count.ToString();
+        return r;
+    }
 }

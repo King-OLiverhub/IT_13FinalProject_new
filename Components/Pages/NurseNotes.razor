@@ -3,9 +3,11 @@
 
 @using IT_13FinalProject.Data
 @using IT_13FinalProject.Models
+@using Microsoft.Data.SqlClient
 @using Microsoft.EntityFrameworkCore
 
 @inject ApplicationDbContext DbContext
+@inject LocalDbContext LocalDbContext
 @inject NavigationManager Navigation
 @inject IJSRuntime JsRuntime
 
@@ -24,12 +26,12 @@
 
                 <div class="nn-filters">
                     <div class="nn-search-box">
-                        <input type="text" placeholder="Search notes..." class="nn-search-input" />
+                        <input type="text" placeholder="Search notes..." class="nn-search-input" @bind="SearchText" @bind:event="oninput" />
                     </div>
                 </div>
 
                 <div class="nn-notes-list">
-                    @foreach (var n in Notes)
+                    @foreach (var n in FilteredNotes)
                     {
                         <div class="nn-note-card">
                             <div class="nn-note-header">
@@ -44,9 +46,9 @@
                             </div>
 
                             <div class="nn-note-content">
-                                <p class="nn-note-text">Patient observed to be stable. Vital signs within normal range. No complaints reported. Medication administered as prescribed. Will continue monitoring.</p>
+                                <p class="nn-note-text">@(string.IsNullOrWhiteSpace(n.Details) ? "(No details)" : n.Details)</p>
                                 <div class="nn-note-footer">
-                                    <span class="nn-nurse-name">Nurse Johnson</span>
+                                    <span class="nn-nurse-name">@(string.IsNullOrWhiteSpace(n.NurseName) ? "Nurse" : n.NurseName)</span>
                                     <div class="nn-note-actions">
                                         <button class="nn-btn-small nn-btn-edit" @onclick="() => OpenEditModal(n.NurseNoteId)">Edit</button>
                                         <button class="nn-btn-small nn-btn-view" @onclick="() => OpenViewModal(n.NurseNoteId)">View Details</button>
@@ -58,6 +60,7 @@
                 </div>
             </div>
         </div>
+
         @if (ShowAddModal)
         {
             <div class="nn-modal-overlay" @onclick="CloseModals">
@@ -101,7 +104,7 @@
 
                         <div class="nn-form-row">
                             <label class="nn-form-label">Category</label>
-                            <select class="nn-form-select">
+                            <select class="nn-form-select" @bind="FormCategory">
                                 <option>Care Provided</option>
                                 <option>Assessment</option>
                                 <option>Medication</option>
@@ -114,7 +117,7 @@
 
                         <div class="nn-form-row">
                             <label class="nn-form-label">Details</label>
-                            <textarea class="nn-form-textarea" rows="4"></textarea>
+                            <textarea class="nn-form-textarea" rows="4" @bind="FormDetails"></textarea>
                         </div>
 
                         <div class="nn-form-subtitle">Additional Info</div>
@@ -207,7 +210,7 @@
 
                         <div class="nn-form-row">
                             <label class="nn-form-label">Category</label>
-                            <select class="nn-form-select">
+                            <select class="nn-form-select" @bind="FormCategory">
                                 <option>Care Provided</option>
                                 <option>Assessment</option>
                                 <option>Medication</option>
@@ -220,7 +223,7 @@
 
                         <div class="nn-form-row">
                             <label class="nn-form-label">Details</label>
-                            <textarea class="nn-form-textarea" rows="4">Patient assisted with ambulation to bathroom. Tolerated well, no dizziness reported. Will continue to assist with mobility as needed.</textarea>
+                            <textarea class="nn-form-textarea" rows="4" @bind="FormDetails"></textarea>
                         </div>
 
                         <div class="nn-form-subtitle">Additional Info</div>
@@ -283,7 +286,7 @@
 
                     <div class="nn-modal-footer">
                         <button class="nn-modal-btn nn-modal-btn-secondary" @onclick="CloseModals">Cancel</button>
-                        <button class="nn-modal-btn nn-modal-btn-primary" @onclick="CloseModals">Save</button>
+                        <button class="nn-modal-btn nn-modal-btn-primary" @onclick="UpdateNoteAsync">Save</button>
                     </div>
                 </div>
             </div>
@@ -297,10 +300,10 @@
 
                     <div class="nn-modal-body">
                         <div class="nn-view-grid">
-                            <div class="nn-view-row"><span class="nn-view-label">Patient</span><span class="nn-view-value">Juan Dela Cruz - Room 201</span></div>
+                            <div class="nn-view-row"><span class="nn-view-label">Patient</span><span class="nn-view-value">@SelectedPatientLabel</span></div>
                             <div class="nn-view-row"><span class="nn-view-label">Vital Signs</span><span class="nn-view-value">@((MarkupString)SelectedVitalSignsDisplay)</span></div>
-                            <div class="nn-view-row"><span class="nn-view-label">Category</span><span class="nn-view-value">Care Provided</span></div>
-                            <div class="nn-view-row"><span class="nn-view-label">Details</span><span class="nn-view-value">Patient assisted with ambulation to bathroom. Tolerated well, no dizziness reported. Will continue to assist with mobility as needed.</span></div>
+                            <div class="nn-view-row"><span class="nn-view-label">Category</span><span class="nn-view-value">@FormCategory</span></div>
+                            <div class="nn-view-row"><span class="nn-view-label">Details</span><span class="nn-view-value">@FormDetails</span></div>
                         </div>
 
                         <div class="nn-form-subtitle">Additional Info</div>
@@ -331,7 +334,7 @@
 
                     <div class="nn-modal-footer">
                         <button class="nn-modal-btn nn-modal-btn-secondary" @onclick="CloseRemoveConfirm">Cancel</button>
-                        <button class="nn-modal-btn nn-modal-btn-primary" @onclick="RemoveConfirmed">Remove</button>
+                        <button class="nn-modal-btn nn-modal-btn-primary" @onclick="RemoveConfirmedAsync">Remove</button>
                     </div>
                 </div>
             </div>
@@ -344,6 +347,16 @@
     private bool ShowViewModal { get; set; }
 
     private List<NurseNote> Notes { get; set; } = new();
+    private string SearchText { get; set; } = string.Empty;
+    private IEnumerable<NurseNote> FilteredNotes =>
+        string.IsNullOrWhiteSpace(SearchText)
+            ? Notes
+            : Notes.Where(n =>
+                (n.Details ?? string.Empty).Contains(SearchText, StringComparison.OrdinalIgnoreCase)
+                || (n.Category ?? string.Empty).Contains(SearchText, StringComparison.OrdinalIgnoreCase)
+                || GetNotePatientName(n).Contains(SearchText, StringComparison.OrdinalIgnoreCase)
+                || (n.NurseName ?? string.Empty).Contains(SearchText, StringComparison.OrdinalIgnoreCase));
+
     private Dictionary<int, int> NoteIdToPatientId { get; set; } = new();
 
     private bool ShowRemoveConfirm { get; set; }
@@ -351,6 +364,10 @@
     private int PendingRemoveNoteId { get; set; }
 
     private int SelectedNoteId { get; set; }
+
+    private string FormCategory { get; set; } = "Care Provided";
+    private string FormDetails { get; set; } = string.Empty;
+    private string FormNurseName { get; set; } = "Nurse";
 
     private string SelectedPatientId { get; set; } = "";
 
@@ -371,12 +388,24 @@
         await TryOpenModalFromQueryAsync();
     }
 
+    private static bool IsCloudConnectionFailure(Exception ex)
+    {
+        if (ex is SqlException)
+            return true;
+        if (ex is DbUpdateException dbu && dbu.InnerException is SqlException)
+            return true;
+        if (ex is DbUpdateException dbu2 && dbu2.GetBaseException() is SqlException)
+            return true;
+        return false;
+    }
+
     private async Task LoadNurseNotesAsync()
     {
         try
         {
             Notes = await DbContext.Set<NurseNote>()
                 .AsNoTracking()
+                .Include(n => n.Patient)
                 .Where(n => !n.IsArchived)
                 .OrderByDescending(n => n.CreatedAt)
                 .ToListAsync();
@@ -384,6 +413,27 @@
             NoteIdToPatientId = Notes
                 .Where(n => n.PatientId > 0)
                 .ToDictionary(n => n.NurseNoteId, n => n.PatientId);
+        }
+        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+        {
+            try
+            {
+                Notes = await LocalDbContext.Set<NurseNote>()
+                    .AsNoTracking()
+                    .Include(n => n.Patient)
+                    .Where(n => !n.IsArchived)
+                    .OrderByDescending(n => n.CreatedAt)
+                    .ToListAsync();
+
+                NoteIdToPatientId = Notes
+                    .Where(n => n.PatientId > 0)
+                    .ToDictionary(n => n.NurseNoteId, n => n.PatientId);
+            }
+            catch
+            {
+                Notes = new();
+                NoteIdToPatientId = new();
+            }
         }
         catch
         {
@@ -420,7 +470,7 @@
         PendingRemoveNoteId = 0;
     }
 
-    private void RemoveConfirmed()
+    private async Task RemoveConfirmedAsync()
     {
         if (PendingRemoveNoteId > 0)
         {
@@ -433,6 +483,56 @@
             if (existing != null)
             {
                 Notes.Remove(existing);
+                StateHasChanged();
+            }
+
+            try
+            {
+                var note = await DbContext.Set<NurseNote>().FirstOrDefaultAsync(n => n.NurseNoteId == PendingRemoveNoteId);
+                if (note != null)
+                {
+                    note.IsArchived = true;
+                    note.ArchivedAt = DateTime.UtcNow;
+                    note.UpdatedAt = DateTime.UtcNow;
+                    await DbContext.SaveChangesAsync();
+
+                    try
+                    {
+                        var localNote = await LocalDbContext.Set<NurseNote>().FirstOrDefaultAsync(n => n.NurseNoteId == PendingRemoveNoteId);
+                        if (localNote != null)
+                        {
+                            localNote.IsArchived = true;
+                            localNote.ArchivedAt = DateTime.UtcNow;
+                            localNote.UpdatedAt = DateTime.UtcNow;
+                            await LocalDbContext.SaveChangesAsync();
+                        }
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+            catch (Exception ex) when (IsCloudConnectionFailure(ex))
+            {
+                try
+                {
+                    var note = await LocalDbContext.Set<NurseNote>().FirstOrDefaultAsync(n => n.NurseNoteId == PendingRemoveNoteId);
+                    if (note != null)
+                    {
+                        note.IsArchived = true;
+                        note.ArchivedAt = DateTime.UtcNow;
+                        note.UpdatedAt = DateTime.UtcNow;
+                        await LocalDbContext.SaveChangesAsync();
+                    }
+                }
+                catch
+                {
+                }
+                await JsRuntime.InvokeVoidAsync("alert", $"Failed to archive note in cloud: {ex.GetBaseException().Message}");
+            }
+            catch (Exception ex)
+            {
+                await JsRuntime.InvokeVoidAsync("alert", $"Failed to remove note: {ex.GetBaseException().Message}");
             }
         }
 
@@ -454,6 +554,22 @@
                 .OrderBy(p => p.LastName)
                 .ThenBy(p => p.FirstName)
                 .ToListAsync();
+        }
+        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+        {
+            try
+            {
+                AssistedPatients = await LocalDbContext.Patients
+                    .AsNoTracking()
+                    .Where(p => p.IsArchived != true)
+                    .OrderBy(p => p.LastName)
+                    .ThenBy(p => p.FirstName)
+                    .ToListAsync();
+            }
+            catch
+            {
+                AssistedPatients = new();
+            }
         }
         catch
         {
@@ -492,11 +608,23 @@
         SelectedPatientLabel = label;
         SelectedPatientSearch = $"{pid} - {label}";
 
-        var latestVitals = await DbContext.VitalSigns
-            .AsNoTracking()
-            .Where(v => v.PatientId == pid && !v.IsArchived)
-            .OrderByDescending(v => v.RecordedDate)
-            .FirstOrDefaultAsync();
+        VitalSign? latestVitals;
+        try
+        {
+            latestVitals = await DbContext.VitalSigns
+                .AsNoTracking()
+                .Where(v => v.PatientId == pid && !v.IsArchived)
+                .OrderByDescending(v => v.RecordedDate)
+                .FirstOrDefaultAsync();
+        }
+        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+        {
+            latestVitals = await LocalDbContext.VitalSigns
+                .AsNoTracking()
+                .Where(v => v.PatientId == pid && !v.IsArchived)
+                .OrderByDescending(v => v.RecordedDate)
+                .FirstOrDefaultAsync();
+        }
 
         if (latestVitals != null)
         {
@@ -561,18 +689,23 @@
                 SelectedPatientId = patientId ?? string.Empty;
                 if (int.TryParse(SelectedPatientId, out var pid) && pid > 0)
                 {
-                    var patient = await DbContext.Patients
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(p => p.PatientId == pid);
+                    Patient? patient = null;
+                    try
+                    {
+                        patient = await DbContext.Patients
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(p => p.PatientId == pid);
+                    }
+                    catch (Exception ex) when (IsCloudConnectionFailure(ex))
+                    {
+                        patient = await LocalDbContext.Patients
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(p => p.PatientId == pid);
+                    }
 
-                    if (patient != null)
-                    {
-                        SelectedPatientLabel = $"{patient.FirstName} {patient.LastName}";
-                    }
-                    else
-                    {
-                        SelectedPatientLabel = $"Patient #{pid}";
-                    }
+                    SelectedPatientLabel = patient != null
+                        ? $"{patient.FirstName} {patient.LastName}".Trim()
+                        : $"Patient #{pid}";
 
                     await SetSelectedPatientAsync(pid, SelectedPatientLabel);
                 }
@@ -603,14 +736,20 @@
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(FormDetails))
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "Details is required.");
+            return;
+        }
+
         try
         {
             var note = new NurseNote
             {
                 PatientId = pid,
-                Category = "Care Provided",
-                Details = string.Empty,
-                NurseName = "Nurse Johnson",
+                Category = string.IsNullOrWhiteSpace(FormCategory) ? "Care Provided" : FormCategory,
+                Details = FormDetails,
+                NurseName = string.IsNullOrWhiteSpace(FormNurseName) ? "Nurse" : FormNurseName,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 IsArchived = false
@@ -619,15 +758,57 @@
             DbContext.Add(note);
             await DbContext.SaveChangesAsync();
 
-            await JsRuntime.InvokeVoidAsync("nurseNotes.lockPatientId", pid);
+            try
+            {
+                var local = new NurseNote
+                {
+                    PatientId = note.PatientId,
+                    Category = note.Category,
+                    Details = note.Details,
+                    NurseName = note.NurseName,
+                    CreatedAt = note.CreatedAt,
+                    UpdatedAt = note.UpdatedAt,
+                    IsArchived = false
+                };
+                LocalDbContext.Add(local);
+                await LocalDbContext.SaveChangesAsync();
+            }
+            catch
+            {
+            }
 
             CloseModals();
             await LoadNurseNotesAsync();
             StateHasChanged();
         }
+        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+        {
+            try
+            {
+                var note = new NurseNote
+                {
+                    PatientId = pid,
+                    Category = string.IsNullOrWhiteSpace(FormCategory) ? "Care Provided" : FormCategory,
+                    Details = FormDetails,
+                    NurseName = string.IsNullOrWhiteSpace(FormNurseName) ? "Nurse" : FormNurseName,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    IsArchived = false
+                };
+                LocalDbContext.Add(note);
+                await LocalDbContext.SaveChangesAsync();
+                CloseModals();
+                await LoadNurseNotesAsync();
+                StateHasChanged();
+            }
+            catch (Exception lex)
+            {
+                await JsRuntime.InvokeVoidAsync("alert", $"Failed to save nurse note: {lex.GetBaseException().Message}");
+            }
+        }
         catch (Exception ex)
         {
-            await JsRuntime.InvokeVoidAsync("alert", $"Failed to save nurse note: {ex.Message}");
+            await JsRuntime.InvokeVoidAsync("alert", $"Failed to save nurse note: {ex.GetBaseException().Message}");
         }
     }
 
@@ -636,6 +817,11 @@
         CloseModals();
         UsePatientSearch = usePatientSearch;
 
+        SelectedNoteId = 0;
+        FormCategory = "Care Provided";
+        FormDetails = string.Empty;
+        FormNurseName = "Nurse";
+
         if (string.IsNullOrWhiteSpace(SelectedPatientId))
         {
             SelectedPatientSearch = string.Empty;
@@ -643,18 +829,138 @@
         ShowAddModal = true;
     }
 
+    private async Task LoadNoteIntoFormAsync(int noteId)
+    {
+        var note = Notes.FirstOrDefault(n => n.NurseNoteId == noteId);
+        if (note == null)
+        {
+            try
+            {
+                note = await DbContext.Set<NurseNote>()
+                    .AsNoTracking()
+                    .Include(n => n.Patient)
+                    .FirstOrDefaultAsync(n => n.NurseNoteId == noteId);
+            }
+            catch (Exception ex) when (IsCloudConnectionFailure(ex))
+            {
+                note = await LocalDbContext.Set<NurseNote>()
+                    .AsNoTracking()
+                    .Include(n => n.Patient)
+                    .FirstOrDefaultAsync(n => n.NurseNoteId == noteId);
+            }
+        }
+
+        if (note == null)
+            return;
+
+        SelectedNoteId = noteId;
+        await SetSelectedPatientAsync(note.PatientId, GetNotePatientName(note));
+        FormCategory = string.IsNullOrWhiteSpace(note.Category) ? "Care Provided" : note.Category;
+        FormDetails = note.Details ?? string.Empty;
+        FormNurseName = string.IsNullOrWhiteSpace(note.NurseName) ? "Nurse" : note.NurseName;
+    }
+
     private void OpenEditModal(int noteId)
     {
         CloseModals();
-        SelectedNoteId = noteId;
+        _ = LoadNoteIntoFormAsync(noteId);
         ShowEditModal = true;
     }
 
     private void OpenViewModal(int noteId)
     {
         CloseModals();
-        SelectedNoteId = noteId;
+        _ = LoadNoteIntoFormAsync(noteId);
         ShowViewModal = true;
+    }
+
+    private async Task UpdateNoteAsync()
+    {
+        if (SelectedNoteId <= 0)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "No note selected.");
+            return;
+        }
+
+        if (!int.TryParse(SelectedPatientId, out var pid) || pid <= 0)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "Invalid patient.");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(FormDetails))
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "Details is required.");
+            return;
+        }
+
+        try
+        {
+            var note = await DbContext.Set<NurseNote>().FirstOrDefaultAsync(n => n.NurseNoteId == SelectedNoteId);
+            if (note == null)
+            {
+                await JsRuntime.InvokeVoidAsync("alert", "Note not found.");
+                return;
+            }
+
+            note.PatientId = pid;
+            note.Category = string.IsNullOrWhiteSpace(FormCategory) ? "Care Provided" : FormCategory;
+            note.Details = FormDetails;
+            note.NurseName = string.IsNullOrWhiteSpace(FormNurseName) ? "Nurse" : FormNurseName;
+            note.UpdatedAt = DateTime.UtcNow;
+            await DbContext.SaveChangesAsync();
+
+            try
+            {
+                var local = await LocalDbContext.Set<NurseNote>().FirstOrDefaultAsync(n => n.NurseNoteId == SelectedNoteId);
+                if (local != null)
+                {
+                    local.PatientId = pid;
+                    local.Category = note.Category;
+                    local.Details = note.Details;
+                    local.NurseName = note.NurseName;
+                    local.UpdatedAt = note.UpdatedAt;
+                    await LocalDbContext.SaveChangesAsync();
+                }
+            }
+            catch
+            {
+            }
+
+            CloseModals();
+            await LoadNurseNotesAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex) when (IsCloudConnectionFailure(ex))
+        {
+            try
+            {
+                var local = await LocalDbContext.Set<NurseNote>().FirstOrDefaultAsync(n => n.NurseNoteId == SelectedNoteId);
+                if (local == null)
+                {
+                    await JsRuntime.InvokeVoidAsync("alert", "Note not found in local DB.");
+                    return;
+                }
+
+                local.PatientId = pid;
+                local.Category = string.IsNullOrWhiteSpace(FormCategory) ? "Care Provided" : FormCategory;
+                local.Details = FormDetails;
+                local.NurseName = string.IsNullOrWhiteSpace(FormNurseName) ? "Nurse" : FormNurseName;
+                local.UpdatedAt = DateTime.UtcNow;
+                await LocalDbContext.SaveChangesAsync();
+                CloseModals();
+                await LoadNurseNotesAsync();
+                StateHasChanged();
+            }
+            catch (Exception lex)
+            {
+                await JsRuntime.InvokeVoidAsync("alert", $"Failed to update nurse note: {lex.GetBaseException().Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", $"Failed to update nurse note: {ex.GetBaseException().Message}");
+        }
     }
 
     private void CloseModals()

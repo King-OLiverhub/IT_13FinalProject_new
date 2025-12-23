@@ -2,12 +2,14 @@
 @layout Layout.DashboardLayout
 
 @inject NavigationManager Navigation
+@inject IJSRuntime JsRuntime
 
 @using IT_13FinalProject.Models
 @using IT_13FinalProject.Data
 @using Microsoft.EntityFrameworkCore
 
 @inject ApplicationDbContext DbContext
+@inject LocalDbContext LocalDbContext
 
 
 <div class="nurse-notes-page">
@@ -18,7 +20,7 @@
         </div>
 
         <div class="dashboard-user-info">
-            <span class="dashboard-user-email">doc@gmail.com</span>
+            <span class="dashboard-user-email">doctor@gmail.com</span>
             <div class="dashboard-user-avatar">
                 <span class="icon-user"></span>
             </div>
@@ -48,6 +50,10 @@
                 </div>
 
                 <div class="pm-actions">
+                    <div class="date-input-wrapper" style="min-width:220px;">
+                        <input type="date" class="date-input" @bind="ScheduleDate" />
+                        <i class="fas fa-calendar-alt"></i>
+                    </div>
                     <button class="activity-action-btn">Sort</button>
                     <button class="activity-action-btn">Filters</button>
                     <button class="activity-action-btn" @onclick="ShowNewAppointmentModal">+ New Appointment</button>
@@ -56,14 +62,14 @@
         </div>
 
         <div class="nurse-content-scroll">
-            <h2 class="nurse-shift-title">TODAY'S SCHEDULE (@DateTime.Now.ToString("MMM dd, yyyy"))</h2>
+            <h2 class="nurse-shift-title">SCHEDULE (@ScheduleDate.ToString("MMM dd, yyyy"))</h2>
 
             <div class="nurse-notes-list">
                 @foreach (var appt in TodayAppointments)
                 {
                     <div class="nurse-note-card">
                         <div class="nurse-note-header">
-                            <span class="nurse-note-time"><span class="icon-clock"></span> @appt.Time | @appt.Status</span>
+                            <span class="nurse-note-time"><span class="icon-clock"></span> @FormatTime(appt.StartDateTime) | @appt.Status</span>
                         </div>
                         <div class="nurse-note-body">
                             <div class="nurse-note-item">
@@ -76,7 +82,7 @@
                             </div>
                             <div class="nurse-note-item">
                                 <span class="nurse-note-icon"><span class="icon-timer"></span></span>
-                                <span class="nurse-note-text">Duration: @appt.Duration</span>
+                                <span class="nurse-note-text">Duration: @FormatDuration(appt.DurationMinutes)</span>
                             </div>
                             @if (!string.IsNullOrEmpty(appt.Tags))
                             {
@@ -101,7 +107,7 @@
                 {
                     <div class="appt-upcoming-card">
                         <span class="appt-upcoming-text">
-                            <span class="icon-calendar"></span> @appt.Date @appt.Time - @appt.PatientName (@appt.Reason)
+                            <span class="icon-calendar"></span> @appt.StartDateTime.ToString("MMM dd, yyyy") @FormatTime(appt.StartDateTime) - @appt.PatientName (@appt.Reason)
                         </span>
                     </div>
                 }
@@ -134,7 +140,7 @@
                             @foreach (var patient in FilteredNewAppointmentPatients)
                             {
                                 <div class="nurse-patient-option" @onclick="() => SelectNewAppointmentPatient(patient)">
-                                    @patient
+                                    @patient.Display
                                 </div>
                             }
                         </div>
@@ -150,7 +156,7 @@
                 <div class="nurse-form-group-inline">
                     <label class="nurse-form-label">Date:</label>
                     <div class="appt-input-with-icon">
-                        <input type="text" class="nurse-form-input" placeholder="11/20/2024" @bind="NewAppointment.Date" />
+                        <input type="date" class="nurse-form-input" @bind="NewAppointmentDate" />
                         <span class="icon-calendar"></span>
                     </div>
                 </div>
@@ -158,7 +164,7 @@
                 <div class="nurse-form-group-inline">
                     <label class="nurse-form-label">Time:</label>
                     <div class="appt-input-with-icon">
-                        <input type="text" class="nurse-form-input" placeholder="02:30 PM" @bind="NewAppointment.Time" />
+                        <input type="time" class="nurse-form-input" @bind="NewAppointmentTime" />
                         <span class="icon-time"></span>
                     </div>
                 </div>
@@ -167,17 +173,17 @@
             <div class="nurse-form-row">
                 <div class="nurse-form-group-inline">
                     <label class="nurse-form-label">Duration:</label>
-                    <select class="nurse-form-select-small" @bind="NewAppointment.Duration">
-                        <option value="15 mins">15 minutes</option>
-                        <option value="30 mins">30 minutes</option>
-                        <option value="45 mins">45 minutes</option>
-                        <option value="60 mins">60 minutes</option>
+                    <select class="nurse-form-select-small" @bind="NewAppointmentDurationMinutes">
+                        <option value="15">15 minutes</option>
+                        <option value="30">30 minutes</option>
+                        <option value="45">45 minutes</option>
+                        <option value="60">60 minutes</option>
                     </select>
                 </div>
 
                 <div class="nurse-form-group-inline">
                     <label class="nurse-form-label">Type:</label>
-                    <select class="nurse-form-select-small" @bind="NewAppointment.Type">
+                    <select class="nurse-form-select-small" @bind="NewAppointmentType">
                         <option value="Follow-up">Follow-up</option>
                         <option value="Consultation">Consultation</option>
                         <option value="Check-up">Check-up</option>
@@ -188,12 +194,12 @@
 
             <div class="nurse-form-group">
                 <label class="nurse-form-label">Reason:</label>
-                <input type="text" class="nurse-form-input" placeholder="e.g., Hypertension follow-up" @bind="NewAppointment.Reason" />
+                <input type="text" class="nurse-form-input" placeholder="e.g., Hypertension follow-up" @bind="NewAppointmentReason" />
             </div>
 
             <div class="nurse-form-group">
                 <label class="nurse-form-label">Notes:</label>
-                <textarea class="nurse-form-textarea" rows="3" placeholder="e.g., Please bring current medications" @bind="NewAppointment.Notes"></textarea>
+                <textarea class="nurse-form-textarea" rows="3" placeholder="e.g., Please bring current medications" @bind="NewAppointmentNotes"></textarea>
             </div>
 
             <div class="nurse-form-section">
@@ -202,15 +208,15 @@
 
             <div class="appt-checkbox-group">
                 <label class="appt-checkbox-label">
-                    <input type="checkbox" @bind="NewAppointment.SendConfirmation" />
+                    <input type="checkbox" @bind="NewAppointmentSendConfirmation" />
                     <span class="appt-checkbox-text">Send confirmation to patient</span>
                 </label>
                 <label class="appt-checkbox-label">
-                    <input type="checkbox" @bind="NewAppointment.AddToCalendar" />
+                    <input type="checkbox" @bind="NewAppointmentAddToCalendar" />
                     <span class="appt-checkbox-text">Add to doctor's calendar</span>
                 </label>
                 <label class="appt-checkbox-label">
-                    <input type="checkbox" @bind="NewAppointment.SendReminder" />
+                    <input type="checkbox" @bind="NewAppointmentSendReminder" />
                     <span class="appt-checkbox-text">Send reminder 24 hours before</span>
                 </label>
             </div>
@@ -247,7 +253,7 @@
                             @foreach (var patient in FilteredReschedulePatients)
                             {
                                 <div class="nurse-patient-option" @onclick="() => SelectReschedulePatient(patient)">
-                                    @patient
+                                    @patient.Display
                                 </div>
                             }
                         </div>
@@ -263,7 +269,7 @@
                 <div class="nurse-form-group-inline">
                     <label class="nurse-form-label">Date:</label>
                     <div class="appt-input-with-icon">
-                        <input type="text" class="nurse-form-input" placeholder="11/20/2024" @bind="ReschedulingAppointment.Date" />
+                        <input type="date" class="nurse-form-input" @bind="RescheduleDate" />
                         <span class="icon-calendar"></span>
                     </div>
                 </div>
@@ -271,7 +277,7 @@
                 <div class="nurse-form-group-inline">
                     <label class="nurse-form-label">Time:</label>
                     <div class="appt-input-with-icon">
-                        <input type="text" class="nurse-form-input" placeholder="02:30 PM" @bind="ReschedulingAppointment.Time" />
+                        <input type="time" class="nurse-form-input" @bind="RescheduleTime" />
                         <span class="icon-time"></span>
                     </div>
                 </div>
@@ -280,17 +286,17 @@
             <div class="nurse-form-row">
                 <div class="nurse-form-group-inline">
                     <label class="nurse-form-label">Duration:</label>
-                    <select class="nurse-form-select-small" @bind="ReschedulingAppointment.Duration">
-                        <option value="15 mins">15 minutes</option>
-                        <option value="30 mins">30 minutes</option>
-                        <option value="45 mins">45 minutes</option>
-                        <option value="60 mins">60 minutes</option>
+                    <select class="nurse-form-select-small" @bind="RescheduleDurationMinutes">
+                        <option value="15">15 minutes</option>
+                        <option value="30">30 minutes</option>
+                        <option value="45">45 minutes</option>
+                        <option value="60">60 minutes</option>
                     </select>
                 </div>
 
                 <div class="nurse-form-group-inline">
                     <label class="nurse-form-label">Type:</label>
-                    <select class="nurse-form-select-small" @bind="ReschedulingAppointment.Type">
+                    <select class="nurse-form-select-small" @bind="RescheduleType">
                         <option value="Follow-up">Follow-up</option>
                         <option value="Consultation">Consultation</option>
                         <option value="Check-up">Check-up</option>
@@ -301,12 +307,12 @@
 
             <div class="nurse-form-group">
                 <label class="nurse-form-label">Reason:</label>
-                <input type="text" class="nurse-form-input" placeholder="e.g., Hypertension follow-up" @bind="ReschedulingAppointment.Reason" />
+                <input type="text" class="nurse-form-input" placeholder="e.g., Hypertension follow-up" @bind="RescheduleReason" />
             </div>
 
             <div class="nurse-form-group">
                 <label class="nurse-form-label">Notes:</label>
-                <textarea class="nurse-form-textarea" rows="3" placeholder="e.g., Please bring current medications" @bind="ReschedulingAppointment.Notes"></textarea>
+                <textarea class="nurse-form-textarea" rows="3" placeholder="e.g., Please bring current medications" @bind="RescheduleNotes"></textarea>
             </div>
 
             <div class="nurse-form-section">
@@ -315,15 +321,15 @@
 
             <div class="appt-checkbox-group">
                 <label class="appt-checkbox-label">
-                    <input type="checkbox" @bind="ReschedulingAppointment.SendConfirmation" />
+                    <input type="checkbox" @bind="RescheduleSendConfirmation" />
                     <span class="appt-checkbox-text">Send confirmation to patient</span>
                 </label>
                 <label class="appt-checkbox-label">
-                    <input type="checkbox" @bind="ReschedulingAppointment.AddToCalendar" />
+                    <input type="checkbox" @bind="RescheduleAddToCalendar" />
                     <span class="appt-checkbox-text">Add to doctor's calendar</span>
                 </label>
                 <label class="appt-checkbox-label">
-                    <input type="checkbox" @bind="ReschedulingAppointment.SendReminder" />
+                    <input type="checkbox" @bind="RescheduleSendReminder" />
                     <span class="appt-checkbox-text">Send reminder 24 hours before</span>
                 </label>
             </div>
@@ -337,35 +343,40 @@
 }
 
 @code {
-    private class Appointment
-    {
-        public string Id { get; set; } = "";
-        public string PatientName { get; set; } = "";
-        public string Date { get; set; } = "";
-        public string Time { get; set; } = "";
-        public string Duration { get; set; } = "30 mins";
-        public string Reason { get; set; } = "";
-        public string Status { get; set; } = "";
-        public string Type { get; set; } = "Follow-up";
-        public string Notes { get; set; } = "";
-        public string Tags { get; set; } = "";
-        public bool SendConfirmation { get; set; } = true;
-        public bool AddToCalendar { get; set; } = true;
-        public bool SendReminder { get; set; } = false;
-    }
-
     private string SearchTerm { get; set; } = string.Empty;
     private int PageSize { get; set; } = 10;
 
+    private DateTime ScheduleDate { get; set; } = DateTime.Today;
+
     private List<Patient> Patients = new();
+
+    private List<Appointment> AllAppointments { get; set; } = new();
 
     private bool ShowNewAppointment { get; set; } = false;
     private bool ShowReschedule { get; set; } = false;
 
     private string? ReturnUrl { get; set; }
 
-    private Appointment NewAppointment = new();
-    private Appointment ReschedulingAppointment = new();
+    private DateTime NewAppointmentDate { get; set; } = DateTime.Today;
+    private TimeOnly NewAppointmentTime { get; set; } = new(9, 0);
+    private int NewAppointmentDurationMinutes { get; set; } = 30;
+    private string NewAppointmentType { get; set; } = "Follow-up";
+    private string NewAppointmentReason { get; set; } = string.Empty;
+    private string NewAppointmentNotes { get; set; } = string.Empty;
+    private bool NewAppointmentSendConfirmation { get; set; } = true;
+    private bool NewAppointmentAddToCalendar { get; set; } = true;
+    private bool NewAppointmentSendReminder { get; set; }
+
+    private int? ReschedulingAppointmentId { get; set; }
+    private DateTime RescheduleDate { get; set; } = DateTime.Today;
+    private TimeOnly RescheduleTime { get; set; } = new(9, 0);
+    private int RescheduleDurationMinutes { get; set; } = 30;
+    private string RescheduleType { get; set; } = "Follow-up";
+    private string RescheduleReason { get; set; } = string.Empty;
+    private string RescheduleNotes { get; set; } = string.Empty;
+    private bool RescheduleSendConfirmation { get; set; } = true;
+    private bool RescheduleAddToCalendar { get; set; } = true;
+    private bool RescheduleSendReminder { get; set; }
 
     // Patient search dropdown states for Add Appointment
     private string NewAppointmentPatientSearch { get; set; } = "";
@@ -375,86 +386,21 @@
     private string ReschedulePatientSearch { get; set; } = "";
     private bool ShowReschedulePatientDropdown { get; set; } = false;
 
-    private readonly string[] AvailablePatients = new string[]
-    {
-        "Juan Dela Cruz - Room 201",
-        "Ana Santos - Room 205",
-        "Maria Santos - Room 105",
-        "Pedro Cruz - Room 301",
-        "Ana Lim - Room 210",
-        "Himeko Murata - Room 302",
-        "Yae Miko - Room 401"
-    };
+    private sealed record PatientOption(int PatientId, string Display);
 
-    private IEnumerable<string> FilteredNewAppointmentPatients =>
+    private IEnumerable<PatientOption> PatientOptions => Patients
+        .Select(p => new PatientOption(p.PatientId, $"{p.FirstName} {p.LastName}"))
+        .OrderBy(p => p.Display);
+
+    private IEnumerable<PatientOption> FilteredNewAppointmentPatients =>
         string.IsNullOrWhiteSpace(NewAppointmentPatientSearch)
-            ? AvailablePatients
-            : AvailablePatients.Where(p => p.Contains(NewAppointmentPatientSearch, StringComparison.OrdinalIgnoreCase));
+            ? PatientOptions
+            : PatientOptions.Where(p => p.Display.Contains(NewAppointmentPatientSearch, StringComparison.OrdinalIgnoreCase));
 
-    private IEnumerable<string> FilteredReschedulePatients =>
+    private IEnumerable<PatientOption> FilteredReschedulePatients =>
         string.IsNullOrWhiteSpace(ReschedulePatientSearch)
-            ? AvailablePatients
-            : AvailablePatients.Where(p => p.Contains(ReschedulePatientSearch, StringComparison.OrdinalIgnoreCase));
-
-    private List<Appointment> AllAppointments = new()
-    {
-        new() {
-            Id = "01",
-            PatientName = "Juan Dela Cruz",
-            Date = DateTime.Today.ToShortDateString(),
-            Time = "09:00 AM",
-            Duration = "30 mins",
-            Reason = "Follow-up: Hypertension management",
-            Status = "CONFIRMED",
-            Tags = "#family #education #discharge"
-        },
-        new() {
-            Id = "02",
-            PatientName = "Maria Santos",
-            Date = DateTime.Today.ToShortDateString(),
-            Time = "10:30 AM",
-            Duration = "45 mins",
-            Reason = "New patient: Diabetes screening",
-            Status = "WAITING"
-        },
-        new() {
-            Id = "03",
-            PatientName = "Pedro Cruz",
-            Date = DateTime.Today.ToShortDateString(),
-            Time = "01:00 PM",
-            Duration = "20 mins",
-            Reason = "Routine check-up",
-            Status = "CONFIRMED",
-            Tags = "#family #education #discharge"
-        },
-        new() {
-            Id = "04",
-            PatientName = "Ana Lim",
-            Date = "Tomorrow 9:30 AM",
-            Time = "9:30 AM",
-            Duration = "30 mins",
-            Reason = "Lab results review",
-            Status = "SCHEDULED"
-        },
-        new() {
-            Id = "05",
-            PatientName = "James Reyes",
-            Date = "Nov 17, 2:00 PM",
-            Time = "2:00 PM",
-            Duration = "45 mins",
-            Reason = "Surgical follow-up",
-            Status = "SCHEDULED"
-        },
-        new() {
-            Id = "06",
-            PatientName = "Juan Dela Cruz",
-            Date = "Nov 18, 11:00 AM",
-            Time = "11:00 AM",
-            Duration = "30 mins",
-            Reason = "BP check",
-            Status = "SCHEDULED"
-        }
-    };
+            ? PatientOptions
+            : PatientOptions.Where(p => p.Display.Contains(ReschedulePatientSearch, StringComparison.OrdinalIgnoreCase));
 
     protected override void OnInitialized()
     {
@@ -473,7 +419,15 @@
         {
             query.TryGetValue("patientName", out var patientName);
 
-            NewAppointment = new();
+            NewAppointmentDate = DateTime.Today;
+            NewAppointmentTime = new TimeOnly(9, 0);
+            NewAppointmentDurationMinutes = 30;
+            NewAppointmentType = "Follow-up";
+            NewAppointmentReason = string.Empty;
+            NewAppointmentNotes = string.Empty;
+            NewAppointmentSendConfirmation = true;
+            NewAppointmentAddToCalendar = true;
+            NewAppointmentSendReminder = false;
             NewAppointmentPatientSearch = patientName ?? "";
             ShowNewAppointmentPatientDropdown = false;
             ShowNewAppointment = true;
@@ -482,16 +436,91 @@
 
     protected override async Task OnInitializedAsync()
     {
+        List<Patient> cloudPatients = new();
+        List<Patient> localPatients = new();
+
         try
         {
-            Patients = await DbContext.Patients.AsNoTracking().ToListAsync();
+            cloudPatients = await DbContext.Patients.AsNoTracking().ToListAsync();
         }
         catch
         {
-            Patients = new();
+            cloudPatients = new();
         }
 
+        try
+        {
+            localPatients = await LocalDbContext.Patients.AsNoTracking().ToListAsync();
+        }
+        catch
+        {
+            localPatients = new();
+        }
+
+        Patients = cloudPatients.Count > 0 ? cloudPatients : localPatients;
+
+        await LoadAppointments();
         await base.OnInitializedAsync();
+    }
+
+    private async Task LoadAppointments()
+    {
+        List<Appointment> cloud = new();
+        List<Appointment> local = new();
+
+        try
+        {
+            cloud = await DbContext.Appointments
+                .AsNoTracking()
+                .Where(a => !a.IsCancelled)
+                .ToListAsync();
+        }
+        catch
+        {
+            cloud = new();
+        }
+
+        try
+        {
+            local = await LocalDbContext.Appointments
+                .AsNoTracking()
+                .Where(a => !a.IsCancelled)
+                .ToListAsync();
+        }
+        catch
+        {
+            local = new();
+        }
+
+        AllAppointments = MergeAppointments(cloud, local)
+            .OrderBy(a => a.StartDateTime)
+            .ToList();
+    }
+
+    private static IEnumerable<Appointment> MergeAppointments(List<Appointment> cloud, List<Appointment> local)
+    {
+        // Prefer Cloud when the same ExternalId exists in both.
+        var dict = new Dictionary<string, Appointment>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var a in local)
+        {
+            dict[GetMergeKey(a, "local")] = a;
+        }
+
+        foreach (var a in cloud)
+        {
+            dict[GetMergeKey(a, "cloud")] = a;
+        }
+
+        return dict.Values;
+    }
+
+    private static string GetMergeKey(Appointment a, string source)
+    {
+        if (a.ExternalId.HasValue)
+            return a.ExternalId.Value.ToString("D");
+
+        return $"{source}:{a.AppointmentId}";
     }
 
     private static Dictionary<string, string?> ParseQueryString(string query)
@@ -523,15 +552,45 @@
         return result;
     }
 
+    private IEnumerable<Appointment> FilteredAppointments
+    {
+        get
+        {
+            var q = AllAppointments.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(SearchTerm))
+            {
+                q = q.Where(a =>
+                    a.PatientName.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase)
+                    || a.Reason.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase));
+            }
+
+            return q;
+        }
+    }
+
     private IEnumerable<Appointment> TodayAppointments =>
-        AllAppointments.Where(a => a.Date == DateTime.Today.ToShortDateString());
+        FilteredAppointments
+            .Where(a => a.StartDateTime.Date == ScheduleDate.Date)
+            .Take(PageSize);
 
     private IEnumerable<Appointment> UpcomingAppointments =>
-        AllAppointments.Where(a => a.Date != DateTime.Today.ToShortDateString());
+        FilteredAppointments
+            .Where(a => a.StartDateTime.Date > ScheduleDate.Date)
+            .Take(PageSize);
 
     private void ShowNewAppointmentModal()
     {
-        NewAppointment = new();
+        NewAppointmentDate = ScheduleDate.Date;
+        NewAppointmentTime = new TimeOnly(9, 0);
+        NewAppointmentDurationMinutes = 30;
+        NewAppointmentType = "Follow-up";
+        NewAppointmentReason = string.Empty;
+        NewAppointmentNotes = string.Empty;
+        NewAppointmentSendConfirmation = true;
+        NewAppointmentAddToCalendar = true;
+        NewAppointmentSendReminder = false;
+
         NewAppointmentPatientSearch = "";
         ShowNewAppointmentPatientDropdown = false;
         ShowNewAppointment = true;
@@ -548,9 +607,104 @@
         }
     }
 
-    private void SaveNewAppointment()
+    private async Task SaveNewAppointment()
     {
-        // Add save logic here
+        if (string.IsNullOrWhiteSpace(NewAppointmentPatientSearch))
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "Please select a patient.");
+            return;
+        }
+
+        if (!TryCombineDateTime(NewAppointmentDate, NewAppointmentTime, out var startDateTime))
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "Please enter a valid date and time.");
+            return;
+        }
+
+        var patientId = FindPatientIdByName(NewAppointmentPatientSearch);
+
+        var externalId = Guid.NewGuid();
+        Exception? cloudError = null;
+        Exception? localError = null;
+
+        var appt = new Appointment
+        {
+            ExternalId = externalId,
+            PatientId = patientId,
+            PatientName = ExtractPatientName(NewAppointmentPatientSearch),
+            StartDateTime = startDateTime,
+            DurationMinutes = NewAppointmentDurationMinutes,
+            Type = NewAppointmentType,
+            Status = "SCHEDULED",
+            Reason = NewAppointmentReason ?? string.Empty,
+            Notes = string.IsNullOrWhiteSpace(NewAppointmentNotes) ? null : NewAppointmentNotes,
+            Tags = null,
+            IsCancelled = false,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = null
+        };
+
+        try
+        {
+            DbContext.Appointments.Add(appt);
+            await DbContext.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            cloudError = ex;
+        }
+
+        try
+        {
+            var localAppt = new Appointment
+            {
+                ExternalId = externalId,
+                PatientId = patientId,
+                PatientName = appt.PatientName,
+                StartDateTime = appt.StartDateTime,
+                DurationMinutes = appt.DurationMinutes,
+                Type = appt.Type,
+                Status = appt.Status,
+                Reason = appt.Reason,
+                Notes = appt.Notes,
+                Tags = appt.Tags,
+                IsCancelled = appt.IsCancelled,
+                CancelledAt = appt.CancelledAt,
+                CreatedAt = appt.CreatedAt,
+                UpdatedAt = appt.UpdatedAt,
+                DoctorId = appt.DoctorId,
+                DepartmentId = appt.DepartmentId
+            };
+
+            LocalDbContext.Appointments.Add(localAppt);
+            await LocalDbContext.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            localError = ex;
+        }
+
+        await LoadAppointments();
+
+        if (cloudError != null)
+        {
+            var details = cloudError.InnerException?.Message;
+            await JsRuntime.InvokeVoidAsync(
+                "alert",
+                string.IsNullOrWhiteSpace(details)
+                    ? $"Saved locally, but failed to save to cloud: {cloudError.Message}"
+                    : $"Saved locally, but failed to save to cloud: {cloudError.Message}\n\nInner: {details}");
+        }
+        else if (localError != null)
+        {
+            var details = localError.InnerException?.Message;
+            await JsRuntime.InvokeVoidAsync(
+                "alert",
+                string.IsNullOrWhiteSpace(details)
+                    ? $"Saved to cloud, but failed to save locally: {localError.Message}"
+                    : $"Saved to cloud, but failed to save locally: {localError.Message}\n\nInner: {details}");
+        }
+
         ShowNewAppointment = false;
         ShowNewAppointmentPatientDropdown = false;
 
@@ -562,19 +716,19 @@
 
     private void ShowRescheduleModal(Appointment appt)
     {
-        ReschedulingAppointment = new()
-        {
-            Id = appt.Id,
-            PatientName = appt.PatientName,
-            Date = appt.Date,
-            Time = appt.Time,
-            Duration = appt.Duration,
-            Reason = appt.Reason,
-            Status = appt.Status,
-            Type = appt.Type,
-            Notes = appt.Notes
-        };
+        ReschedulingAppointmentId = appt.AppointmentId;
         ReschedulePatientSearch = appt.PatientName;
+
+        RescheduleDate = appt.StartDateTime.Date;
+        RescheduleTime = TimeOnly.FromDateTime(appt.StartDateTime);
+        RescheduleDurationMinutes = appt.DurationMinutes;
+        RescheduleType = appt.Type;
+        RescheduleReason = appt.Reason;
+        RescheduleNotes = appt.Notes ?? string.Empty;
+        RescheduleSendConfirmation = true;
+        RescheduleAddToCalendar = true;
+        RescheduleSendReminder = false;
+
         ShowReschedulePatientDropdown = false;
         ShowReschedule = true;
     }
@@ -585,9 +739,98 @@
         ShowReschedulePatientDropdown = false;
     }
 
-    private void SaveReschedule()
+    private async Task SaveReschedule()
     {
-        // Add save logic here
+        if (ReschedulingAppointmentId is null)
+        {
+            ShowReschedule = false;
+            ShowReschedulePatientDropdown = false;
+            return;
+        }
+
+        if (!TryCombineDateTime(RescheduleDate, RescheduleTime, out var startDateTime))
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "Please enter a valid date and time.");
+            return;
+        }
+
+        var patientId = FindPatientIdByName(ReschedulePatientSearch);
+
+        var ext = await EnsureExternalIdForAppointmentAsync(ReschedulingAppointmentId.Value);
+        if (ext == null)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "Appointment not found.");
+            return;
+        }
+
+        Exception? cloudError = null;
+        Exception? localError = null;
+
+        try
+        {
+            var appt = await DbContext.Appointments.FirstOrDefaultAsync(a => a.ExternalId == ext);
+            if (appt != null)
+            {
+                appt.PatientId = patientId;
+                appt.PatientName = ExtractPatientName(ReschedulePatientSearch);
+                appt.StartDateTime = startDateTime;
+                appt.DurationMinutes = RescheduleDurationMinutes;
+                appt.Type = RescheduleType;
+                appt.Reason = RescheduleReason ?? string.Empty;
+                appt.Notes = string.IsNullOrWhiteSpace(RescheduleNotes) ? null : RescheduleNotes;
+                appt.Status = "RESCHEDULED";
+                appt.UpdatedAt = DateTime.UtcNow;
+                await DbContext.SaveChangesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            cloudError = ex;
+        }
+
+        try
+        {
+            var appt = await LocalDbContext.Appointments.FirstOrDefaultAsync(a => a.ExternalId == ext);
+            if (appt != null)
+            {
+                appt.PatientId = patientId;
+                appt.PatientName = ExtractPatientName(ReschedulePatientSearch);
+                appt.StartDateTime = startDateTime;
+                appt.DurationMinutes = RescheduleDurationMinutes;
+                appt.Type = RescheduleType;
+                appt.Reason = RescheduleReason ?? string.Empty;
+                appt.Notes = string.IsNullOrWhiteSpace(RescheduleNotes) ? null : RescheduleNotes;
+                appt.Status = "RESCHEDULED";
+                appt.UpdatedAt = DateTime.UtcNow;
+                await LocalDbContext.SaveChangesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            localError = ex;
+        }
+
+        await LoadAppointments();
+
+        if (cloudError != null)
+        {
+            var details = cloudError.InnerException?.Message;
+            await JsRuntime.InvokeVoidAsync(
+                "alert",
+                string.IsNullOrWhiteSpace(details)
+                    ? $"Rescheduled locally, but failed to update cloud: {cloudError.Message}"
+                    : $"Rescheduled locally, but failed to update cloud: {cloudError.Message}\n\nInner: {details}");
+        }
+        else if (localError != null)
+        {
+            var details = localError.InnerException?.Message;
+            await JsRuntime.InvokeVoidAsync(
+                "alert",
+                string.IsNullOrWhiteSpace(details)
+                    ? $"Rescheduled in cloud, but failed to update locally: {localError.Message}"
+                    : $"Rescheduled in cloud, but failed to update locally: {localError.Message}\n\nInner: {details}");
+        }
+
         ShowReschedule = false;
         ShowReschedulePatientDropdown = false;
     }
@@ -604,51 +847,177 @@
         ShowReschedulePatientDropdown = true;
     }
 
-    private void SelectNewAppointmentPatient(string patient)
+    private void SelectNewAppointmentPatient(PatientOption patient)
     {
-        NewAppointmentPatientSearch = patient;
-        NewAppointment.PatientName = patient;
+        NewAppointmentPatientSearch = patient.Display;
         ShowNewAppointmentPatientDropdown = false;
     }
 
-    private void SelectReschedulePatient(string patient)
+    private void SelectReschedulePatient(PatientOption patient)
     {
-        ReschedulePatientSearch = patient;
-        ReschedulingAppointment.PatientName = patient;
+        ReschedulePatientSearch = patient.Display;
         ShowReschedulePatientDropdown = false;
     }
 
-    private void CancelAppointment(Appointment appt)
+    private async Task CancelAppointment(Appointment appt)
     {
-        // Add cancel logic here
+        var confirmed = await JsRuntime.InvokeAsync<bool>("confirm", "Cancel this appointment?");
+        if (!confirmed)
+            return;
+
+        var ext = appt.ExternalId;
+        if (!ext.HasValue)
+        {
+            ext = await EnsureExternalIdForAppointmentAsync(appt.AppointmentId);
+        }
+
+        if (!ext.HasValue)
+            return;
+
+        Exception? cloudError = null;
+        Exception? localError = null;
+
+        try
+        {
+            var dbAppt = await DbContext.Appointments.FirstOrDefaultAsync(a => a.ExternalId == ext);
+            if (dbAppt != null)
+            {
+                dbAppt.IsCancelled = true;
+                dbAppt.CancelledAt = DateTime.UtcNow;
+                dbAppt.Status = "CANCELLED";
+                dbAppt.UpdatedAt = DateTime.UtcNow;
+                await DbContext.SaveChangesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            cloudError = ex;
+        }
+
+        try
+        {
+            var dbAppt = await LocalDbContext.Appointments.FirstOrDefaultAsync(a => a.ExternalId == ext);
+            if (dbAppt != null)
+            {
+                dbAppt.IsCancelled = true;
+                dbAppt.CancelledAt = DateTime.UtcNow;
+                dbAppt.Status = "CANCELLED";
+                dbAppt.UpdatedAt = DateTime.UtcNow;
+                await LocalDbContext.SaveChangesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            localError = ex;
+        }
+
+        await LoadAppointments();
+
+        if (cloudError != null)
+        {
+            var details = cloudError.InnerException?.Message;
+            await JsRuntime.InvokeVoidAsync(
+                "alert",
+                string.IsNullOrWhiteSpace(details)
+                    ? $"Cancelled locally, but failed to cancel in cloud: {cloudError.Message}"
+                    : $"Cancelled locally, but failed to cancel in cloud: {cloudError.Message}\n\nInner: {details}");
+        }
+        else if (localError != null)
+        {
+            var details = localError.InnerException?.Message;
+            await JsRuntime.InvokeVoidAsync(
+                "alert",
+                string.IsNullOrWhiteSpace(details)
+                    ? $"Cancelled in cloud, but failed to cancel locally: {localError.Message}"
+                    : $"Cancelled in cloud, but failed to cancel locally: {localError.Message}\n\nInner: {details}");
+        }
+    }
+
+    private async Task<Guid?> EnsureExternalIdForAppointmentAsync(int appointmentId)
+    {
+        // If the appointment row doesn't have ExternalId yet, generate and store it in both DBs.
+        var existing = await DbContext.Appointments.AsNoTracking().FirstOrDefaultAsync(a => a.AppointmentId == appointmentId);
+        if (existing?.ExternalId != null)
+            return existing.ExternalId;
+
+        var ext = Guid.NewGuid();
+
+        try
+        {
+            var cloud = await DbContext.Appointments.FirstOrDefaultAsync(a => a.AppointmentId == appointmentId);
+            if (cloud != null && cloud.ExternalId == null)
+            {
+                cloud.ExternalId = ext;
+                await DbContext.SaveChangesAsync();
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+
+        try
+        {
+            var local = await LocalDbContext.Appointments.FirstOrDefaultAsync(a => a.AppointmentId == appointmentId);
+            if (local != null && local.ExternalId == null)
+            {
+                local.ExternalId = ext;
+                await LocalDbContext.SaveChangesAsync();
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+
+        return ext;
     }
 
     private void StartConsult(Appointment appt)
     {
-        var patientId = FindPatientIdByAppointment(appt);
-        if (patientId is null)
+        if (appt.PatientId is null)
         {
             Navigation.NavigateTo("/doctor-consultation");
             return;
         }
 
-        Navigation.NavigateTo($"/doctor-consultation/{patientId.Value}");
+        Navigation.NavigateTo($"/doctor-consultation/{appt.PatientId.Value}");
     }
 
-    private int? FindPatientIdByAppointment(Appointment appt)
+    private static bool TryCombineDateTime(DateTime date, TimeOnly time, out DateTime result)
+    {
+        result = date.Date.Add(time.ToTimeSpan());
+        return true;
+    }
+
+    private static string ExtractPatientName(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+
+        var idx = input.IndexOf('-');
+        return (idx >= 0 ? input[..idx] : input).Trim();
+    }
+
+    private int? FindPatientIdByName(string input)
     {
         if (Patients.Count == 0)
             return null;
 
-        var apptName = (appt.PatientName ?? string.Empty).Trim();
-        if (string.IsNullOrWhiteSpace(apptName))
+        var name = ExtractPatientName(input);
+        if (string.IsNullOrWhiteSpace(name))
             return null;
 
-        var exact = Patients.FirstOrDefault(p => ($"{p.FirstName} {p.LastName}").Equals(apptName, StringComparison.OrdinalIgnoreCase));
-        if (exact is not null)
-            return exact.PatientId;
+        var exact = Patients.FirstOrDefault(p => ($"{p.FirstName} {p.LastName}").Equals(name, StringComparison.OrdinalIgnoreCase));
+        return exact?.PatientId;
+    }
 
-        var contains = Patients.FirstOrDefault(p => apptName.Contains($"{p.FirstName} {p.LastName}", StringComparison.OrdinalIgnoreCase));
-        return contains?.PatientId;
+    private static string FormatTime(DateTime dt) => dt.ToString("hh:mm tt");
+
+    private static string FormatDuration(int minutes)
+    {
+        if (minutes <= 0)
+            return "0 mins";
+        return minutes == 60 ? "60 mins" : $"{minutes} mins";
     }
 }

@@ -1,6 +1,11 @@
 @page "/doctor-lab-results"
 @layout Layout.DashboardLayout
 
+@using IT_13FinalProject.Services
+
+@inject ILabResultService LabResultService
+@inject IJSRuntime JsRuntime
+
 <div class="nurse-notes-page">
     <header class="dashboard-header">
         <div>
@@ -9,7 +14,7 @@
         </div>
 
         <div class="dashboard-user-info">
-            <span class="dashboard-user-email">doc@gmail.com</span>
+            <span class="dashboard-user-email">doctor@gmail.com</span>
             <div class="dashboard-user-avatar">
                 👤
             </div>
@@ -35,13 +40,13 @@
             <div class="pm-search-row">
                 <div class="pm-search-box">
                     <span class="pm-search-icon"></span>
-                    <input class="pm-search-input" placeholder="Search patient / test" @bind="SearchTerm" />
+                    <input class="pm-search-input" placeholder="Search patient / test" value="@SearchTerm" @oninput="OnSearchInput" />
                 </div>
 
                 <div class="pm-actions">
-                    <button class="activity-action-btn">Sort</button>
-                    <button class="activity-action-btn">Filters</button>
-                    <button class="activity-action-btn lab-refresh-btn">Refresh</button>
+                    <button type="button" class="activity-action-btn">Sort</button>
+                    <button type="button" class="activity-action-btn">Filters</button>
+                    <button type="button" class="activity-action-btn lab-refresh-btn" @onclick="Refresh">Refresh</button>
                 </div>
             </div>
         </div>
@@ -54,7 +59,7 @@
                 {
                     <div class="nurse-note-card">
                         <div class="nurse-note-header">
-                            <span class="nurse-note-time">👤 @lab.PatientName | @lab.Date</span>
+                            <span class="nurse-note-time">👤 @lab.PatientName | @lab.ResultDate.ToString("MMM dd, yyyy")</span>
                         </div>
                         <div class="nurse-note-body">
                             <div class="nurse-note-item">
@@ -63,7 +68,7 @@
                             </div>
                             <div class="nurse-note-item">
                                 <span class="nurse-note-icon">⚠️</span>
-                                <span class="nurse-note-text">Status: Results Ready | ⚠️ Abnormal values</span>
+                                <span class="nurse-note-text">Status: Results Ready@(lab.IsAbnormal ? " | ⚠️ Abnormal values" : "")</span>
                             </div>
                             <div class="nurse-note-item">
                                 <span class="nurse-note-icon">📊</span>
@@ -71,9 +76,9 @@
                             </div>
                         </div>
                         <div class="nurse-note-footer">
-                            <button class="appt-reschedule-btn" @onclick="() => Compare(lab)">Compare</button>
-                            <button class="appt-reschedule-btn" @onclick="() => AddToChart(lab)">Add to Chart</button>
-                            <button class="nurse-note-view-btn" @onclick="() => ViewReport(lab)">View Full Report</button>
+                            <button type="button" class="appt-reschedule-btn" @onclick="() => Compare(lab)">Compare</button>
+                            <button type="button" class="appt-reschedule-btn" @onclick="() => AddToChart(lab)">Add to Chart</button>
+                            <button type="button" class="nurse-note-view-btn" @onclick="() => ViewReport(lab)">View Full Report</button>
                         </div>
                     </div>
                 }
@@ -85,7 +90,7 @@
                 {
                     <div class="nurse-note-card">
                         <div class="nurse-note-header">
-                            <span class="nurse-note-time">👤 @lab.PatientName | @lab.Date</span>
+                            <span class="nurse-note-time">👤 @lab.PatientName | @lab.ResultDate.ToString("MMM dd, yyyy")</span>
                         </div>
                         <div class="nurse-note-body">
                             <div class="nurse-note-item">
@@ -94,97 +99,232 @@
                             </div>
                             <div class="nurse-note-item">
                                 <span class="nurse-note-icon">✅</span>
-                                <span class="nurse-note-text">Status: Reviewed on @lab.ReviewDate</span>
+                                <span class="nurse-note-text">Status: Reviewed on @(lab.ReviewedAt?.ToString("MMM dd") ?? "-")</span>
                             </div>
                             <div class="nurse-note-item">
                                 <span class="nurse-note-icon">📊</span>
                                 <span class="nurse-note-text">@lab.Summary</span>
                             </div>
-                            @if (!string.IsNullOrEmpty(lab.Comment))
+                            @if (!string.IsNullOrEmpty(lab.DoctorComment))
                             {
                                 <div class="nurse-note-item">
                                     <span class="nurse-note-icon">📝</span>
-                                    <span class="nurse-note-text">Dr. Note: "@lab.Comment"</span>
+                                    <span class="nurse-note-text">Dr. Note: "@lab.DoctorComment"</span>
                                 </div>
                             }
                         </div>
                         <div class="nurse-note-footer">
-                            <button class="appt-reschedule-btn" @onclick="() => EditNote(lab)">Edit Note</button>
-                            <button class="nurse-note-view-btn" @onclick="() => ViewReport(lab)">View Report</button>
+                            <button type="button" class="appt-reschedule-btn" @onclick="() => EditNote(lab)">Edit Note</button>
+                            <button type="button" class="nurse-note-view-btn" @onclick="() => ViewReport(lab)">View Report</button>
                         </div>
                     </div>
                 }
             </div>
         </div>
     </section>
+
+    @if (ShowReportModal && SelectedReport is not null)
+    {
+        <div class="pm-modal-overlay" @onclick="CloseReportModal">
+            <div class="pm-modal" @onclick:stopPropagation>
+                <div class="pm-modal-header">
+                    <h3>@SelectedReport.TestName</h3>
+                    <button type="button" class="pm-modal-close" @onclick="CloseReportModal">×</button>
+                </div>
+                <div class="pm-modal-body">
+                    <div class="pm-form-grid">
+                        <div class="pm-form-group pm-form-full">
+                            <label>Patient</label>
+                            <div>@SelectedReport.PatientName</div>
+                        </div>
+                        <div class="pm-form-group pm-form-full">
+                            <label>Date</label>
+                            <div>@SelectedReport.ResultDate.ToString("MMM dd, yyyy")</div>
+                        </div>
+                        <div class="pm-form-group pm-form-full">
+                            <label>Summary</label>
+                            <div>@SelectedReport.Summary</div>
+                        </div>
+                        <div class="pm-form-group pm-form-full">
+                            <label>Details</label>
+                            <div>@(SelectedReportDetails ?? string.Empty)</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="pm-modal-footer">
+                    @if (!SelectedReport.IsReviewed)
+                    {
+                        <button type="button" class="pm-btn pm-btn-primary" @onclick="MarkReviewedFromModal">Mark Reviewed</button>
+                    }
+                    <button type="button" class="pm-btn pm-btn-secondary" @onclick="CloseReportModal">Close</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (ShowNoteModal && SelectedNoteTarget is not null)
+    {
+        <div class="pm-modal-overlay" @onclick="CloseNoteModal">
+            <div class="pm-modal" @onclick:stopPropagation>
+                <div class="pm-modal-header">
+                    <h3>Edit Doctor Note</h3>
+                    <button type="button" class="pm-modal-close" @onclick="CloseNoteModal">×</button>
+                </div>
+                <div class="pm-modal-body">
+                    <div class="pm-form-grid">
+                        <div class="pm-form-group pm-form-full">
+                            <label>Patient</label>
+                            <div>@SelectedNoteTarget.PatientName</div>
+                        </div>
+                        <div class="pm-form-group pm-form-full">
+                            <label>Test</label>
+                            <div>@SelectedNoteTarget.TestName</div>
+                        </div>
+                        <div class="pm-form-group pm-form-full">
+                            <label>Doctor Note</label>
+                            <textarea class="pm-form-input" @bind="EditingDoctorComment"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="pm-modal-footer">
+                    <button type="button" class="pm-btn pm-btn-secondary" @onclick="CloseNoteModal">Cancel</button>
+                    <button type="button" class="pm-btn pm-btn-primary" @onclick="SaveNote">Save</button>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
-    private class LabResult
-    {
-        public string Id { get; set; } = string.Empty;
-        public string PatientName { get; set; } = string.Empty;
-        public string Date { get; set; } = string.Empty;
-        public string TestName { get; set; } = string.Empty;
-        public string Summary { get; set; } = string.Empty;
-        public bool IsReviewed { get; set; }
-        public string ReviewDate { get; set; } = string.Empty;
-        public string Comment { get; set; } = string.Empty;
-    }
-
     private string SearchTerm { get; set; } = string.Empty;
     private int PageSize { get; set; } = 10;
 
-    private List<LabResult> AllLabs = new()
+    private bool IsLoading { get; set; } = true;
+    private string ErrorMessage { get; set; } = string.Empty;
+    private int CurrentPage { get; set; } = 1;
+    private int TotalCount { get; set; }
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling((double)TotalCount / PageSize));
+    private IReadOnlyList<LabResultListItem> PagedLabs { get; set; } = Array.Empty<LabResultListItem>();
+
+    private bool ShowReportModal { get; set; }
+    private LabResultListItem? SelectedReport { get; set; }
+    private string? SelectedReportDetails { get; set; }
+
+    private bool ShowNoteModal { get; set; }
+    private LabResultListItem? SelectedNoteTarget { get; set; }
+    private string? EditingDoctorComment { get; set; }
+
+    protected override async Task OnInitializedAsync()
     {
-        new() {
-            Id = "01",
-            PatientName = "Juan Dela Cruz",
-            Date = "Nov 14, 2024",
-            TestName = "Complete Blood Count (CBC)",
-            Summary = "WBC: 12.5 (High) | HGB: 13.2 (Normal)",
-            IsReviewed = false
-        },
-        new() {
-            Id = "02",
-            PatientName = "Maria Santos",
-            Date = "Nov 13, 2024",
-            TestName = "Lipid Profile",
-            Summary = "Cholesterol: 240 (High) | Triglycerides: 180",
-            IsReviewed = false
-        },
-        new() {
-            Id = "03",
-            PatientName = "Pedro Cruz",
-            Date = "Nov 12, 2024",
-            TestName = "Fasting Blood Sugar",
-            Summary = "Result: 110 mg/dL (Borderline)",
-            IsReviewed = true,
-            ReviewDate = "Nov 12",
-            Comment = "Monitor with diet control"
+        await LoadPageAsync();
+    }
+
+    private IEnumerable<LabResultListItem> PendingLabs => PagedLabs.Where(l => !l.IsReviewed);
+    private IEnumerable<LabResultListItem> ReviewedLabs => PagedLabs.Where(l => l.IsReviewed);
+
+    private async Task LoadPageAsync()
+    {
+        try
+        {
+            IsLoading = true;
+            ErrorMessage = string.Empty;
+
+            var (items, total) = await LabResultService.GetPageAsync(SearchTerm, CurrentPage, PageSize);
+            TotalCount = total;
+            CurrentPage = Math.Min(CurrentPage, TotalPages);
+            if (CurrentPage < 1) CurrentPage = 1;
+
+            (items, total) = await LabResultService.GetPageAsync(SearchTerm, CurrentPage, PageSize);
+            TotalCount = total;
+            PagedLabs = items;
         }
-    };
-
-    private IEnumerable<LabResult> PendingLabs => AllLabs.Where(l => !l.IsReviewed);
-    private IEnumerable<LabResult> ReviewedLabs => AllLabs.Where(l => l.IsReviewed);
-
-    private void Compare(LabResult lab)
-    {
-        // Compare with previous results
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Error loading lab results: {ex.Message}";
+            PagedLabs = Array.Empty<LabResultListItem>();
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
     }
 
-    private void AddToChart(LabResult lab)
+    private async Task OnSearchInput(ChangeEventArgs e)
     {
-        // Add to patient chart
+        SearchTerm = e?.Value?.ToString() ?? string.Empty;
+        CurrentPage = 1;
+        await LoadPageAsync();
     }
 
-    private void ViewReport(LabResult lab)
+    private async Task Refresh()
     {
-        // View full lab report
+        await LoadPageAsync();
     }
 
-    private void EditNote(LabResult lab)
+    private async Task Compare(LabResultListItem lab)
     {
-        // Edit doctor's note
+        await JsRuntime.InvokeVoidAsync("alert", "Compare is not implemented yet.");
+    }
+
+    private async Task AddToChart(LabResultListItem lab)
+    {
+        await LabResultService.MarkReviewedAsync(lab.LabResultId);
+        await LoadPageAsync();
+    }
+
+    private async Task ViewReport(LabResultListItem lab)
+    {
+        SelectedReport = lab;
+        SelectedReportDetails = null;
+        try
+        {
+            var details = await LabResultService.GetByIdAsync(lab.LabResultId);
+            SelectedReportDetails = details?.ResultDetails;
+        }
+        catch
+        {
+            SelectedReportDetails = null;
+        }
+
+        ShowReportModal = true;
+    }
+
+    private void CloseReportModal()
+    {
+        ShowReportModal = false;
+        SelectedReport = null;
+        SelectedReportDetails = null;
+    }
+
+    private async Task MarkReviewedFromModal()
+    {
+        if (SelectedReport is null) return;
+        await LabResultService.MarkReviewedAsync(SelectedReport.LabResultId);
+        CloseReportModal();
+        await LoadPageAsync();
+    }
+
+    private Task EditNote(LabResultListItem lab)
+    {
+        SelectedNoteTarget = lab;
+        EditingDoctorComment = lab.DoctorComment;
+        ShowNoteModal = true;
+        return Task.CompletedTask;
+    }
+
+    private void CloseNoteModal()
+    {
+        ShowNoteModal = false;
+        SelectedNoteTarget = null;
+        EditingDoctorComment = null;
+    }
+
+    private async Task SaveNote()
+    {
+        if (SelectedNoteTarget is null) return;
+        await LabResultService.UpdateDoctorCommentAsync(SelectedNoteTarget.LabResultId, EditingDoctorComment);
+        CloseNoteModal();
+        await LoadPageAsync();
     }
 }
