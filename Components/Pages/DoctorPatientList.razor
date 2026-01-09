@@ -47,7 +47,7 @@
             <div class="pm-search-row">
                 <div class="pm-search-box">
                     <span class="pm-search-icon"></span>
-                    <input class="pm-search-input" placeholder="Search Patient" />
+                    <input class="pm-search-input" placeholder="Search Patient" @bind="SearchTerm" @oninput="OnSearchInput" />
                 </div>
 
                 <div class="pm-actions">
@@ -295,6 +295,8 @@
     private bool IsLoading = true;
     private string ErrorMessage = "";
 
+    private string SearchTerm { get; set; } = string.Empty;
+
     private enum PatientTab
     {
         New,
@@ -321,17 +323,33 @@
         get
         {
             if (ActiveTab == PatientTab.Archive)
-                return Patients;
+                return ApplySearch(Patients);
 
             if (ActiveTab == PatientTab.New)
             {
                 // New: patients with no saved (non-archived) health record yet
-                return Patients.Where(p => !AssistedPatientIds.Contains(p.PatientId));
+                return ApplySearch(Patients.Where(p => !AssistedPatientIds.Contains(p.PatientId)));
             }
 
             // Assisted: patients that already have a saved (non-archived) health record
-            return Patients.Where(p => AssistedPatientIds.Contains(p.PatientId));
+            return ApplySearch(Patients.Where(p => AssistedPatientIds.Contains(p.PatientId)));
         }
+    }
+
+    private IEnumerable<Patient> ApplySearch(IEnumerable<Patient> src)
+    {
+        if (string.IsNullOrWhiteSpace(SearchTerm))
+            return src;
+
+        var term = SearchTerm.Trim();
+        return src.Where(p =>
+            ($"{p.FirstName} {p.LastName}").Contains(term, StringComparison.OrdinalIgnoreCase)
+            || (p.Email ?? string.Empty).Contains(term, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void OnSearchInput()
+    {
+        StateHasChanged();
     }
 
     private async Task SetTab(PatientTab tab)

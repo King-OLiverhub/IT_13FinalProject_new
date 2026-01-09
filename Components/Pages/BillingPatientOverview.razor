@@ -89,7 +89,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var bill in Bills)
+                        @foreach (var bill in GetOrderedRows())
                         {
                             var b = bill;
                             <tr>
@@ -229,6 +229,8 @@
         {
             errorMessage = $"Error searching bills: {ex.Message}";
         }
+
+        StateHasChanged();
     }
 
     private void OpenAddBillPanel()

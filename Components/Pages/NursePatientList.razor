@@ -46,7 +46,7 @@
             <div class="pm-search-row">
                 <div class="pm-search-box">
                     <span class="pm-search-icon"></span>
-                    <input class="pm-search-input" placeholder="Search Patient" />
+                    <input class="pm-search-input" placeholder="Search Patient" @bind="SearchTerm" @oninput="OnSearchInput" />
                 </div>
 
                 <div class="pm-actions">
@@ -148,6 +148,8 @@
     private bool ShowPagination { get; set; } = true;
     private bool ShowLetters { get; set; } = false;
     private char? ActiveLetter { get; set; }
+
+    private string SearchTerm { get; set; } = string.Empty;
 
     private enum PatientTab
     {
@@ -297,13 +299,30 @@
         get
         {
             if (ActiveTab == PatientTab.Archive)
-                return Patients;
+                return ApplySearch(Patients);
 
             if (ActiveTab == PatientTab.New)
-                return Patients.Where(p => !VitalCompletedPatientIds.Contains(p.PatientId));
+                return ApplySearch(Patients.Where(p => !VitalCompletedPatientIds.Contains(p.PatientId)));
 
-            return Patients.Where(p => VitalCompletedPatientIds.Contains(p.PatientId));
+            return ApplySearch(Patients.Where(p => VitalCompletedPatientIds.Contains(p.PatientId)));
         }
+    }
+
+    private IEnumerable<Patient> ApplySearch(IEnumerable<Patient> src)
+    {
+        if (string.IsNullOrWhiteSpace(SearchTerm))
+            return src;
+
+        var term = SearchTerm.Trim();
+        return src.Where(p =>
+            ($"{p.FirstName} {p.LastName}").Contains(term, StringComparison.OrdinalIgnoreCase)
+            || (p.Email ?? string.Empty).Contains(term, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void OnSearchInput()
+    {
+        ActiveLetter = null;
+        StateHasChanged();
     }
 
     private void TogglePagination()

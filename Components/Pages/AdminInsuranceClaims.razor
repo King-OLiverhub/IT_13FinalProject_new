@@ -40,9 +40,45 @@
                     </div>
 
                     <div class="inv-actions">
-                        <button class="inv-action-btn" @onclick="HandleSort">Sort</button>
-                        <button class="inv-action-btn" @onclick="HandleFilters">Filters</button>
+                        <button class="inv-action-btn" @onclick="ToggleSortMenu">Sort</button>
+                        <button class="inv-action-btn" @onclick="ToggleFilterMenu">Filters</button>
                     </div>
+
+                    @if (ShowSortMenu)
+                    {
+                        <div class="inv-dropdown-menu">
+                            <button class="inv-dropdown-item" @onclick="SortByName">Name</button>
+                            <button class="inv-dropdown-item" @onclick="SortByDate">Date</button>
+                            <button class="inv-dropdown-item" @onclick="SortByInsurance">Insurance</button>
+                            <button class="inv-dropdown-item" @onclick="SortByStatus">Status</button>
+                        </div>
+                    }
+
+                    @if (ShowFilterMenu)
+                    {
+                        <div class="inv-dropdown-menu">
+                            <div class="inv-filter-section">
+                                <label>Insurance:</label>
+                                <select class="inv-filter-select" @bind="SelectedInsuranceFilter">
+                                    <option value="">All</option>
+                                    @foreach (var insurance in InsuranceProviders)
+                                    {
+                                        <option value="@insurance">@insurance</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="inv-filter-section">
+                                <label>Status:</label>
+                                <select class="inv-filter-select" @bind="SelectedStatusFilter">
+                                    <option value="">All</option>
+                                    <option value="Pending">Pending</option>
+                                    <option value="Approved">Approved</option>
+                                    <option value="Rejected">Rejected</option>
+                                </select>
+                            </div>
+                            <button class="inv-filter-apply" @onclick="ApplyFilters">Apply Filters</button>
+                        </div>
+                    }
                 </div>
             }
             else if (CurrentTab == "claims")
@@ -54,9 +90,45 @@
                     </div>
 
                     <div class="inv-actions">
-                        <button class="inv-action-btn" @onclick="HandleSort">Sort</button>
-                        <button class="inv-action-btn" @onclick="HandleFilters">Filters</button>
+                        <button class="inv-action-btn" @onclick="ToggleSortMenu">Sort</button>
+                        <button class="inv-action-btn" @onclick="ToggleFilterMenu">Filters</button>
                     </div>
+
+                    @if (ShowSortMenu)
+                    {
+                        <div class="inv-dropdown-menu">
+                            <button class="inv-dropdown-item" @onclick="SortByName">Name</button>
+                            <button class="inv-dropdown-item" @onclick="SortByDate">Date</button>
+                            <button class="inv-dropdown-item" @onclick="SortByInsurance">Insurance</button>
+                            <button class="inv-dropdown-item" @onclick="SortByStatus">Status</button>
+                        </div>
+                    }
+
+                    @if (ShowFilterMenu)
+                    {
+                        <div class="inv-dropdown-menu">
+                            <div class="inv-filter-section">
+                                <label>Insurance:</label>
+                                <select class="inv-filter-select" @bind="SelectedInsuranceFilter">
+                                    <option value="">All</option>
+                                    @foreach (var insurance in InsuranceProviders)
+                                    {
+                                        <option value="@insurance">@insurance</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="inv-filter-section">
+                                <label>Status:</label>
+                                <select class="inv-filter-select" @bind="SelectedStatusFilter">
+                                    <option value="">All</option>
+                                    <option value="Pending">Pending</option>
+                                    <option value="Approved">Approved</option>
+                                    <option value="Rejected">Rejected</option>
+                                </select>
+                            </div>
+                            <button class="inv-filter-apply" @onclick="ApplyFilters">Apply Filters</button>
+                        </div>
+                    }
                 </div>
             }
         </div>
@@ -482,6 +554,20 @@
 
     private string CompanySearchTerm { get; set; } = string.Empty;
 
+    private string SelectedInsuranceFilter { get; set; } = string.Empty;
+
+    private string SelectedStatusFilter { get; set; } = string.Empty;
+
+    private string SortColumn { get; set; } = string.Empty;
+
+    private bool SortAscending { get; set; } = true;
+
+    private bool ShowSortMenu { get; set; }
+
+    private bool ShowFilterMenu { get; set; }
+
+    private List<string> InsuranceProviders { get; set; } = new();
+
     protected override async Task OnInitializedAsync()
     {
         await LoadInsuranceBillsAsync();
@@ -592,14 +678,38 @@
         // Placeholder for sending to company logic
     }
 
-    private void HandleSort()
+    private void ToggleSortMenu()
     {
-        // Placeholder for sort functionality
+        ShowSortMenu = !ShowSortMenu;
+        ShowFilterMenu = false;
     }
 
-    private void HandleFilters()
+    private void ToggleFilterMenu()
     {
-        // Placeholder for filter functionality
+        ShowFilterMenu = !ShowFilterMenu;
+        ShowSortMenu = false;
+    }
+
+    private void SortBy(string column)
+    {
+        if (SortColumn == column)
+        {
+            SortAscending = !SortAscending;
+        }
+        else
+        {
+            SortColumn = column;
+            SortAscending = true;
+        }
+
+        ShowSortMenu = false;
+        ApplyAllFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        ShowFilterMenu = false;
+        ApplyAllFilters();
     }
 
     private async Task LoadInsuranceBillsAsync()
@@ -613,6 +723,13 @@
             InsuranceBills = allBills
                 .Where(b => !string.IsNullOrWhiteSpace(b.InsuranceProvider))
                 .OrderByDescending(b => b.DateOfVisit)
+                .ToList();
+
+            InsuranceProviders = InsuranceBills
+                .Select(b => b.InsuranceProvider ?? string.Empty)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(n => n)
                 .ToList();
 
             Applicants = InsuranceBills
@@ -670,6 +787,38 @@
                 || (b.InsuranceProvider ?? string.Empty).Contains(RequestSearchTerm, StringComparison.OrdinalIgnoreCase));
         }
 
+        if (!string.IsNullOrWhiteSpace(SelectedInsuranceFilter))
+        {
+            filtered = filtered.Where(b =>
+                (b.InsuranceProvider ?? string.Empty).Equals(SelectedInsuranceFilter, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(SelectedStatusFilter))
+        {
+            filtered = filtered.Where(b =>
+                (b.AssessmentStatus ?? string.Empty).Equals(SelectedStatusFilter, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(SortColumn))
+        {
+            filtered = SortColumn switch
+            {
+                "Name" => SortAscending
+                    ? filtered.OrderBy(x => x.PatientName ?? string.Empty)
+                    : filtered.OrderByDescending(x => x.PatientName ?? string.Empty),
+                "Date" => SortAscending
+                    ? filtered.OrderBy(x => x.DateOfVisit)
+                    : filtered.OrderByDescending(x => x.DateOfVisit),
+                "Insurance" => SortAscending
+                    ? filtered.OrderBy(x => x.InsuranceProvider ?? string.Empty)
+                    : filtered.OrderByDescending(x => x.InsuranceProvider ?? string.Empty),
+                "Status" => SortAscending
+                    ? filtered.OrderBy(x => x.AssessmentStatus ?? string.Empty)
+                    : filtered.OrderByDescending(x => x.AssessmentStatus ?? string.Empty),
+                _ => filtered
+            };
+        }
+
         FilteredRequestBills = filtered.ToList();
         StateHasChanged();
         return Task.CompletedTask;
@@ -692,10 +841,47 @@
                 || (b.InsuranceProvider ?? string.Empty).Contains(ClaimsSearchTerm, StringComparison.OrdinalIgnoreCase));
         }
 
+        if (!string.IsNullOrWhiteSpace(SelectedInsuranceFilter))
+        {
+            filtered = filtered.Where(b =>
+                (b.InsuranceProvider ?? string.Empty).Equals(SelectedInsuranceFilter, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(SelectedStatusFilter))
+        {
+            filtered = filtered.Where(b =>
+                (b.AssessmentStatus ?? string.Empty).Equals(SelectedStatusFilter, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(SortColumn))
+        {
+            filtered = SortColumn switch
+            {
+                "Name" => SortAscending
+                    ? filtered.OrderBy(x => x.PatientName ?? string.Empty)
+                    : filtered.OrderByDescending(x => x.PatientName ?? string.Empty),
+                "Date" => SortAscending
+                    ? filtered.OrderBy(x => x.DateOfVisit)
+                    : filtered.OrderByDescending(x => x.DateOfVisit),
+                "Insurance" => SortAscending
+                    ? filtered.OrderBy(x => x.InsuranceProvider ?? string.Empty)
+                    : filtered.OrderByDescending(x => x.InsuranceProvider ?? string.Empty),
+                "Status" => SortAscending
+                    ? filtered.OrderBy(x => x.AssessmentStatus ?? string.Empty)
+                    : filtered.OrderByDescending(x => x.AssessmentStatus ?? string.Empty),
+                _ => filtered
+            };
+        }
+
         FilteredClaimBills = filtered.ToList();
         StateHasChanged();
         return Task.CompletedTask;
     }
+
+    private void SortByName() => SortBy("Name");
+    private void SortByDate() => SortBy("Date");
+    private void SortByInsurance() => SortBy("Insurance");
+    private void SortByStatus() => SortBy("Status");
 
     private Task ApplyCompanyFilters()
     {

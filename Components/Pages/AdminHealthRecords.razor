@@ -36,7 +36,7 @@
             <div class="pm-search-row">
                 <div class="pm-search-box">
                     <span class="pm-search-icon"></span>
-                    <input class="pm-search-input" placeholder="Search Patient" />
+                    <input class="pm-search-input" placeholder="Search Patient" @bind="SearchTerm" @oninput="OnSearchInput" />
                 </div>
 
                 <div class="pm-actions">
@@ -60,7 +60,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var row in ActiveLetter.HasValue ? GetOrderedRecords(ActiveLetter.Value).Select((record, index) => new { Record = record, Index = index + 1 }) : Records.Select((record, index) => new { Record = record, Index = index + 1 }))
+                        @foreach (var row in ActiveLetter.HasValue ? GetOrderedRecords(ActiveLetter.Value).Select((record, index) => new { Record = record, Index = index + 1 }) : FilteredRecords.Select((record, index) => new { Record = record, Index = index + 1 }))
                         {
                             var r = row.Record;
                             <tr>
@@ -110,11 +110,31 @@
     private bool ShowPagination { get; set; } = true;
     private bool ShowLetters { get; set; } = false;
     private char? ActiveLetter { get; set; }
+
+    private string SearchTerm { get; set; } = string.Empty;
     
     private readonly char[] Alphabet =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
 
     private List<HealthRecord> Records { get; set; } = new();
+
+    private IEnumerable<HealthRecord> FilteredRecords
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SearchTerm))
+                return Records;
+
+            var term = SearchTerm.Trim();
+            return Records.Where(r =>
+                (r.PatientName ?? string.Empty).Contains(term, StringComparison.OrdinalIgnoreCase)
+                || (r.PatientEmail ?? string.Empty).Contains(term, StringComparison.OrdinalIgnoreCase)
+                || (r.DoctorName ?? string.Empty).Contains(term, StringComparison.OrdinalIgnoreCase)
+                || (r.DoctorEmail ?? string.Empty).Contains(term, StringComparison.OrdinalIgnoreCase)
+                || (r.NurseName ?? string.Empty).Contains(term, StringComparison.OrdinalIgnoreCase)
+                || (r.NurseEmail ?? string.Empty).Contains(term, StringComparison.OrdinalIgnoreCase));
+        }
+    }
 
     [Inject]
     private IHealthRecordService HealthRecordService { get; set; } = default!;
@@ -141,6 +161,12 @@
         ActiveLetter = letter;
     }
 
+    private void OnSearchInput()
+    {
+        ActiveLetter = null;
+        StateHasChanged();
+    }
+
     private void TogglePagination()
     {
         ShowPagination = !ShowPagination;
@@ -154,15 +180,15 @@
     {
         if (string.IsNullOrEmpty(letter.ToString()))
         {
-            return Records;
+            return FilteredRecords;
         }
 
         var upper = letter.ToString().ToUpper();
 
-        var startsWithLetter = Records
+        var startsWithLetter = FilteredRecords
             .Where(r => (r.PatientName ?? string.Empty).StartsWith(upper, StringComparison.OrdinalIgnoreCase));
 
-        var others = Records
+        var others = FilteredRecords
             .Where(r => !(r.PatientName ?? string.Empty).StartsWith(upper, StringComparison.OrdinalIgnoreCase));
 
         return startsWithLetter.Concat(others);
