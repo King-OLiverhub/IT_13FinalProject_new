@@ -47,6 +47,8 @@ namespace IT_13FinalProject
             builder.Services.AddScoped<IInventoryStockService, DatabaseInventoryStockService>();
             builder.Services.AddSingleton<InMemoryNotificationReadState>();
             builder.Services.AddScoped<INotificationService, DatabaseNotificationService>();
+            builder.Services.AddScoped<IAuditLogService, DatabaseAuditLogService>();
+            builder.Services.AddScoped<IRolePermissionService, DatabaseRolePermissionService>();
             builder.Services.AddSingleton<IClaimDocumentStore, InMemoryClaimDocumentStore>();
             builder.Services.AddScoped<SyncService>();
             

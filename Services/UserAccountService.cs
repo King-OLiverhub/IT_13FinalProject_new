@@ -249,15 +249,63 @@ namespace IT_13FinalProject.Services
             {
                 var normalized = username.ToLower();
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == normalized);
+                var isFromCloud = user != null;
 
                 if (user == null)
                 {
                     user = await _localContext.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == normalized);
+                    isFromCloud = false;
                 }
 
-                if (user != null && BCrypt.Net.BCrypt.Verify(password, user.Password))
+                if (user != null)
                 {
-                    return user;
+                    var verified = false;
+                    var needsUpgrade = false;
+
+                    try
+                    {
+                        verified = BCrypt.Net.BCrypt.Verify(password, user.Password);
+                    }
+                    catch
+                    {
+                        // Stored password is not a valid BCrypt hash.
+                        verified = string.Equals(user.Password, password, StringComparison.Ordinal);
+                        needsUpgrade = verified;
+                    }
+
+                    if (verified)
+                    {
+                        if (needsUpgrade)
+                        {
+                            var newHash = BCrypt.Net.BCrypt.HashPassword(password);
+                            try
+                            {
+                                if (isFromCloud)
+                                {
+                                    user.Password = newHash;
+                                    await _context.SaveChangesAsync();
+
+                                    // Best-effort upgrade local copy by username.
+                                    var localUser = await _localContext.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == normalized);
+                                    if (localUser != null)
+                                    {
+                                        localUser.Password = newHash;
+                                        await _localContext.SaveChangesAsync();
+                                    }
+                                }
+                                else
+                                {
+                                    user.Password = newHash;
+                                    await _localContext.SaveChangesAsync();
+                                }
+                            }
+                            catch
+                            {
+                            }
+                        }
+
+                        return user;
+                    }
                 }
 
                 return null;

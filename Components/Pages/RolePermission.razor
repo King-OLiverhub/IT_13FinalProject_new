@@ -2,7 +2,9 @@
 @layout Layout.DashboardLayout
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Routing
+@using IT_13FinalProject.Services
 @inject NavigationManager Navigation
+@inject IRolePermissionService RolePermissionService
 
 @code {
     private Dictionary<string, bool> roleStatus = new()
@@ -161,7 +163,33 @@
         }
     };
 
-    private void ToggleRoleStatus(string role)
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var statuses = await RolePermissionService.GetRoleStatusAsync();
+            foreach (var key in roleStatus.Keys.ToList())
+            {
+                if (statuses.TryGetValue(key, out var enabled))
+                    roleStatus[key] = enabled;
+            }
+
+            foreach (var roleKey in permissions.Keys.ToList())
+            {
+                var perms = await RolePermissionService.GetPermissionsAsync(roleKey);
+                foreach (var permKey in permissions[roleKey].Keys.ToList())
+                {
+                    if (perms.TryGetValue(permKey, out var allowed))
+                        permissions[roleKey][permKey] = allowed;
+                }
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private async Task ToggleRoleStatus(string role)
     {
         // Admin role cannot be disabled
         if (role == "admin")
@@ -171,17 +199,22 @@
 
         roleStatus[role] = !roleStatus[role];
 
+        try
+        {
+            await RolePermissionService.SetRoleEnabledAsync(role, roleStatus[role]);
+        }
+        catch
+        {
+        }
+
         // If currently editing permissions for a disabled role, hide the panel
         if (selectedRole == role && !roleStatus[role])
         {
             showPermissionPanel = false;
         }
-
-        // In future: This will control if the user can login
-        // When disabled, users with this role won't be able to access their dashboard
     }
 
-    private void SetPermissionForRole(string role)
+    private async Task SetPermissionForRole(string role)
     {
         // Only allow setting permissions if the role is enabled
         if (!roleStatus[role])
@@ -203,10 +236,18 @@
         }
     }
 
-    private void SavePermissions()
+    private async Task SavePermissions()
     {
-        // Save logic here - will save the permissions for the currently selected role
-        Console.WriteLine($"Saving permissions for {selectedRole}");
+        try
+        {
+            if (permissions.TryGetValue(selectedRole, out var perms))
+            {
+                await RolePermissionService.SavePermissionsAsync(selectedRole, perms);
+            }
+        }
+        catch
+        {
+        }
         showPermissionPanel = false; // Hide the panel after saving
     }
 

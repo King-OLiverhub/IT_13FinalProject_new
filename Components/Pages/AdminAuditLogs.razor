@@ -1,6 +1,9 @@
 @page "/admin-audit-logs"
 @layout IT_13FinalProject.Components.Layout.DashboardLayout
 
+@using IT_13FinalProject.Models
+@using IT_13FinalProject.Services
+
 <PageTitle>Audit Logs</PageTitle>
 
 <div class="dashboard-page audit-logs-page">
@@ -31,7 +34,7 @@
             <div class="audit-controls">
                 <div class="search-container">
                     <i class="fas fa-search"></i>
-                    <input type="text" placeholder="Search Logs" class="search-input" />
+                    <input type="text" placeholder="Search Logs" class="search-input" @bind="searchText" @bind:event="oninput" @bind:after="OnSearchChanged" />
                 </div>
                 <div class="control-buttons">
                     <button class="control-btn">
@@ -43,107 +46,48 @@
                     <button class="control-btn export-btn" @onclick="ShowExportModal">
                         <i class="fas fa-file-export"></i> Export
                     </button>
-                    <button class="control-btn refresh-btn">
+                    <button class="control-btn refresh-btn" @onclick="RefreshAsync">
                         <i class="fas fa-sync-alt"></i> Refresh
                     </button>
                 </div>
             </div>
 
             <div class="log-entries">
-                <!-- Log Entry 1 -->
-                <div class="log-entry">
-                    <div class="log-time">
-                        <i class="far fa-clock"></i> 10:24 AM
+                @if (isLoading)
+                {
+                    <div class="log-entry">
+                        <div class="log-details">Loading...</div>
                     </div>
-                    <div class="log-divider">|</div>
-                    <div class="log-user">Receptionist</div>
-                    <div class="log-details">
-                        <div class="log-action">
-                            <i class="fas fa-check-circle success-icon"></i>
-                            Registered new patient: Juan Dela Cruz
-                        </div>
-                        <div class="log-meta">
-                            <span><i class="fas fa-map-marker-alt"></i> IP: 192.168.1.45</span>
-                            <span>| Device: Desktop</span>
-                        </div>
+                }
+                else if (logs.Count == 0)
+                {
+                    <div class="log-entry">
+                        <div class="log-details">No logs found.</div>
                     </div>
-                </div>
-
-                <!-- Log Entry 2 -->
-                <div class="log-entry">
-                    <div class="log-time">
-                        <i class="far fa-clock"></i> 10:15 AM
-                    </div>
-                    <div class="log-divider">|</div>
-                    <div class="log-user">Billing Staff</div>
-                    <div class="log-details">
-                        <div class="log-action">
-                            <i class="fas fa-dollar-sign dollar-icon"></i>
-                            Added invoice #IRV-10321 (₱1,850)
+                }
+                else
+                {
+                    @foreach (var log in logs)
+                    {
+                        <div class="log-entry">
+                            <div class="log-time">
+                                <i class="far fa-clock"></i> @log.TimestampUtc.ToLocalTime().ToString("hh:mm tt")
+                            </div>
+                            <div class="log-divider">|</div>
+                            <div class="log-user">@log.UserName</div>
+                            <div class="log-details">
+                                <div class="log-action">
+                                    <i class="fas fa-check-circle success-icon"></i>
+                                    @log.Action
+                                </div>
+                                <div class="log-meta">
+                                    <span><i class="fas fa-map-marker-alt"></i> IP: @(string.IsNullOrWhiteSpace(log.IpAddress) ? "-" : log.IpAddress)</span>
+                                    <span>| Device: @(string.IsNullOrWhiteSpace(log.Device) ? "-" : log.Device)</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="log-meta">
-                            <span><i class="fas fa-map-marker-alt"></i> IP: 192.168.1.45</span>
-                            <span>| Device: Desktop</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Log Entry 3 -->
-                <div class="log-entry">
-                    <div class="log-time">
-                        <i class="far fa-clock"></i> 9:59 AM
-                    </div>
-                    <div class="log-divider">|</div>
-                    <div class="log-user">Dr. Reyes</div>
-                    <div class="log-details">
-                        <div class="log-action">
-                            <i class="fas fa-check-circle success-icon"></i>
-                            Updated Health Record: Ana Santos
-                        </div>
-                        <div class="log-meta">
-                            <span><i class="fas fa-map-marker-alt"></i> IP: 192.168.1.67</span>
-                            <span>| Device: Tablet</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Log Entry 4 -->
-                <div class="log-entry">
-                    <div class="log-time">
-                        <i class="far fa-clock"></i> 9:40 AM
-                    </div>
-                    <div class="log-divider">|</div>
-                    <div class="log-user">Pharmacist</div>
-                    <div class="log-details">
-                        <div class="log-action">
-                            <i class="fas fa-exclamation-triangle warning-icon"></i>
-                            Stock alert: Paracetamol 500mg (15 units)
-                        </div>
-                        <div class="log-meta">
-                            <span><i class="fas fa-map-marker-alt"></i> IP: 192.168.1.89</span>
-                            <span>| Device: Desktop</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Log Entry 5 -->
-                <div class="log-entry">
-                    <div class="log-time">
-                        <i class="far fa-clock"></i> 9:30 AM
-                    </div>
-                    <div class="log-divider">|</div>
-                    <div class="log-user">Admin</div>
-                    <div class="log-details">
-                        <div class="log-action">
-                            <i class="fas fa-cog settings-icon"></i>
-                            Modified user permissions: Nurse role
-                        </div>
-                        <div class="log-meta">
-                            <span><i class="fas fa-map-marker-alt"></i> IP: 192.168.1.12</span>
-                            <span>| Device: Desktop</span>
-                        </div>
-                    </div>
-                </div>
+                    }
+                }
             </div>
         </div>
 
@@ -151,14 +95,14 @@
         <div class="quick-stats-section">
             <div class="stats-header">
                 <h2>Quick Stats</h2>
-                <div class="stats-total">Total: <strong>1,248</strong></div>
+                <div class="stats-total">Total: <strong>@stats.Total</strong></div>
             </div>
 
             <div class="stat-cards">
                 <div class="stat-card">
                     <div class="stat-content">
                         <div class="stat-label">Today</div>
-                        <div class="stat-value">45</div>
+                        <div class="stat-value">@stats.Today</div>
                         <div class="stat-sublabel">logs</div>
                     </div>
                 </div>
@@ -166,7 +110,7 @@
                 <div class="stat-card">
                     <div class="stat-content">
                         <div class="stat-label">This Week</div>
-                        <div class="stat-value">280</div>
+                        <div class="stat-value">@stats.ThisWeek</div>
                         <div class="stat-sublabel">logs</div>
                     </div>
                 </div>
@@ -174,7 +118,7 @@
                 <div class="stat-card">
                     <div class="stat-content">
                         <div class="stat-label">This Month</div>
-                        <div class="stat-value">1,248</div>
+                        <div class="stat-value">@stats.ThisMonth</div>
                         <div class="stat-sublabel">logs</div>
                     </div>
                 </div>
@@ -257,6 +201,16 @@
 }
 
 @code {
+    [Inject] private IAuditLogService AuditLogService { get; set; } = default!;
+    [Inject] private CurrentUserState CurrentUser { get; set; } = default!;
+
+    private readonly List<AuditLog> logs = new();
+    private AuditLogStats stats = new(0, 0, 0, 0);
+    private string searchText = string.Empty;
+    private bool isLoading;
+    private CancellationTokenSource? _searchCts;
+    private readonly SemaphoreSlim _loadLock = new(1, 1);
+
     // Export Modal State
     private bool showExportModal = false;
     private string exportFormat = "csv";
@@ -266,6 +220,89 @@
     private bool includeUser = true;
     private bool includeAction = true;
     private bool includeDetails = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private void OnSearchChanged()
+    {
+        _searchCts?.Cancel();
+        _searchCts = new CancellationTokenSource();
+        var token = _searchCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(250, token);
+                await InvokeAsync(async () => await LoadAsync());
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }, token);
+    }
+
+    private async Task RefreshAsync()
+    {
+        searchText = string.Empty;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        await _loadLock.WaitAsync();
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            try
+            {
+                stats = await AuditLogService.GetStatsAsync(DateTime.Now);
+                var query = new AuditLogQuery(
+                    Search: searchText,
+                    FromUtc: null,
+                    ToUtc: null,
+                    Role: null,
+                    Sort: AuditLogSort.NewestFirst,
+                    Take: 200);
+
+                var result = await AuditLogService.QueryAsync(query);
+
+                logs.Clear();
+                logs.AddRange(result);
+
+                if (logs.Count == 0)
+                {
+                    await EnsureSeedSampleAsync();
+                    result = await AuditLogService.QueryAsync(query);
+                    logs.Clear();
+                    logs.AddRange(result);
+                    stats = await AuditLogService.GetStatsAsync(DateTime.Now);
+                }
+            }
+            finally
+            {
+                isLoading = false;
+                StateHasChanged();
+            }
+        }
+        finally
+        {
+            _loadLock.Release();
+        }
+    }
+
+    private async Task EnsureSeedSampleAsync()
+    {
+        var user = string.IsNullOrWhiteSpace(CurrentUser.Username) ? "Admin" : CurrentUser.Username;
+        var role = string.IsNullOrWhiteSpace(CurrentUser.Role) ? "Admin" : CurrentUser.Role;
+
+        await AuditLogService.WriteAsync(new AuditLog { UserName = user!, Role = role!, Action = "Opened Audit Logs", IpAddress = "-", Device = "Desktop", Details = null });
+    }
 
     private void ShowExportModal()
     {
@@ -283,9 +320,29 @@
     {
         try
         {
-            // TODO: Implement actual export logic based on selected options
-            // For now, we'll just show an alert
-            await JsRuntime!.InvokeVoidAsync("alert", $"Exporting data as {exportFormat.ToUpper()} from {exportStartDate:d} to {exportEndDate:d}");
+            if (!string.Equals(exportFormat, "csv", StringComparison.OrdinalIgnoreCase))
+            {
+                await JsRuntime!.InvokeVoidAsync("alert", "Only CSV export is implemented.");
+                return;
+            }
+
+            var fromUtc = exportStartDate.Date.ToUniversalTime();
+            var toUtc = exportEndDate.Date.AddDays(1).AddTicks(-1).ToUniversalTime();
+
+            var exportQuery = new AuditLogQuery(
+                Search: searchText,
+                FromUtc: fromUtc,
+                ToUtc: toUtc,
+                Role: null,
+                Sort: AuditLogSort.NewestFirst,
+                Take: 500);
+
+            var exportLogs = await AuditLogService.QueryAsync(exportQuery);
+            var csv = DatabaseAuditLogService.BuildCsv(exportLogs, includeTime, includeUser, includeAction, includeDetails);
+            var base64 = DatabaseAuditLogService.ToBase64Utf8(csv);
+            var fileName = $"audit-logs_{exportStartDate:yyyyMMdd}_{exportEndDate:yyyyMMdd}.csv";
+
+            await JsRuntime!.InvokeVoidAsync("medflow.downloadBase64File", "text/csv", base64, fileName);
             
             // Close the modal after export
             CloseExportModal();

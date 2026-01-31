@@ -18,6 +18,9 @@ namespace IT_13FinalProject.Data
         public DbSet<NurseNote> NurseNotes { get; set; } = null!;
         public DbSet<Appointment> Appointments { get; set; } = null!;
         public DbSet<LabResult> LabResults { get; set; } = null!;
+        public DbSet<AuditLog> AuditLogs { get; set; } = null!;
+        public DbSet<RoleStatus> RoleStatuses { get; set; } = null!;
+        public DbSet<RolePermissionEntry> RolePermissionEntries { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -107,6 +110,76 @@ namespace IT_13FinalProject.Data
                     .WithMany()
                     .HasForeignKey(e => e.PatientId)
                     .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<AuditLog>(entity =>
+            {
+                entity.ToTable("audit_logs");
+                entity.HasKey(e => e.AuditLogId);
+                entity.Property(e => e.AuditLogId)
+                    .HasColumnName("audit_log_id")
+                    .ValueGeneratedOnAdd()
+                    .UseIdentityColumn();
+                entity.Property(e => e.TimestampUtc)
+                    .HasColumnName("timestamp_utc");
+                entity.Property(e => e.UserName)
+                    .HasColumnName("user_name")
+                    .IsRequired()
+                    .HasMaxLength(200);
+                entity.Property(e => e.Role)
+                    .HasColumnName("role")
+                    .IsRequired()
+                    .HasMaxLength(50);
+                entity.Property(e => e.Action)
+                    .HasColumnName("action")
+                    .IsRequired()
+                    .HasMaxLength(500);
+                entity.Property(e => e.IpAddress)
+                    .HasColumnName("ip_address")
+                    .HasMaxLength(100);
+                entity.Property(e => e.Device)
+                    .HasColumnName("device")
+                    .HasMaxLength(200);
+                entity.Property(e => e.Details)
+                    .HasColumnName("details");
+            });
+
+            modelBuilder.Entity<RoleStatus>(entity =>
+            {
+                entity.ToTable("role_status");
+                entity.HasKey(e => e.RoleStatusId);
+                entity.Property(e => e.RoleStatusId)
+                    .HasColumnName("role_status_id")
+                    .ValueGeneratedOnAdd()
+                    .UseIdentityColumn();
+                entity.Property(e => e.RoleKey)
+                    .HasColumnName("role_key")
+                    .IsRequired()
+                    .HasMaxLength(50);
+                entity.Property(e => e.IsEnabled)
+                    .HasColumnName("is_enabled");
+                entity.HasIndex(e => e.RoleKey).IsUnique();
+            });
+
+            modelBuilder.Entity<RolePermissionEntry>(entity =>
+            {
+                entity.ToTable("role_permissions");
+                entity.HasKey(e => e.RolePermissionEntryId);
+                entity.Property(e => e.RolePermissionEntryId)
+                    .HasColumnName("role_permission_entry_id")
+                    .ValueGeneratedOnAdd()
+                    .UseIdentityColumn();
+                entity.Property(e => e.RoleKey)
+                    .HasColumnName("role_key")
+                    .IsRequired()
+                    .HasMaxLength(50);
+                entity.Property(e => e.PermissionKey)
+                    .HasColumnName("permission_key")
+                    .IsRequired()
+                    .HasMaxLength(100);
+                entity.Property(e => e.IsAllowed)
+                    .HasColumnName("is_allowed");
+                entity.HasIndex(e => new { e.RoleKey, e.PermissionKey }).IsUnique();
             });
         }
     }
